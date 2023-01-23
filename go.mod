@@ -1,4 +1,4 @@
-module meitnercli
+module github.com/meitner-se/meitnercli
 
 go 1.19
 

@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"meitnercli/boilerconfig"
+	"github.com/meitner-se/meitnercli/boilerconfig"
 
 	"github.com/ardanlabs/conf/v3"
 	"github.com/ardanlabs/conf/v3/yaml"

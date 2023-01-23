@@ -1,7 +1,7 @@
 package boilerconfig
 
 import (
-	"meitnercli/templates"
+	"github.com/meitner-se/meitnercli/templates"
 
 	"github.com/volatiletech/sqlboiler/v4/boilingcore"
 	"github.com/volatiletech/sqlboiler/v4/importers"
