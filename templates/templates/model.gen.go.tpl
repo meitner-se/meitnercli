@@ -65,7 +65,7 @@ func (o {{$alias.UpSingular}}) Validate(isUpdate bool, validateBusinessFunc {{$a
 		}
     }
 
-	if errFields != nil {
+	if errFields.NotEmpty() {
 		return errors.NewBadRequest(errors.MessageValidationFailedForEntity("{{$alias.DownSingular}}"), *errFields...)
 	}
 

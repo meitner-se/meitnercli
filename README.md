@@ -16,3 +16,5 @@ meitnercli is a wrapper for oto and sqlboiler.
     - Get-methods, try to get from cache, if not found, get from db and update cache
     - Create/Update-methods should update cache
  - non-join tables will be generated for upsert on Create and Update-methods, should not be possible
+ - add goose migrations commands
+ - embed sqlboiler-psql which is currently required as an external dependency needed to be installed with `go install`
