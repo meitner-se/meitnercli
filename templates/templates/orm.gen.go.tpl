@@ -26,6 +26,11 @@ func (o *{{$alias.UpSingular}}) InsertDefined({{if .NoContext}}exec boil.Executo
         }
     {{- end}}
 
+    err := o.Insert(ctx, exec, whitelist)
+	if err != nil {
+		return err
+	}
+
     if o.R != nil {
     {{range $rel := .Table.ToManyRelationships -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
@@ -38,11 +43,6 @@ func (o *{{$alias.UpSingular}}) InsertDefined({{if .NoContext}}exec boil.Executo
         }
     {{end -}}{{- /* range relationships */ -}}
     }
-
-    err := o.Insert(ctx, exec, whitelist)
-	if err != nil {
-		return err
-	}
 
     err = auditLog.Add(ctx, audit.OperationCreate, TableNames.{{titleCase .Table.Name}}, o.ID.String(), auditLogValues...)
     if err != nil {
@@ -157,7 +157,9 @@ func (o *{{$alias.UpSingular}}) Set{{ $relAlias.Local | singular }}IDs(ids []typ
 
 	o.R.{{ $relAlias.Local | plural }} =  make({{ $relAlias.Local | singular }}Slice, len(ids))
 	for i := range ids {
-        o.R.{{ $relAlias.Local | plural }}[i].ID = ids[i]
+        o.R.{{ $relAlias.Local | plural }}[i] = &{{ $relAlias.Local | singular }}{
+            ID: ids[i],
+        }
 	}
 }
 {{end}}
