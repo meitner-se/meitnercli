@@ -18,3 +18,4 @@ meitnercli is a wrapper for oto and sqlboiler.
  - non-join tables will be generated for upsert on Create and Update-methods, should not be possible
  - add goose migrations commands
  - embed sqlboiler-psql which is currently required as an external dependency needed to be installed with `go install`
+ - check timestamps for QueryInFields, should not be included
