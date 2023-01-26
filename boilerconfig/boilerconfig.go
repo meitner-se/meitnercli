@@ -26,7 +26,7 @@ func GetDriverName(arg string) (string, error) {
 	return driverName, nil
 }
 
-func GetState(cfg *boilingcore.Config) (*boilingcore.State, error) {
+func GetState(cfg *boilingcore.Config, dbName, dbUser, dbPassword, dbHost string, dbPort int, dbSSLMode string) (*boilingcore.State, error) {
 	// Configure the driver
 	cfg.DriverConfig = map[string]interface{}{
 		"whitelist":        viper.GetStringSlice(cfg.DriverName + ".whitelist"),
@@ -34,6 +34,13 @@ func GetState(cfg *boilingcore.Config) (*boilingcore.State, error) {
 		"add-enum-types":   cfg.AddEnumTypes,
 		"enum-null-prefix": cfg.EnumNullPrefix,
 	}
+
+	cfg.DriverConfig["host"] = dbHost
+	cfg.DriverConfig["sslmode"] = dbSSLMode
+	cfg.DriverConfig["dbname"] = dbName
+	cfg.DriverConfig["user"] = dbUser
+	cfg.DriverConfig["pass"] = dbPassword
+	cfg.DriverConfig["port"] = dbPort
 
 	keys := allKeys(cfg.DriverName)
 	for _, key := range keys {

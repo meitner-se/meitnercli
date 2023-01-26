@@ -39,7 +39,15 @@ func run(ctx context.Context, args []string) error {
 		Service string `conf:""`
 		Stubs   bool   `conf:"default:false"`
 		Wipe    bool   `conf:"default:false"`
-		Go      struct {
+		DB      struct {
+			Name     string `conf:"default:meitner-dev"`
+			User     string `conf:"default:meitner"`
+			Password string `conf:"default:meitner"`
+			Host     string `conf:"default:localhost"`
+			Port     int    `conf:"default:5432"`
+			SSLMode  string `conf:"default:disable"`
+		}
+		Go struct {
 			RootDir       string `conf:"default:./" yaml:"root_dir"`
 			ServiceDir    string `conf:"default:./internal/services" yaml:"service_dir"`
 			ServiceAPIDir string `conf:"default:./api/services" yaml:"service_api_dir"`
@@ -157,48 +165,48 @@ func run(ctx context.Context, args []string) error {
 		pkgConversion := fmt.Sprintf("%s/%s/endpoint/conversion", cfg.Go.ModuleName, serviceDir)
 		pkgRepository := fmt.Sprintf("%s/%s/repository", cfg.Go.ModuleName, serviceDir)
 
-		err := runGeneration(boilerDriver, configFilePath, cfg.Go.Packages.Types, boilerconfig.Default(ormDir))
+		err := runGeneration(cfg.DB.Name, cfg.DB.User, cfg.DB.Password, cfg.DB.Host, cfg.DB.Port, cfg.DB.SSLMode, boilerDriver, configFilePath, cfg.Go.Packages.Types, boilerconfig.Default(ormDir))
 		if err != nil {
 			return errors.Wrap(err, "default")
 		}
 
-		err = runGeneration(boilerDriver, configFilePath, cfg.Go.Packages.Types, boilerconfig.ORM(ormDir, pkgServiceModel, cfg.Go.Packages.Audit))
+		err = runGeneration(cfg.DB.Name, cfg.DB.User, cfg.DB.Password, cfg.DB.Host, cfg.DB.Port, cfg.DB.SSLMode, boilerDriver, configFilePath, cfg.Go.Packages.Types, boilerconfig.ORM(ormDir, pkgServiceModel, cfg.Go.Packages.Audit))
 		if err != nil {
 			return errors.Wrap(err, "orm")
 		}
 
-		err = runGeneration(boilerDriver, configFilePath, cfg.Go.Packages.Types, boilerconfig.Boiler(repoDir, pkgORM, pkgServiceModel, cfg.Go.Packages.Errors, cfg.Go.Packages.Audit, cfg.Stubs))
+		err = runGeneration(cfg.DB.Name, cfg.DB.User, cfg.DB.Password, cfg.DB.Host, cfg.DB.Port, cfg.DB.SSLMode, boilerDriver, configFilePath, cfg.Go.Packages.Types, boilerconfig.Boiler(repoDir, pkgORM, pkgServiceModel, cfg.Go.Packages.Errors, cfg.Go.Packages.Audit, cfg.Stubs))
 		if err != nil {
 			return errors.Wrap(err, "boiler")
 		}
 
-		err = runGeneration(boilerDriver, configFilePath, cfg.Go.Packages.Types, boilerconfig.Repository(repositoryDir, pkgServiceModel, cfg.Go.Packages.Types, cfg.Stubs))
+		err = runGeneration(cfg.DB.Name, cfg.DB.User, cfg.DB.Password, cfg.DB.Host, cfg.DB.Port, cfg.DB.SSLMode, boilerDriver, configFilePath, cfg.Go.Packages.Types, boilerconfig.Repository(repositoryDir, pkgServiceModel, cfg.Go.Packages.Types, cfg.Stubs))
 		if err != nil {
 			return errors.Wrap(err, "repository")
 		}
 
-		err = runGeneration(boilerDriver, configFilePath, cfg.Go.Packages.Types, boilerconfig.Model(serviceModelDir, cfg.Go.Packages.Types, cfg.Go.Packages.Errors))
+		err = runGeneration(cfg.DB.Name, cfg.DB.User, cfg.DB.Password, cfg.DB.Host, cfg.DB.Port, cfg.DB.SSLMode, boilerDriver, configFilePath, cfg.Go.Packages.Types, boilerconfig.Model(serviceModelDir, cfg.Go.Packages.Types, cfg.Go.Packages.Errors))
 		if err != nil {
 			return errors.Wrap(err, "model")
 		}
 
-		err = runGeneration(boilerDriver, configFilePath, cfg.Go.Packages.Types, boilerconfig.Definition(definitionDir, serviceName, cfg.Stubs))
+		err = runGeneration(cfg.DB.Name, cfg.DB.User, cfg.DB.Password, cfg.DB.Host, cfg.DB.Port, cfg.DB.SSLMode, boilerDriver, configFilePath, cfg.Go.Packages.Types, boilerconfig.Definition(definitionDir, serviceName, cfg.Stubs))
 		if err != nil {
 			return errors.Wrap(err, "definition")
 		}
 
-		err = runGeneration(boilerDriver, configFilePath, cfg.Go.Packages.Types, boilerconfig.Conversion(conversionDir, pkgServiceModel, cfg.Go.Packages.API))
+		err = runGeneration(cfg.DB.Name, cfg.DB.User, cfg.DB.Password, cfg.DB.Host, cfg.DB.Port, cfg.DB.SSLMode, boilerDriver, configFilePath, cfg.Go.Packages.Types, boilerconfig.Conversion(conversionDir, pkgServiceModel, cfg.Go.Packages.API))
 		if err != nil {
 			return errors.Wrap(err, "conversion")
 		}
 
 		if cfg.Stubs {
-			err = runGeneration(boilerDriver, configFilePath, cfg.Go.Packages.Types, boilerconfig.Service(serviceDir, serviceName, pkgRepository, pkgServiceModel))
+			err = runGeneration(cfg.DB.Name, cfg.DB.User, cfg.DB.Password, cfg.DB.Host, cfg.DB.Port, cfg.DB.SSLMode, boilerDriver, configFilePath, cfg.Go.Packages.Types, boilerconfig.Service(serviceDir, serviceName, pkgRepository, pkgServiceModel))
 			if err != nil {
 				return errors.Wrap(err, "service stubs")
 			}
 
-			err = runGeneration(boilerDriver, configFilePath, cfg.Go.Packages.Types, boilerconfig.Endpoint(endpointDir, serviceName, pkgServiceModel, pkgConversion, cfg.Go.Packages.API, cfg.Go.Packages.Types))
+			err = runGeneration(cfg.DB.Name, cfg.DB.User, cfg.DB.Password, cfg.DB.Host, cfg.DB.Port, cfg.DB.SSLMode, boilerDriver, configFilePath, cfg.Go.Packages.Types, boilerconfig.Endpoint(endpointDir, serviceName, pkgServiceModel, pkgConversion, cfg.Go.Packages.API, cfg.Go.Packages.Types))
 			if err != nil {
 				return errors.Wrap(err, "endpoint stubs")
 			}
@@ -286,7 +294,7 @@ func runGenerationWithOto(templatePath, definitionPath, outputPath, packageName 
 	return nil
 }
 
-func runGeneration(boilerDriver, configFilePath, typesPackage string, configWrapper boilerconfig.Wrapper) error {
+func runGeneration(dbName, dbUser, dbPassword, dbHost string, dbPort int, dbSSLMode, boilerDriver, configFilePath, typesPackage string, configWrapper boilerconfig.Wrapper) error {
 	cfg, err := boilerconfig.GetConfig(boilerDriver, configFilePath, typesPackage)
 	if err != nil {
 		return errors.Wrap(err, "cannot get boiler config")
@@ -294,7 +302,7 @@ func runGeneration(boilerDriver, configFilePath, typesPackage string, configWrap
 
 	configWrapper(cfg)
 
-	boilerState, err := boilerconfig.GetState(cfg)
+	boilerState, err := boilerconfig.GetState(cfg, dbName, dbUser, dbPassword, dbHost, dbPort, dbSSLMode)
 	if err != nil {
 		return errors.Wrap(err, "cannot get boiler state")
 	}
