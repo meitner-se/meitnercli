@@ -85,6 +85,21 @@ const (
     {{end -}}{{- /* range relationships */ -}}
 )
 
+func {{$alias.UpSingular}}Columns() []string {
+    return []string{
+    {{- range $column := .Table.Columns -}}
+    {{- $colAlias := $alias.Column $column.Name -}}
+        {{$alias.UpSingular}}Column{{$colAlias}},
+    {{end -}}
+    {{- range $rel := .Table.ToManyRelationships -}}
+        {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+        {{- if not (hasSuffix "Logs" $relAlias.Local) -}}
+            {{$alias.UpSingular}}Column{{ $relAlias.Local | singular }}IDs,
+        {{ end -}}
+    {{end -}}{{- /* range relationships */ -}}
+    }
+}
+
 // {{$alias.UpSingular}}FromStringsConversionFunc is a type definition for a conversion function that helps to convert a slice of strings into a {{$alias.UpSingular}}-struct.
 //
 // Is used as an input argument for the generated function: "{{$alias.UpSingular}}FromStrings" (which converts the default fields), but the conversion func should be used to convert the custom values.
