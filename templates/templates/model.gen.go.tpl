@@ -148,7 +148,7 @@ func {{$alias.UpSingular}}FromStrings(fields, values []string, conversionFunc {{
 
 	if err := conversionFunc(&{{$alias.DownSingular}}, fields, values); err != nil {
         if !errors.IsErrFields(err) {
-            return err
+            return nil, err
         }
         
         conversionErrFields := errors.ErrFieldsFrom(err)
@@ -158,7 +158,7 @@ func {{$alias.UpSingular}}FromStrings(fields, values []string, conversionFunc {{
     }
 
 	if errFields.NotEmpty() {
-		return errors.NewBadRequest(errors.MessageValidationFailedForEntity("{{$alias.DownSingular}}"), *errFields...) // TODO : Change error message
+		return nil, errors.NewBadRequest(errors.MessageValidationFailedForEntity("{{$alias.DownSingular}}"), *errFields...) // TODO : Change error message
 	}
 
     return &{{$alias.DownSingular}}, nil
