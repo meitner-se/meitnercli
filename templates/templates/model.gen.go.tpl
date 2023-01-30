@@ -146,10 +146,20 @@ func {{$alias.UpSingular}}FromStrings(fields, values []string, conversionFunc {{
         }
     {{end -}}
 
-    err := conversionFunc(&{{$alias.DownSingular}}, fields, values)
-    if err != nil {
-        return nil, err
-    } 
+	if err := conversionFunc(&{{$alias.DownSingular}}, fields, values); err != nil {
+        if !errors.IsErrFields(err) {
+            return err
+        }
+        
+        conversionErrFields := errors.ErrFieldsFrom(err)
+		for _, errField := range *conversionErrFields {
+			errFields.Add(errField)
+		}
+    }
+
+	if errFields.NotEmpty() {
+		return errors.NewBadRequest(errors.MessageValidationFailedForEntity("{{$alias.DownSingular}}"), *errFields...) // TODO : Change error message
+	}
 
     return &{{$alias.DownSingular}}, nil
 }
