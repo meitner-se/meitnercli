@@ -503,11 +503,19 @@ type {{$alias.UpSingular}}Query struct {
     Limit types.Int
 }
 
+func New{{$alias.UpSingular}}QuerySelectedFields() {{$alias.UpSingular}}QuerySelectedFields {
+    return {{$alias.UpSingular}}QuerySelectedFields{}
+}
+
 type {{$alias.UpSingular}}QuerySelectedFields struct {
     {{- range $column := .Table.Columns}}
     {{- $colAlias := $alias.Column $column.Name}}
             {{$colAlias}} types.Bool
     {{- end}}
+}
+
+func New{{$alias.UpSingular}}QueryNested() {{$alias.UpSingular}}QueryNested {
+    return {{$alias.UpSingular}}QueryNested{}
 }
 
 type {{$alias.UpSingular}}QueryNested struct {
@@ -527,6 +535,10 @@ type {{$alias.UpSingular}}QueryNested struct {
     //
     // When true, the nested clause will be wrapped with OR, otherwise AND.
     OrConditionNested types.Bool
+}
+
+func New{{$alias.UpSingular}}QueryParams() {{$alias.UpSingular}}QueryParams {
+    return {{$alias.UpSingular}}QueryParams{}
 }
 
 type {{$alias.UpSingular}}QueryParams struct {
