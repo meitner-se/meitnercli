@@ -17,15 +17,6 @@ const sqlBoilerVersion string = "v4.14.0"
 
 type Wrapper func(*boilingcore.Config)
 
-func GetDriverName(arg string) (string, error) {
-	driverName, _, err := drivers.RegisterBinaryFromCmdArg(arg)
-	if err != nil {
-		return "", errors.Wrap(err, "could not register driver")
-	}
-
-	return driverName, nil
-}
-
 func GetState(cfg *boilingcore.Config, dbName, dbUser, dbPassword, dbHost string, dbPort int, dbSSLMode string) (*boilingcore.State, error) {
 	// Configure the driver
 	cfg.DriverConfig = map[string]interface{}{

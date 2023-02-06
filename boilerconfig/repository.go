@@ -7,7 +7,7 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/importers"
 )
 
-func Repository(outFolder, pkgServiceModel, pkgTypes string, withStub bool) Wrapper {
+func Repository(outFolder, pkgServiceModel, pkgTypes string, withStub bool, stubLayer string) Wrapper {
 	return func(cfg *boilingcore.Config) {
 		cfg.PkgName = "repository"
 		cfg.OutFolder = outFolder
@@ -21,7 +21,7 @@ func Repository(outFolder, pkgServiceModel, pkgTypes string, withStub bool) Wrap
 		}
 		cfg.DefaultTemplates = templates.Repository
 
-		if withStub {
+		if (withStub || stubLayer != "") && (stubLayer == "" || stubLayer == "repository") {
 			cfg.DefaultTemplates = templates.RepositoryWithStub
 		}
 	}
