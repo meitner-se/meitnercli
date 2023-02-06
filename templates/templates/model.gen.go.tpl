@@ -213,8 +213,9 @@ func {{$alias.UpPlural}}ToStrings({{$alias.DownPlural}} []*{{$alias.UpSingular}}
     }
 
     // remove all of the unused fields
-    for i := range fields {
-        if _, ok := fieldMap[fields[i]]; !ok {
+    for i := len(fields) - 1; i >= 0; i-- {
+        _, ok := fieldMap[fields[i]]
+        if !ok {
             fields = append(fields[:i], fields[i+1:]...)
         }
     }
