@@ -99,10 +99,12 @@ type command_{{ titleCase .PkgName }}Service interface {
                 // type: "types.UUID"
                 {{$colAlias}} string
             {{ else if (isEnumDBType .DBType) -}}
+                // optional: true
                 // options: [{{- parseEnumVals $column.DBType | stringMap $.StringFuncs.quoteWrap | join ", " -}}]
                 // type: "types.String"
                 {{$colAlias}} *string
             {{ else }}
+                // optional: true
                 // type: "{{$column.Type}}"
                 {{$colAlias}} 
             

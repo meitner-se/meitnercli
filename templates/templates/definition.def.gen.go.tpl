@@ -6,6 +6,9 @@ type {{$alias.UpSingular}} struct {
 	{{- $colAlias := $alias.Column $column.Name -}}
 	{{- $orig_col_name := $column.Name -}}
 	{{ range $column.Comment | splitLines }} // {{ . }} {{ end }}
+    
+    {{- if $column.Nullable -}}// nullable: true{{- end}}
+
     {{- if (isEnumDBType .DBType) -}}
         // options: [{{- parseEnumVals $column.DBType | stringMap $.StringFuncs.quoteWrap | join ", " -}}]
         // type: "types.String"
@@ -45,27 +48,40 @@ type {{$alias.UpSingular}} struct {
 type {{$alias.UpSingular}}QueryRequest struct {
     // Nested queries, if any. 
     // Use OrCondition-field to define if the nested query should be wrapped in an AND or OR-statement.
+    //
+    // optional: true
     Nested []{{$alias.UpSingular}}QueryNestedRequest
 
     // Params for the query
+    //
+    // optional: true
     Params {{$alias.UpSingular}}QueryParamsRequest
 
     // Selected fields for the query, leave nil for all fields.
+    //
+    // optional: true
     SelectedFields *{{$alias.UpSingular}}QuerySelectedFieldsRequest
 
     // Inner join with related tables
+    //
+    // optional: true
 	Join *{{$alias.UpSingular}}QueryJoinRequest
 
 	// Load the IDs of the relations
+    //
+    // optional: true
 	Load *{{$alias.UpSingular}}QueryLoadRequest
 
     // To order by specific columns, by default we will always primary keys first as ascending
+    //
+    // optional: true
     OrderBy *{{$alias.UpSingular}}QueryOrderByRequest
 	
     // OrCondition is used to define if the condition should use AND or OR between the params
     //
     // When true, the condition will have OR between the params, otherwise AND.
     //
+    // optional: true
     // type: "types.Bool"
 	OrCondition bool
 
@@ -73,6 +89,7 @@ type {{$alias.UpSingular}}QueryRequest struct {
     //
     // When true, the nested clause will be wrapped with OR, otherwise AND.
     //
+    // optional: true
     // type: "types.Bool"
 	OrConditionNested bool
 
@@ -92,6 +109,7 @@ type {{$alias.UpSingular}}QueryRequest struct {
 type {{$alias.UpSingular}}QuerySelectedFieldsRequest struct {
     {{- range $column := .Table.Columns}}
     {{- $colAlias := $alias.Column $column.Name}}
+            // optional: true
             // type: "types.Bool"
             {{$colAlias}} bool
     {{- end}}
@@ -100,15 +118,20 @@ type {{$alias.UpSingular}}QuerySelectedFieldsRequest struct {
 type {{$alias.UpSingular}}QueryNestedRequest struct {
     // Nested queries, if any. 
     // Use OrCondition-field to define if the nested query should be wrapped in an AND or OR-statement.
+    //
+    // optional: true
     Nested *{{$alias.UpSingular}}QueryNestedRequest
 
     // Params for the query
+    //
+    // optional: true
     Params {{$alias.UpSingular}}QueryParamsRequest
 	
     // OrCondition is used to define if the condition should use AND or OR between the params
     //
     // When true, the condition will have OR between the params, otherwise AND.
     //
+    // optional: true
     // type: "types.Bool"
 	OrCondition bool
 
@@ -122,22 +145,34 @@ type {{$alias.UpSingular}}QueryNestedRequest struct {
 }
 
 type {{$alias.UpSingular}}QueryParamsRequest struct {
+    // optional: true
 	Equals    *{{$alias.UpSingular}}QueryParamsFieldsRequest
+    // optional: true
 	NotEquals *{{$alias.UpSingular}}QueryParamsFieldsRequest
 
+    // optional: true
 	Empty    *{{$alias.UpSingular}}QueryParamsNullableFieldsRequest
+    // optional: true
 	NotEmpty *{{$alias.UpSingular}}QueryParamsNullableFieldsRequest
 
+    // optional: true
 	In    *{{$alias.UpSingular}}QueryParamsInFieldsRequest
+    // optional: true
 	NotIn *{{$alias.UpSingular}}QueryParamsInFieldsRequest
 
+    // optional: true
 	GreaterThan *{{$alias.UpSingular}}QueryParamsComparableFieldsRequest
+    // optional: true
 	SmallerThan *{{$alias.UpSingular}}QueryParamsComparableFieldsRequest
 
+    // optional: true
 	SmallerOrEqual *{{$alias.UpSingular}}QueryParamsComparableFieldsRequest
+    // optional: true
 	GreaterOrEqual *{{$alias.UpSingular}}QueryParamsComparableFieldsRequest
 
+    // optional: true
 	Like    *{{$alias.UpSingular}}QueryParamsLikeFieldsRequest
+    // optional: true
 	NotLike *{{$alias.UpSingular}}QueryParamsLikeFieldsRequest
 }
 
@@ -268,16 +303,19 @@ type {{$alias.UpSingular}}QueryLoadRequest struct {
         //
         // When true, the condition will have OR between the params, otherwise AND.
         //
+        // optional: true
         // type: "types.Bool"
         OrCondition bool
 
         // Offset into the results
         //
+        // optional: true
         // type: "types.Int"
         Offset int
 
         // Limit the number of returned rows
         //
+        // optional: true
         // type: "types.Int"
         Limit int
     }
@@ -286,6 +324,7 @@ type {{$alias.UpSingular}}QueryLoadRequest struct {
 type {{$alias.UpSingular}}QueryJoinRequest struct {
 	{{- range $rel := .Table.ToManyRelationships -}}
 		{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName }}
+        // optional: true
 		{{ $relAlias.Local | singular }} *{{$alias.UpSingular}}QueryJoin{{ $relAlias.Local | singular }}Request
 	{{- end }}{{- /* range relationships */ -}}
 }
@@ -294,12 +333,15 @@ type {{$alias.UpSingular}}QueryJoinRequest struct {
 	{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
     type {{$alias.UpSingular}}QueryJoin{{ $relAlias.Local | singular }}Request struct {
             // Params for the query
+            //
+            // optional: true
             Params {{ $relAlias.Local | singular }}QueryParamsRequest
 
             // OrCondition is used to define if the condition should use AND or OR between the params
             //
             // When true, the condition will have OR between the params, otherwise AND.
             //
+            // optional: true
             // type: "types.Bool"
             OrCondition bool
     }
@@ -308,12 +350,15 @@ type {{$alias.UpSingular}}QueryJoinRequest struct {
 type {{$alias.UpSingular}}QueryOrderByRequest struct {
     {{- range $column := .Table.Columns}}
     {{- $colAlias := $alias.Column $column.Name}}
+            // optional: true
             {{$colAlias}} *{{$alias.UpSingular}}QueryOrderByFieldRequest
     {{- end}}
 }
 
 type {{$alias.UpSingular}}QueryOrderByFieldRequest struct {
+    // optional: true
     Index int
+    // optional: true
     Desc bool
 }
 
