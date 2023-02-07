@@ -289,6 +289,7 @@ type {{$alias.UpSingular}}QueryParamsLikeFieldsRequest struct {
 type {{$alias.UpSingular}}QueryLoadRequest struct {
 	{{- range $rel := .Table.ToManyRelationships -}}
 		{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName }}
+        // optional: true
 		{{ $relAlias.Local | singular }} *{{$alias.UpSingular}}QueryLoad{{ $relAlias.Local | singular }}Request
 	{{- end }}{{- /* range relationships */ -}}
 }
@@ -297,6 +298,8 @@ type {{$alias.UpSingular}}QueryLoadRequest struct {
 	{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
     type {{$alias.UpSingular}}QueryLoad{{ $relAlias.Local | singular }}Request struct {
         // Params for the load
+        //
+        // optional: true
         Params {{ $relAlias.Local | singular }}QueryParamsRequest
 
         // OrCondition is used to define if the condition should use AND or OR between the params
