@@ -187,6 +187,7 @@ func getBoilerTypeReplacements(typesPackage string) []boilingcore.TypeReplace {
 		"date":                        "types.Date",
 		"timestamp without time zone": "types.Timestamp",
 		"timestamp with time zone":    "types.Timestamp",
+		"time":                        "types.Time",
 		"uuid":                        "types.UUID",
 		"integer":                     "types.Int",
 		"smallint":                    "types.Int16",

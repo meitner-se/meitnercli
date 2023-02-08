@@ -595,7 +595,7 @@ type {{$alias.UpSingular}}QueryParamsInFields struct {
 
         {{- $colAlias := $alias.Column $column.Name}}
         
-        {{- $stringTypes := "types.String, types.UUID, types.Timestamp, types.Date" -}}
+        {{- $stringTypes := "types.String, types.UUID, types.Timestamp, types.Time, types.Date" -}}
         
         {{- if or (contains $column.Type $stringTypes) (hasPrefix "types.Int" $column.Type) }}
             {{$colAlias}} []{{$column.Type}}

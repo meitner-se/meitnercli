@@ -17,7 +17,7 @@ type {{$alias.UpSingular}} struct {
     // type: "{{$column.Type}}"
 	{{$colAlias}}
     
-    {{- $stringTypes := "types.String, types.UUID, types.Timestamp, types.Date" -}}
+    {{- $stringTypes := "types.String, types.UUID, types.Timestamp, types.Time, types.Date" -}}
     {{- if contains $column.Type $stringTypes -}}
         *string
 	{{end -}}
@@ -199,7 +199,7 @@ type {{$alias.UpSingular}}QueryParamsFieldsRequest struct {
         {{ else }}
             // optional: true
             // type: "{{$column.Type}}"
-            {{- $stringTypes := "types.String, types.UUID, types.Timestamp, types.Date" -}}
+            {{- $stringTypes := "types.String, types.UUID, types.Timestamp, types.Time, types.Date" -}}
             {{- if contains $column.Type $stringTypes }}
                 {{$colAlias}} string
             {{end -}}
@@ -236,7 +236,7 @@ type {{$alias.UpSingular}}QueryParamsNullableFieldsRequest struct {
 type {{$alias.UpSingular}}QueryParamsInFieldsRequest struct {
     {{- range $column := .Table.Columns }}
         {{- $colAlias := $alias.Column $column.Name}}
-        {{- $stringTypes := "types.String, types.UUID, types.Timestamp, types.Date" -}}
+        {{- $stringTypes := "types.String, types.UUID, types.Timestamp, types.Time, types.Date" -}}
         
         {{- if or (contains $column.Type $stringTypes)  }}
             // optional: true

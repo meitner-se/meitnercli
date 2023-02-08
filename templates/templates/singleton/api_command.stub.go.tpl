@@ -51,7 +51,7 @@ type command_{{ titleCase .PkgName }}Service interface {
                 // type: "{{$column.Type}}"
                 {{$colAlias}} 
             
-                {{- $stringTypes := "types.String, types.UUID, types.Timestamp, types.Date" -}}
+                {{- $stringTypes := "types.String, types.UUID, types.Timestamp, types.Time, types.Date" -}}
                 {{- if contains $column.Type $stringTypes -}}
                     {{" "}}{{ if $column.Nullable }}*{{ end }}string
                 {{end -}}
@@ -108,7 +108,7 @@ type command_{{ titleCase .PkgName }}Service interface {
                 // type: "{{$column.Type}}"
                 {{$colAlias}} 
             
-                {{- $stringTypes := "types.String, types.UUID, types.Timestamp, types.Date" -}}
+                {{- $stringTypes := "types.String, types.UUID, types.Timestamp, types.Time, types.Date" -}}
                 {{- if contains $column.Type $stringTypes -}}
                     {{" "}}{{ if not (containsAny $pkNames $colAlias) }}*{{ end }}string
                 {{end -}}
