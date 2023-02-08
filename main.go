@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log"
 	"os"
 	"os/exec"
 	"path"
@@ -46,6 +47,8 @@ func main() {
 type config struct {
 	conf.Version
 	Path        string `conf:"flag:config,env:CONFIG"`
+	Generate    bool
+	Bootstrap   bool
 	Service     string `conf:""`
 	Stubs       bool   `conf:"default:false"`
 	StubLayer   string `conf:""`
@@ -147,22 +150,32 @@ func run(_ context.Context, _ []string) error {
 		return err
 	}
 
-	var firstArgument string
-	for _, arg := range os.Args[1:] {
-		if !strings.HasPrefix(arg, "-") {
-			firstArgument = arg
-			break
+	if !cfg.Bootstrap && !cfg.Generate && !cfg.Wipe {
+		return errors.New("must specify option one of these options:\n\t - \"--generate\" to generate files\n\t - \"--bootstrap\" to bootstrap the database tables\n\t - \"--wipe\" to wipe the generated files\n\nuse --help for more information")
+	}
+
+	if cfg.Bootstrap {
+		err := bootstrap(cfg)
+		if err != nil {
+			return err
 		}
 	}
 
-	switch firstArgument {
-	case "bootstrap":
-		return bootstrap(cfg)
-	case "generate":
-		return generate(cfg)
-	default:
-		return printHelp(cfg)
+	if cfg.Generate {
+		err := generate(cfg)
+		if err != nil {
+			return err
+		}
 	}
+
+	if cfg.Wipe || cfg.WipeService != "" || cfg.WipeLayer != "" {
+		err := wipe(cfg)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func generate(cfg config) error {
@@ -187,75 +200,6 @@ func generate(cfg config) error {
 	service := &cfg.Service
 	if cfg.Service == "" {
 		service = nil
-	}
-
-	if cfg.Wipe || cfg.WipeService != "" || cfg.WipeLayer != "" {
-		deleteGeneratedFiles := func(path string, info fs.FileInfo, err error) error {
-			if err != nil {
-				return errors.Wrap(err, "unexpected error getting generated file")
-			}
-
-			if info.IsDir() {
-				return nil
-			}
-
-			dir, _ := filepath.Split(path)
-
-			if !strings.Contains(info.Name(), ".gen.") && !strings.Contains(info.Name(), ".stub.") && !strings.HasSuffix(dir, "repository/boiler/orm") {
-				return nil
-			}
-
-			// if specific service is specified we must make sure that the path includes the service name
-			if cfg.WipeService != "" {
-				if !strings.Contains(path, "services/"+cfg.WipeService+"/") {
-					return nil
-				}
-			}
-
-			switch cfg.WipeLayer {
-			case "conversion":
-				if !strings.Contains(path, "/endpoint/conversion/") {
-					return nil
-				}
-			case "model":
-				if !strings.Contains(path, "/model/") {
-					return nil
-				}
-			case "repository":
-				if !strings.Contains(path, "/repository/") {
-					return nil
-				}
-			case "service":
-				matches, err := filepath.Match("internal/services/*/*", path)
-				if err != nil {
-					return err
-				}
-				if !matches {
-					return nil
-				}
-			case "api":
-				if !strings.Contains(path, "api/services/") {
-					return nil
-				}
-			case "":
-			default:
-				return errors.New("invalid wipe layer options(conversion, model, repository, service, api)")
-			}
-
-			err = os.Remove(path)
-			if err != nil {
-				return errors.Wrapf(err, "cannot delete generated file (%s)", path)
-			}
-
-			return nil
-		}
-
-		err := filepath.Walk(cfg.Go.RootDir, deleteGeneratedFiles)
-		if err != nil {
-			return errors.Wrapf(err, "filepath %s", cfg.Go.RootDir)
-		}
-
-		return nil
 	}
 
 	configFilePaths, err := getConfigFilePaths(cfg.Go.RootDir, cfg.Go.ServiceDir, service)
@@ -317,6 +261,76 @@ func generate(cfg config) error {
 		if err != nil {
 			return errors.Wrapf(err, "oto generation failed at index %d for template %s", i, o.Template)
 		}
+	}
+
+	return nil
+}
+
+func wipe(cfg config) error {
+	log.Println("wiping")
+	deleteGeneratedFiles := func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return errors.Wrap(err, "unexpected error getting generated file")
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		dir, _ := filepath.Split(path)
+
+		if !strings.Contains(info.Name(), ".gen.") && !strings.Contains(info.Name(), ".stub.") && !strings.HasSuffix(dir, "repository/boiler/orm") {
+			return nil
+		}
+
+		// if specific service is specified we must make sure that the path includes the service name
+		if cfg.WipeService != "" {
+			if !strings.Contains(path, "services/"+cfg.WipeService+"/") {
+				return nil
+			}
+		}
+
+		switch cfg.WipeLayer {
+		case "conversion":
+			if !strings.Contains(path, "/endpoint/conversion/") {
+				return nil
+			}
+		case "model":
+			if !strings.Contains(path, "/model/") {
+				return nil
+			}
+		case "repository":
+			if !strings.Contains(path, "/repository/") {
+				return nil
+			}
+		case "service":
+			matches, err := filepath.Match("internal/services/*/*", path)
+			if err != nil {
+				return err
+			}
+			if !matches {
+				return nil
+			}
+		case "api":
+			if !strings.Contains(path, "api/services/") {
+				return nil
+			}
+		case "":
+		default:
+			return errors.New("invalid wipe layer options(conversion, model, repository, service, api)")
+		}
+
+		err = os.Remove(path)
+		if err != nil {
+			return errors.Wrapf(err, "cannot delete generated file (%s)", path)
+		}
+
+		return nil
+	}
+
+	err := filepath.Walk(cfg.Go.RootDir, deleteGeneratedFiles)
+	if err != nil {
+		return errors.Wrapf(err, "filepath %s", cfg.Go.RootDir)
 	}
 
 	return nil
