@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"log"
 	"os"
 	"os/exec"
 	"path"
@@ -28,10 +27,22 @@ import (
 	_ "github.com/lib/pq" // Import the postgres driver
 )
 
-const boilerConfigFile = "sqlboiler.toml"
-const namespace = "meitnercli"
-const boilerDriver = "psql"
-const configFile = "meitnercli.yml"
+const (
+	boilerConfigFile = "sqlboiler.toml"
+	boilerDriver     = "psql"
+	configFile       = "meitnercli.yml"
+	namespace        = "meitnercli"
+
+	argBootstrap = "bootstrap"
+	argGenerate  = "generate"
+	argWipe      = "wipe"
+)
+
+var argsWithHelp = []string{
+	argBootstrap + " (bootstrap the tables in the database, which are used for generation)",
+	argGenerate + " (generate files)",
+	argWipe + " (wipe files)",
+}
 
 // Version is set during build.
 var Version = "dev"
@@ -39,84 +50,53 @@ var Version = "dev"
 func main() {
 	err := run(context.Background(), os.Args)
 	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "received error when running generation: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "failed to run program: %v\n", err)
 		os.Exit(1)
 	}
 }
 
 type config struct {
 	conf.Version
-	Path        string `conf:"flag:config,env:CONFIG"`
-	Generate    bool
-	Bootstrap   bool
-	Service     string `conf:""`
-	Stubs       bool   `conf:"default:false"`
-	StubLayer   string `conf:""`
-	Wipe        bool   `conf:"default:false"`
-	WipeService string `conf:""`
-	WipeLayer   string `conf:""`
-	DB          dbConfig
-	Go          struct {
-		RootDir       string `conf:"default:./" yaml:"root_dir"`
-		ServiceDir    string `conf:"default:./internal/services" yaml:"service_dir"`
-		ServiceAPIDir string `conf:"default:./api/services" yaml:"service_api_dir"`
-		ModuleName    string `conf:"default:meitner" yaml:"module_name"`
+	Args    conf.Args
+	Path    string `conf:"flag:config,env:CONFIG"`
+	Layer   string `conf:"help:generate or wipe a specific layer"`
+	Service string `conf:"help:generate or wipe a specific service"`
+	Stubs   bool   `conf:"help:generate or wipe stubs,default:false"`
+	DB      struct {
+		Name     string `conf:"help:name of the database, default:meitner-dev"`
+		User     string `conf:"help:user of the database, default:meitner"`
+		Password string `conf:"help:password of the user, default:meitner"`
+		Host     string `conf:"help:hostname of the database, default:localhost"`
+		Port     int    `conf:"help:port of the database, default:5432"`
+		SSLMode  string `conf:"help:ssl mode for the database, default:disable"`
+	}
+	Go struct {
+		RootDir       string `conf:"help:root directory for the go server, default:./" yaml:"root_dir"`
+		ServiceDir    string `conf:"help:where the services should be generated, default:./internal/services" yaml:"service_dir"`
+		ServiceAPIDir string `conf:"help:where the api definitions should be generated, default:./api/services" yaml:"service_api_dir"`
+		ModuleName    string `conf:"help:module name of the go server, default:meitner" yaml:"module_name"`
 		Packages      struct {
-			API    string `conf:"default:meitner/pkg/api"`
-			Audit  string `conf:"default:meitner/pkg/audit"`
-			Errors string `conf:"default:meitner/pkg/errors"`
-			Types  string `conf:"default:meitner/pkg/types"`
+			API    string `conf:"help:name of the api package which should be used in generation, default:meitner/pkg/api"`
+			Audit  string `conf:"help:name of the audit package which should be used in generation, default:meitner/pkg/audit"`
+			Errors string `conf:"help:name of the errors package which should be used in generation, default:meitner/pkg/errors"`
+			Types  string `conf:"help:name of the types package which should be used in generation, default:meitner/pkg/types"`
 		}
 	}
-	Oto []struct {
+	OtoSkipBackend     bool `conf:"help:skip backend oto templates, default:false" yaml:"oto_skip_backend_only"`
+	OtoSkipAfterScript bool `conf:"help:skip after script oto, default:false" yaml:"oto_skip_after_script"`
+	Oto                []struct {
 		Template    string         `conf:""`
 		OutputFile  string         `conf:"" yaml:"output_file"`
 		PackageName string         `conf:"" yaml:"package_name"`
 		Definition  string         `conf:""`
+		Backend     bool           `conf:""`
 		Ignore      []string       `conf:""`
 		Params      map[string]any `conf:""`
 		AfterScript []string       `conf:"" yaml:"after_script"`
 	}
 }
 
-func (c config) fullGoServiceDir() string {
-	if c.Go.RootDir == "" || c.Go.RootDir == "./" {
-		return c.Go.ServiceDir
-	}
-	return path.Clean(path.Join(c.Go.RootDir, c.Go.ServiceDir))
-}
-
-type dbConfig struct {
-	Name     string `conf:"default:meitner-dev"`
-	User     string `conf:"default:meitner"`
-	Password string `conf:"default:meitner"`
-	Host     string `conf:"default:localhost"`
-	Port     int    `conf:"default:5432"`
-	SSLMode  string `conf:"default:disable"`
-}
-
-// findConfigFile searches for configFile in current directory and then repressively searches in parent directories.
-// returns a first config path that it finds or empty string if no config was found
-func findConfigFile() string {
-	currentPath, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-
-	for currentPath != "/" {
-		configPath := filepath.Join(currentPath, configFile)
-
-		if _, err := os.Stat(configPath); err == nil {
-			return configPath
-		}
-
-		currentPath = filepath.Dir(currentPath)
-	}
-
-	return ""
-}
-
-func run(_ context.Context, _ []string) error {
+func run(_ context.Context, args []string) error {
 	cfg := config{
 		Version: conf.Version{
 			Build: Version,
@@ -144,38 +124,22 @@ func run(_ context.Context, _ []string) error {
 	parseString, err := conf.Parse(namespace, &cfg, configParsers...)
 	if err != nil {
 		if errors.Is(err, conf.ErrHelpWanted) {
-			fmt.Println(parseString)
+			fmt.Println(parseString + "\nARGUMENTS\n\t" + strings.Join(argsWithHelp, "\n\t"))
 			return nil
 		}
 		return err
 	}
 
-	if !cfg.Bootstrap && !cfg.Generate && !cfg.Wipe {
-		return errors.New("must specify option one of these options:\n\t - \"--generate\" to generate files\n\t - \"--bootstrap\" to bootstrap the database tables\n\t - \"--wipe\" to wipe the generated files\n\nuse --help for more information")
+	switch arg := cfg.Args.Num(0); arg {
+	case argBootstrap:
+		return bootstrap(cfg)
+	case argGenerate:
+		return generate(cfg)
+	case argWipe:
+		return wipe(filepath.Dir(foundConfigFile), cfg)
+	default:
+		return errors.New(arg + " is not a valid arg, possible arguments are:\n\t" + strings.Join(argsWithHelp, "\n\t"))
 	}
-
-	if cfg.Bootstrap {
-		err := bootstrap(cfg)
-		if err != nil {
-			return err
-		}
-	}
-
-	if cfg.Generate {
-		err := generate(cfg)
-		if err != nil {
-			return err
-		}
-	}
-
-	if cfg.Wipe || cfg.WipeService != "" || cfg.WipeLayer != "" {
-		err := wipe(cfg)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func generate(cfg config) error {
@@ -187,7 +151,7 @@ func generate(cfg config) error {
 
 		help, err := conf.Parse(namespace, &cfg, yaml.WithReader(configFile))
 		if err == conf.ErrHelpWanted {
-			fmt.Println(help)
+			fmt.Println(help + "")
 			return nil
 		}
 		if err != nil {
@@ -226,10 +190,10 @@ func generate(cfg config) error {
 		generationToConfig := map[string]boilerconfig.Wrapper{
 			"default":    boilerconfig.Default(ormDir),
 			"orm":        boilerconfig.ORM(ormDir, pkgServiceModel, cfg.Go.Packages.Audit),
-			"boiler":     boilerconfig.Boiler(repoDir, pkgORM, pkgServiceModel, cfg.Go.Packages.Errors, cfg.Go.Packages.Audit, cfg.Stubs, cfg.StubLayer),
-			"repository": boilerconfig.Repository(repositoryDir, pkgServiceModel, cfg.Go.Packages.Types, cfg.Stubs, cfg.StubLayer),
+			"boiler":     boilerconfig.Boiler(repoDir, pkgORM, pkgServiceModel, cfg.Go.Packages.Errors, cfg.Go.Packages.Audit, cfg.Stubs, cfg.Layer),
+			"repository": boilerconfig.Repository(repositoryDir, pkgServiceModel, cfg.Go.Packages.Types, cfg.Stubs, cfg.Layer),
 			"model":      boilerconfig.Model(serviceModelDir, cfg.Go.Packages.Types, cfg.Go.Packages.Errors),
-			"definition": boilerconfig.Definition(definitionDir, serviceName, cfg.Stubs, cfg.StubLayer),
+			"definition": boilerconfig.Definition(definitionDir, serviceName, cfg.Stubs, cfg.Layer),
 			"conversion": boilerconfig.Conversion(conversionDir, pkgServiceModel, cfg.Go.Packages.API),
 		}
 
@@ -239,15 +203,15 @@ func generate(cfg config) error {
 			}
 		}
 
-		if cfg.Stubs || cfg.StubLayer != "" {
-			if cfg.StubLayer == "" || cfg.StubLayer == "service" {
+		if cfg.Stubs || cfg.Layer != "" {
+			if cfg.Layer == "" || cfg.Layer == "service" {
 				err = runGeneration(cfg, configFilePath, boilerconfig.Service(serviceDir, serviceName, pkgRepository, pkgServiceModel))
 				if err != nil {
 					return errors.Wrap(err, "service stubs")
 				}
 			}
 
-			if cfg.StubLayer == "" || cfg.StubLayer == "endpoint" {
+			if cfg.Layer == "" || cfg.Layer == "endpoint" {
 				err = runGeneration(cfg, configFilePath, boilerconfig.Endpoint(endpointDir, serviceName, pkgServiceModel, pkgConversion, cfg.Go.Packages.API, cfg.Go.Packages.Types))
 				if err != nil {
 					return errors.Wrap(err, "endpoint stubs")
@@ -257,7 +221,11 @@ func generate(cfg config) error {
 	}
 
 	for i, o := range cfg.Oto {
-		err := runGenerationWithOto(o.Template, o.Definition, o.OutputFile, o.PackageName, o.Ignore, o.Params, o.AfterScript)
+		if o.Backend && cfg.OtoSkipBackend {
+			continue
+		}
+
+		err := runGenerationWithOto(o.Template, o.Definition, o.OutputFile, o.PackageName, o.Ignore, o.Params, o.AfterScript, cfg.OtoSkipAfterScript)
 		if err != nil {
 			return errors.Wrapf(err, "oto generation failed at index %d for template %s", i, o.Template)
 		}
@@ -266,8 +234,7 @@ func generate(cfg config) error {
 	return nil
 }
 
-func wipe(cfg config) error {
-	log.Println("wiping")
+func wipe(root string, cfg config) error {
 	deleteGeneratedFiles := func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return errors.Wrap(err, "unexpected error getting generated file")
@@ -284,13 +251,13 @@ func wipe(cfg config) error {
 		}
 
 		// if specific service is specified we must make sure that the path includes the service name
-		if cfg.WipeService != "" {
-			if !strings.Contains(path, "services/"+cfg.WipeService+"/") {
-				return nil
-			}
+		if cfg.Service != "" && !strings.Contains(path, "services/"+cfg.Service+"/") {
+			return nil
 		}
 
-		switch cfg.WipeLayer {
+		switch cfg.Layer {
+		case "":
+			// if no layer is specifed, continue
 		case "conversion":
 			if !strings.Contains(path, "/endpoint/conversion/") {
 				return nil
@@ -315,7 +282,6 @@ func wipe(cfg config) error {
 			if !strings.Contains(path, "api/services/") {
 				return nil
 			}
-		case "":
 		default:
 			return errors.New("invalid wipe layer options(conversion, model, repository, service, api)")
 		}
@@ -328,7 +294,7 @@ func wipe(cfg config) error {
 		return nil
 	}
 
-	err := filepath.Walk(cfg.Go.RootDir, deleteGeneratedFiles)
+	err := filepath.Walk(root, deleteGeneratedFiles)
 	if err != nil {
 		return errors.Wrapf(err, "filepath %s", cfg.Go.RootDir)
 	}
@@ -339,7 +305,7 @@ func wipe(cfg config) error {
 func bootstrap(cfg config) error {
 	serviceNameToMigrationsFolder := make(map[string]string)
 	patternSuffix := "/repository/boiler/migrations"
-	pattern := fmt.Sprintf("%s/*", cfg.fullGoServiceDir()) + patternSuffix
+	pattern := fmt.Sprintf("%s/*", fullGoServiceDir(cfg)) + patternSuffix
 	folders, _ := filepath.Glob(pattern)
 	for _, folder := range folders {
 		// figure out service name by removing the suffix and getting the last slice element which will be the service name
@@ -381,7 +347,7 @@ func gooseBootstrap(db *sql.DB, serviceNameToMigrationFolder map[string]string) 
 	return nil
 }
 
-func runGenerationWithOto(templatePath, definitionPath, outputPath, packageName string, ignore []string, params map[string]interface{}, afterScript []string) error {
+func runGenerationWithOto(templatePath, definitionPath, outputPath, packageName string, ignore []string, params map[string]interface{}, afterScript []string, skipAfterScript bool) error {
 	definitionFiles, err := filepath.Glob(definitionPath)
 	if err != nil {
 		return errors.Wrap(err, "cannot glob definition path")
@@ -442,11 +408,13 @@ func runGenerationWithOto(templatePath, definitionPath, outputPath, packageName 
 		return errors.Wrap(err, "cannot write to output file")
 	}
 
-	if len(afterScript) > 0 {
-		err = exec.Command(afterScript[0], afterScript[1:]...).Run()
-		if err != nil {
-			return errors.Wrap(err, "cannot exec after script")
-		}
+	if skipAfterScript || len(afterScript) < 2 {
+		return nil
+	}
+
+	err = exec.Command(afterScript[0], afterScript[1:]...).Run()
+	if err != nil {
+		return errors.Wrap(err, "cannot exec after script")
 	}
 
 	return nil
@@ -510,6 +478,34 @@ func getConfigFilePaths(rootDirectory, serviceDirectory string, service *string)
 	return configFilePaths, nil
 }
 
+func fullGoServiceDir(c config) string {
+	if c.Go.RootDir == "" || c.Go.RootDir == "./" {
+		return c.Go.ServiceDir
+	}
+	return path.Clean(path.Join(c.Go.RootDir, c.Go.ServiceDir))
+}
+
+// findConfigFile searches for configFile in current directory and then repressively searches in parent directories.
+// returns a first config path that it finds or empty string if no config was found
+func findConfigFile() string {
+	currentPath, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+
+	for currentPath != "/" {
+		configPath := filepath.Join(currentPath, configFile)
+
+		if _, err := os.Stat(configPath); err == nil {
+			return configPath
+		}
+
+		currentPath = filepath.Dir(currentPath)
+	}
+
+	return ""
+}
+
 func serviceDirectoryFromBoilerConfigPath(boilerConfigPath string) string {
 	return strings.TrimSuffix(boilerConfigPath, "/repository/boiler/"+boilerConfigFile)
 }
@@ -517,14 +513,4 @@ func serviceDirectoryFromBoilerConfigPath(boilerConfigPath string) string {
 func serviceNameFromBoilerConfigPath(boilerConfigPath string) string {
 	_, serviceName := filepath.Split(serviceDirectoryFromBoilerConfigPath(boilerConfigPath))
 	return serviceName
-}
-
-func printHelp(cfg config) error {
-	usageInfo, err := conf.UsageInfo(namespace, &cfg)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println(usageInfo)
-	return nil
 }

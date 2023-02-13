@@ -236,7 +236,7 @@ type {{$alias.UpSingular}}QueryParamsNullableFieldsRequest struct {
 type {{$alias.UpSingular}}QueryParamsInFieldsRequest struct {
     {{- range $column := .Table.Columns }}
         {{- $colAlias := $alias.Column $column.Name}}
-        {{- $stringTypes := "types.String, types.UUID, types.Timestamp, types.Time, types.Date" -}}
+        {{- $stringTypes := "types.String, types.UUID, types.Time, types.Date" -}}
         
         {{- if or (contains $column.Type $stringTypes)  }}
             // optional: true

@@ -54,15 +54,9 @@ func (o {{$alias.UpSingular}}) Validate(isUpdate bool, validateBusinessFunc {{$a
         {{- end}}
     {{end -}}
 
-	if err := validateBusinessFunc(o, isUpdate); err != nil {
-        if !errors.IsErrFields(err) {
-            return err
-        }
-        
-        businessErrFields := errors.ErrFieldsFrom(err)
-		for _, errField := range *businessErrFields {
-			errFields.Add(errField)
-		}
+    err := validateBusinessFunc(o, isUpdate)
+    if mErr := errFields.Merge(err); mErr != nil {
+        return mErr
     }
 
 	if errFields.NotEmpty() {
@@ -161,15 +155,9 @@ func {{$alias.UpSingular}}FromStrings(fields, values []string, conversionFunc {{
         }
     {{end -}}
 
-	if err := conversionFunc(&{{$alias.DownSingular}}, fields, values); err != nil {
-        if !errors.IsErrFields(err) {
-            return nil, err
-        }
-        
-        conversionErrFields := errors.ErrFieldsFrom(err)
-		for _, errField := range *conversionErrFields {
-			errFields.Add(errField)
-		}
+	err := conversionFunc(&{{$alias.DownSingular}}, fields, values)
+    if mErr := errFields.Merge(err); mErr != nil {
+        return nil, mErr
     }
 
 	if errFields.NotEmpty() {
@@ -591,15 +579,13 @@ func New{{$alias.UpSingular}}QueryParamsInFields() *{{$alias.UpSingular}}QueryPa
 }
 
 type {{$alias.UpSingular}}QueryParamsInFields struct {
+    {{- $stringTypes := "types.String, types.UUID, types.Time, types.Date" -}}
     {{- range $column := .Table.Columns}}
+        {{- $colAlias := $alias.Column $column.Name -}}
 
-        {{- $colAlias := $alias.Column $column.Name}}
-        
-        {{- $stringTypes := "types.String, types.UUID, types.Timestamp, types.Time, types.Date" -}}
-        
         {{- if or (contains $column.Type $stringTypes) (hasPrefix "types.Int" $column.Type) }}
             {{$colAlias}} []{{$column.Type}}
-        {{end -}}
+        {{- end -}}
 
     {{- end}}
 }
@@ -610,10 +596,10 @@ func New{{$alias.UpSingular}}QueryParamsComparableFields() *{{$alias.UpSingular}
 
 type {{$alias.UpSingular}}QueryParamsComparableFields struct {
     {{- range $column := .Table.Columns}}
-    {{- $colAlias := $alias.Column $column.Name}}
-        {{if or (hasPrefix "date" $column.DBType) (hasPrefix "int" $column.DBType) (hasPrefix "time" $column.DBType) -}}
+    {{- $colAlias := $alias.Column $column.Name -}}
+        {{- if or (hasPrefix "date" $column.DBType) (hasPrefix "int" $column.DBType) (hasPrefix "time" $column.DBType) }}
             {{$colAlias}} {{$column.Type}}
-        {{- end}}
+        {{- end -}}
     {{- end}}
 }
 
