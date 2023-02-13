@@ -6,6 +6,21 @@
 {{- $pkArgs := joinSlices " " $pkNames $colDefs.Types | join ", " -}}
 {{- $schemaTable := .Table.Name | .SchemaTable}}
 
+// pop{{$alias.UpSingular}}ListCache pops all list{{$alias.UpSingular}} caches for the org
+func pop{{$alias.UpSingular}}ListCache(ctx context.Context, cacheClient cache.Client) error {
+	listKeys, err := cacheClient.Keys(ctx, cache.WildcardListKey("{{$alias.DownSingular}}", "orgid"))
+	if err != nil && !cacheClient.NotFound(err){
+		return err
+	}
+
+	err = cacheClient.Del(ctx, listKeys...)
+	if err != nil {
+		return err
+	}
+    
+    return nil
+}
+
 // InsertDefined inserts {{$alias.UpSingular}} with the defined values only.
 func (o *{{$alias.UpSingular}}) InsertDefined({{if .NoContext}}exec boil.Executor{{else}}ctx context.Context, exec boil.ContextExecutor{{end}}, auditLog audit.Log, cacheClient cache.Client) error {
     auditLogValues := []audit.LogValue{}
@@ -63,17 +78,10 @@ func (o *{{$alias.UpSingular}}) InsertDefined({{if .NoContext}}exec boil.Executo
 	}
 
 	// Pop all list{{$alias.UpSingular}} caches for the org
-	// TODO: get org from ctx
-	orgID := "693fce76-d744-4a94-876d-4692ebdae900"
-	
-	listKeys, err := cacheClient.Keys(ctx, cache.WildcardListKey("{{$alias.DownSingular}}", orgID))
-	if err != nil && !cacheClient.NotFound(err){
-		return err
-	}
-	err = cacheClient.Del(ctx, listKeys...)
-	if err != nil {
-		return err
-	}
+    err = pop{{$alias.UpSingular}}ListCache(ctx, cacheClient)
+    if err != nil {
+        return err
+    }
 
     return nil
 }
@@ -149,6 +157,12 @@ func (o *{{$alias.UpSingular}}) UpdateDefined({{if .NoContext}}exec boil.Executo
 		return err
 	}
 
+    // Pop all list{{$alias.UpSingular}} caches for the org
+    err = pop{{$alias.UpSingular}}ListCache(ctx, cacheClient)
+    if err != nil {
+        return err
+    }
+
     return nil
 }
 
@@ -169,6 +183,12 @@ func (o *{{$alias.UpSingular}}) DeleteDefined({{if .NoContext}}exec boil.Executo
 	if err != nil {
 		return err
 	}
+    
+    // Pop all list{{$alias.UpSingular}} caches for the org
+    err = pop{{$alias.UpSingular}}ListCache(ctx, cacheClient)
+    if err != nil {
+        return err
+    }
 
     return nil
 }
@@ -266,7 +286,7 @@ func Get{{$alias.UpSingular}}({{if $.NoContext}}exec boil.Executor{{else}}ctx co
 {{end -}}
 
 type {{$alias.DownSingular}}CacheValue struct {
-    IDs []string
+    {{$alias.UpPlural}} []*{{$alias.UpSingular}}
     Count int64
 }
 
@@ -283,15 +303,8 @@ func (c *{{$alias.DownSingular}}CacheValue) UnmarshalBinary(data []byte) (error)
 }
 
 func cacheList{{$alias.UpPlural}}(ctx context.Context, {{$alias.DownPlural}} []*{{$alias.UpSingular}}, cacheClient cache.Client, cacheKey string) error {
-	// create value to be cached
-	{{$alias.DownSingular}}IDs := make([]string, len({{$alias.DownPlural}}))
-	for i, a := range {{$alias.DownPlural}} {
-		{{$alias.DownSingular}}IDs[i] = a.ID.String()
-	}
-
-	// Write ids with count to cache
 	v := &{{$alias.DownSingular}}CacheValue{
-		IDs:   {{$alias.DownSingular}}IDs,
+		{{$alias.UpPlural}}:   {{$alias.DownPlural}},
 		Count: int64(len({{$alias.DownPlural}})),
 	}
 
@@ -300,14 +313,6 @@ func cacheList{{$alias.UpPlural}}(ctx context.Context, {{$alias.DownPlural}} []*
 		return err
 	}
 
-	// Write each {{$alias.DownSingular}} to cache
-	for _, a := range {{$alias.DownPlural}} {
-		ck := cache.DefaultKey("{{$alias.DownSingular}}", a.ID.String())
-		err = cacheClient.Set(ctx, ck, a, cache.DefaultWriteExpiration)
-		if err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
@@ -330,10 +335,7 @@ func List{{$alias.UpPlural}}({{if .NoContext}}exec boil.Executor{{else}}ctx cont
 
 	queryModsForCount, queryModsWithPagination := getQueryModsFrom{{$alias.UpSingular}}Query(query)
 
-    // TODO: get org from ctx
-	orgID := "693fce76-d744-4a94-876d-4692ebdae900"
-
-    cacheKey, err := cache.DefaultListKey("{{$alias.DownSingular}}", orgID, query)
+    cacheKey, err := cache.DefaultListKey("{{$alias.DownSingular}}", "orgid", query)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -344,31 +346,7 @@ func List{{$alias.UpPlural}}({{if .NoContext}}exec boil.Executor{{else}}ctx cont
 		return nil, nil, err
 	}
     if err == nil {
-		// Get each {{$alias.DownPlural}} from cache
-		{{$alias.DownPlural}} := []*{{$alias.UpSingular}}{}
-		for _, id := range cacheValue.IDs {
-			a := &{{$alias.UpSingular}}{}
-			err = cacheClient.Get(ctx, cache.DefaultKey("{{$alias.DownSingular}}", id), a)
-			if cacheClient.NotFound(err) {
-				// Ignore missing 
-				continue
-			}
-			if err != nil{
-				return nil, nil, err
-			}
-			{{$alias.DownPlural}} = append({{$alias.DownPlural}}, a)
-		}
-
-        count := cacheValue.Count
-		// Check if the count is right, otherwise we have to query for it
-		if int64(len({{$alias.DownPlural}})) != count {
-			count, err = {{$alias.UpPlural}}(queryModsForCount...).Count(ctx, exec)
-			if err != nil {
-				return nil, nil, err
-			}
-		}
-
-        return {{$alias.UpSingular}}ToModels({{$alias.DownPlural}}{{range $rel := .Table.ToManyRelationships -}}{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}, load{{$relAlias.Local | singular }} {{ end }}), types.NewInt64(count).Ptr(), nil
+        return {{$alias.UpSingular}}ToModels(cacheValue.{{$alias.UpPlural}}{{range $rel := .Table.ToManyRelationships -}}{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}, load{{$relAlias.Local | singular }} {{ end }}), types.NewInt64(cacheValue.Count).Ptr(), nil
 	}
     
 	{{$alias.DownPlural}}, err := {{$alias.UpPlural}}(queryModsWithPagination...).All({{if not .NoContext}}ctx,{{end}} exec)
