@@ -78,6 +78,7 @@ type config struct {
 		Packages      struct {
 			API    string `conf:"help:name of the api package which should be used in generation, default:meitner/pkg/api"`
 			Audit  string `conf:"help:name of the audit package which should be used in generation, default:meitner/pkg/audit"`
+			Cache  string `conf:"help:name of the cache package which should be used in generation, default:meitner/pkg/cache"`
 			Errors string `conf:"help:name of the errors package which should be used in generation, default:meitner/pkg/errors"`
 			Types  string `conf:"help:name of the types package which should be used in generation, default:meitner/pkg/types"`
 		}
@@ -189,8 +190,8 @@ func generate(cfg config) error {
 
 		generationToConfig := map[string]boilerconfig.Wrapper{
 			"default":    boilerconfig.Default(ormDir),
-			"orm":        boilerconfig.ORM(ormDir, pkgServiceModel, cfg.Go.Packages.Audit),
-			"boiler":     boilerconfig.Boiler(repoDir, pkgORM, pkgServiceModel, cfg.Go.Packages.Errors, cfg.Go.Packages.Audit, cfg.Stubs, cfg.Layer),
+			"orm":        boilerconfig.ORM(ormDir, pkgServiceModel, cfg.Go.Packages.Audit, cfg.Go.Packages.Cache),
+			"boiler":     boilerconfig.Boiler(repoDir, pkgORM, pkgServiceModel, cfg.Go.Packages.Errors, cfg.Go.Packages.Audit, cfg.Go.Packages.Cache, cfg.Stubs, cfg.Layer),
 			"repository": boilerconfig.Repository(repositoryDir, pkgServiceModel, cfg.Go.Packages.Types, cfg.Stubs, cfg.Layer),
 			"model":      boilerconfig.Model(serviceModelDir, cfg.Go.Packages.Types, cfg.Go.Packages.Errors),
 			"definition": boilerconfig.Definition(definitionDir, serviceName, cfg.Stubs, cfg.Layer),
