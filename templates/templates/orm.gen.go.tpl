@@ -20,7 +20,7 @@ func (o *{{$alias.UpSingular}}) InsertDefined({{if .NoContext}}exec boil.Executo
                 }
             {{- end}}
             if o.{{$colAlias}}.IsDefined() {
-                auditLogValues = append(auditLogValues, audit.LogValue{Column: {{$alias.UpSingular}}Columns.{{$colAlias}}, New: o.{{$colAlias}}, Old: nil})
+                auditLogValues = append(auditLogValues, audit.NewLogValue({{$alias.UpSingular}}Columns.{{$colAlias}}, "{{ strip_prefix $column.Type "types." }}", o.{{$colAlias}}, nil))
                 whitelist.Cols = append(whitelist.Cols, {{$alias.UpSingular}}Columns.{{$colAlias}})
             }
         }
@@ -36,7 +36,7 @@ func (o *{{$alias.UpSingular}}) InsertDefined({{if .NoContext}}exec boil.Executo
     {{- if $rel.ToJoinTable -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         if o.R.{{$relAlias.Local | plural }} != nil {
-            auditLogValues = append(auditLogValues, audit.LogValue{Column: model.{{$alias.UpSingular}}Column{{$relAlias.Local | singular}}IDs, New: o.Get{{$relAlias.Local | singular}}IDs(true), Old: nil})
+            auditLogValues = append(auditLogValues, audit.NewLogValue(model.{{$alias.UpSingular}}Column{{$relAlias.Local | singular}}IDs, "UUID", o.Get{{$relAlias.Local | singular}}IDs(true), nil))
             err := o.Add{{$relAlias.Local | plural}}(ctx, exec, false, o.R.{{$relAlias.Local | plural }}...)
             if err != nil {
                 return err
@@ -68,7 +68,7 @@ func (o *{{$alias.UpSingular}}) UpdateDefined({{if .NoContext}}exec boil.Executo
                         return errors.New("{{$column.Name}} cannot be null")
                     }
                 {{- end}}
-                auditLogValues = append(auditLogValues, audit.LogValue{Column: {{$alias.UpSingular}}Columns.{{$colAlias}}, New: newValues.{{$colAlias}}, Old: o.{{$colAlias}}})
+                auditLogValues = append(auditLogValues, audit.NewLogValue({{$alias.UpSingular}}Columns.{{$colAlias}}, "{{ strip_prefix $column.Type "types." }}", newValues.{{$colAlias}}, o.{{$colAlias}}))
                 whitelist.Cols = append(whitelist.Cols, {{$alias.UpSingular}}Columns.{{$colAlias}})
                 o.{{$colAlias}} = newValues.{{$colAlias}}
             }
@@ -95,7 +95,7 @@ func (o *{{$alias.UpSingular}}) UpdateDefined({{if .NoContext}}exec boil.Executo
                 }
             }
 
-            auditLogValues = append(auditLogValues, audit.LogValue{Column: model.{{$alias.UpSingular}}Column{{$relAlias.Local | singular}}IDs, New: newValues.Get{{$relAlias.Local | singular}}IDs(true), Old: o.Get{{$relAlias.Local | singular}}IDs(true)})
+            auditLogValues = append(auditLogValues, audit.NewLogValue(model.{{$alias.UpSingular}}Column{{$relAlias.Local | singular}}IDs, "UUID", newValues.Get{{$relAlias.Local | singular}}IDs(true), o.Get{{$relAlias.Local | singular}}IDs(true)))
             err := o.Set{{$relAlias.Local | plural}}(ctx, exec, false, newValues.R.{{$relAlias.Local | plural }}...)
             if err != nil {
                 return err
