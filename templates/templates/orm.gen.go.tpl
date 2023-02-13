@@ -20,7 +20,7 @@ func (o *{{$alias.UpSingular}}) InsertDefined({{if .NoContext}}exec boil.Executo
                 }
             {{- end}}
             if o.{{$colAlias}}.IsDefined() {
-                auditLogValues = append(auditLogValues, audit.LogValue{Column: {{$alias.UpSingular}}Columns.{{$colAlias}}, New: o.{{$colAlias}}, Old: nil})
+                auditLogValues = append(auditLogValues, audit.NewLogValue({{$alias.UpSingular}}Columns.{{$colAlias}}, "{{ strip_prefix $column.Type "types." }}", o.{{$colAlias}}, nil))
                 whitelist.Cols = append(whitelist.Cols, {{$alias.UpSingular}}Columns.{{$colAlias}})
             }
         }
@@ -33,14 +33,16 @@ func (o *{{$alias.UpSingular}}) InsertDefined({{if .NoContext}}exec boil.Executo
 
     if o.R != nil {
     {{range $rel := .Table.ToManyRelationships -}}
+    {{- if $rel.ToJoinTable -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         if o.R.{{$relAlias.Local | plural }} != nil {
-            auditLogValues = append(auditLogValues, audit.LogValue{Column: model.{{$alias.UpSingular}}Column{{$relAlias.Local | singular}}IDs, New: o.Get{{$relAlias.Local | singular}}IDs(), Old: nil})
+            auditLogValues = append(auditLogValues, audit.NewLogValue(model.{{$alias.UpSingular}}Column{{$relAlias.Local | singular}}IDs, "UUID", o.Get{{$relAlias.Local | singular}}IDs(true), nil))
             err := o.Add{{$relAlias.Local | plural}}(ctx, exec, false, o.R.{{$relAlias.Local | plural }}...)
             if err != nil {
                 return err
             }
         }
+    {{- end -}}
     {{end -}}{{- /* range relationships */ -}}
     }
 
@@ -90,7 +92,7 @@ func (o *{{$alias.UpSingular}}) UpdateDefined({{if .NoContext}}exec boil.Executo
                         return errors.New("{{$column.Name}} cannot be null")
                     }
                 {{- end}}
-                auditLogValues = append(auditLogValues, audit.LogValue{Column: {{$alias.UpSingular}}Columns.{{$colAlias}}, New: newValues.{{$colAlias}}, Old: o.{{$colAlias}}})
+                auditLogValues = append(auditLogValues, audit.NewLogValue({{$alias.UpSingular}}Columns.{{$colAlias}}, "{{ strip_prefix $column.Type "types." }}", newValues.{{$colAlias}}, o.{{$colAlias}}))
                 whitelist.Cols = append(whitelist.Cols, {{$alias.UpSingular}}Columns.{{$colAlias}})
                 o.{{$colAlias}} = newValues.{{$colAlias}}
             }
@@ -100,27 +102,29 @@ func (o *{{$alias.UpSingular}}) UpdateDefined({{if .NoContext}}exec boil.Executo
     // Check if any join tables should be updated and load the existing values before updating if we have an operating audit log
     if newValues.R != nil {
         {{range $rel := .Table.ToManyRelationships -}}
+        {{- if $rel.ToJoinTable -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-        if newValues.R.{{$relAlias.Local | plural }} != nil {
-            if !audit.IsNoop(auditLog) {
-                {{$relAlias.Local | singular | camelCase }}Slice, err := o.{{$relAlias.Local | plural }}(qm.Select({{$relAlias.Local | singular }}Columns.ID)).All(ctx, exec)
-                if err != nil {
-                    return err
-                }
+            if newValues.R.{{$relAlias.Local | plural }} != nil {
+                if !audit.IsNoop(auditLog) {
+                    {{$relAlias.Local | singular | camelCase }}Slice, err := o.{{$relAlias.Local | plural }}(qm.Select({{$relAlias.Local | singular }}Columns.ID)).All(ctx, exec)
+                    if err != nil {
+                        return err
+                    }
 
-                if o.R == nil {
-                    o.R = o.R.NewStruct()
+                    if o.R == nil {
+                        o.R = o.R.NewStruct()
+                    }
+                    
+                    o.R.{{$relAlias.Local}} = {{$relAlias.Local | singular | camelCase }}Slice
                 }
-                
-                o.R.{{$relAlias.Local}} = {{$relAlias.Local | singular | camelCase }}Slice
             }
-        }
 
-        auditLogValues = append(auditLogValues, audit.LogValue{Column: model.{{$alias.UpSingular}}Column{{$relAlias.Local | singular}}IDs, New: newValues.Get{{$relAlias.Local | singular}}IDs(), Old: o.Get{{$relAlias.Local | singular}}IDs()})
-        err := o.Add{{$relAlias.Local | plural}}(ctx, exec, false, newValues.R.{{$relAlias.Local | plural }}...)
-        if err != nil {
-            return err
-        }
+            auditLogValues = append(auditLogValues, audit.NewLogValue(model.{{$alias.UpSingular}}Column{{$relAlias.Local | singular}}IDs, "UUID", newValues.Get{{$relAlias.Local | singular}}IDs(true), o.Get{{$relAlias.Local | singular}}IDs(true)))
+            err := o.Set{{$relAlias.Local | plural}}(ctx, exec, false, newValues.R.{{$relAlias.Local | plural }}...)
+            if err != nil {
+                return err
+            }
+        {{- end -}}
         {{end -}}{{- /* range relationships */ -}}
     }
 
@@ -171,11 +175,11 @@ func (o *{{$alias.UpSingular}}) DeleteDefined({{if .NoContext}}exec boil.Executo
 
 {{ range $rel := .Table.ToManyRelationships -}}
 {{ $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-func (o *{{$alias.UpSingular}}) Get{{ $relAlias.Local | singular }}IDs() []types.UUID {
-    if o.R == nil {
-		return nil
-	}
-	if o.R.{{ $relAlias.Local | plural }} == nil {
+func (o *{{$alias.UpSingular}}) Get{{ $relAlias.Local | singular }}IDs(load bool) []types.UUID {
+    if o.R == nil || o.R.{{ $relAlias.Local | plural }} == nil {
+        if load {
+            return []types.UUID{}
+        }
 		return nil
 	}
 
@@ -223,7 +227,7 @@ func Get{{$alias.UpSingular}}({{if $.NoContext}}exec boil.Executor{{else}}ctx co
 
     err := cacheClient.Get(ctx, cacheKey, {{$alias.DownSingular}})
 	if err == nil {
-		return {{$alias.UpSingular}}ToModel({{$alias.DownSingular}}), nil
+        return {{$alias.UpSingular}}ToModel({{$alias.DownSingular}}{{range .Table.ToManyRelationships -}}, false {{ end }}), nil
 	} 
 	if err != nil && !cacheClient.NotFound(err) {
 		return nil, err
@@ -244,7 +248,7 @@ func Get{{$alias.UpSingular}}({{if $.NoContext}}exec boil.Executor{{else}}ctx co
 		return nil, err
 	}
     
-    return {{$alias.UpSingular}}ToModel({{$alias.DownSingular}}), nil
+    return {{$alias.UpSingular}}ToModel({{$alias.DownSingular}}{{range .Table.ToManyRelationships -}}, false {{ end }}), nil
 }
 
 {{- range $column := .Table.Columns -}}
@@ -256,7 +260,7 @@ func Get{{$alias.UpSingular}}({{if $.NoContext}}exec boil.Executor{{else}}ctx co
                     return nil, err
                 }
                 
-                return {{$alias.UpSingular}}ToModel({{$alias.DownSingular}}), nil
+                return {{$alias.UpSingular}}ToModel({{$alias.DownSingular}}{{range .Table.ToManyRelationships -}}, false {{ end }}), nil
         }
     {{ end }}
 {{end -}}
@@ -308,7 +312,22 @@ func cacheList{{$alias.UpPlural}}(ctx context.Context, {{$alias.DownPlural}} []*
 }
 
 func List{{$alias.UpPlural}}({{if .NoContext}}exec boil.Executor{{else}}ctx context.Context, exec boil.ContextExecutor{{end}}, cacheClient cache.Client, query model.{{$alias.UpSingular}}Query) ([]*model.{{$alias.UpSingular}}, *types.Int64, error) {
-   
+    var (
+        {{range $rel := .Table.ToManyRelationships -}}
+        {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+            load{{$relAlias.Local | singular}} bool
+        {{ end }}
+    )
+
+    if query.Load != nil {
+        {{range $rel := .Table.ToManyRelationships -}}
+        {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+            if query.Load.{{$relAlias.Local | singular }} != nil {
+                load{{$relAlias.Local | singular}} = true
+            }
+        {{ end -}}
+    }
+
 	queryModsForCount, queryModsWithPagination := getQueryModsFrom{{$alias.UpSingular}}Query(query)
 
     // TODO: get org from ctx
@@ -349,7 +368,7 @@ func List{{$alias.UpPlural}}({{if .NoContext}}exec boil.Executor{{else}}ctx cont
 			}
 		}
 
-		return {{$alias.UpSingular}}ToModels({{$alias.DownPlural}}), types.NewInt64(count).Ptr(), nil
+        return {{$alias.UpSingular}}ToModels({{$alias.DownPlural}}{{range $rel := .Table.ToManyRelationships -}}{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}, load{{$relAlias.Local | singular }} {{ end }}), types.NewInt64(count).Ptr(), nil
 	}
     
 	{{$alias.DownPlural}}, err := {{$alias.UpPlural}}(queryModsWithPagination...).All({{if not .NoContext}}ctx,{{end}} exec)
@@ -364,7 +383,7 @@ func List{{$alias.UpPlural}}({{if .NoContext}}exec boil.Executor{{else}}ctx cont
         if err != nil {
             return nil, nil, err
         }
-        return {{$alias.UpSingular}}ToModels({{$alias.DownPlural}}), types.NewInt64(int64(len({{$alias.DownPlural}}))).Ptr(), nil
+        return {{$alias.UpSingular}}ToModels({{$alias.DownPlural}}{{range $rel := .Table.ToManyRelationships -}}{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}, load{{$relAlias.Local | singular }} {{ end }}), types.NewInt64(int64(len({{$alias.DownPlural}}))).Ptr(), nil
     }
 
     // Get the total count without pagination
@@ -373,12 +392,13 @@ func List{{$alias.UpPlural}}({{if .NoContext}}exec boil.Executor{{else}}ctx cont
 		return nil, nil, err
 	}
 
+	
     err = cacheList{{$alias.UpPlural}}(ctx, {{$alias.DownPlural}}, cacheClient, cacheKey)
     if err != nil {
         return nil, nil, err
     }
 
-	return {{$alias.UpSingular}}ToModels({{$alias.DownPlural}}), types.NewInt64(int64({{$alias.DownPlural}}Count)).Ptr(), nil
+	return {{$alias.UpSingular}}ToModels({{$alias.DownPlural}}{{range $rel := .Table.ToManyRelationships -}}{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}, load{{$relAlias.Local | singular }} {{ end }}), types.NewInt64({{$alias.DownPlural}}Count).Ptr(), nil
 }
 
 {{ range $fKey := .Table.FKeys -}}
@@ -406,7 +426,7 @@ func {{$alias.UpSingular}}FromModel(model *model.{{$alias.UpSingular}}) *{{$alia
     return  {{$alias.DownSingular}}
 }
 
-func {{$alias.UpSingular}}ToModel(toModel *{{$alias.UpSingular}}) *model.{{$alias.UpSingular}} {
+func {{$alias.UpSingular}}ToModel(toModel *{{$alias.UpSingular}}{{range $rel := .Table.ToManyRelationships -}}{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}, load{{$relAlias.Local | singular}} bool{{ end }}) *model.{{$alias.UpSingular}} {
     return &model.{{$alias.UpSingular}}{
         {{- range $column := .Table.Columns -}}
         {{- $colAlias := $alias.Column $column.Name}}
@@ -414,15 +434,15 @@ func {{$alias.UpSingular}}ToModel(toModel *{{$alias.UpSingular}}) *model.{{$alia
         {{- end}}
         {{range $rel := .Table.ToManyRelationships -}}
             {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-            {{$relAlias.Local | singular}}IDs: toModel.Get{{$relAlias.Local | singular}}IDs(),
+            {{$relAlias.Local | singular}}IDs: toModel.Get{{$relAlias.Local | singular}}IDs(load{{$relAlias.Local | singular}}),
         {{end -}}{{- /* range relationships */ -}}
     }
 }
 
-func {{$alias.UpSingular}}ToModels(toModels []*{{$alias.UpSingular}}) []*model.{{$alias.UpSingular}} {
+func {{$alias.UpSingular}}ToModels(toModels []*{{$alias.UpSingular}}{{range $rel := .Table.ToManyRelationships -}}{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}, load{{$relAlias.Local | singular}} bool{{ end }}) []*model.{{$alias.UpSingular}} {
     models := make([]*model.{{$alias.UpSingular}}, len(toModels))
     for i := range toModels {
-        models[i] = {{$alias.UpSingular}}ToModel(toModels[i])
+        models[i] = {{$alias.UpSingular}}ToModel(toModels[i]{{range $rel := .Table.ToManyRelationships -}}{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}, load{{$relAlias.Local | singular}}{{ end }})
     }
     return models
 }
@@ -606,12 +626,15 @@ func getQueryModsFrom{{$alias.UpSingular}}NotEmpty(q *model.{{$alias.UpSingular}
 
 func getQueryModsFrom{{$alias.UpSingular}}In(q *model.{{$alias.UpSingular}}QueryParamsInFields, queryWrapperFunc func(qm.QueryMod) qm.QueryMod) []qm.QueryMod {
     query := []qm.QueryMod{}
+    {{- $stringTypes := "types.String, types.UUID, types.Time, types.Date" -}}
     {{- range $column := .Table.Columns}}
     {{- $colAlias := $alias.Column $column.Name}}
-        {{- if and (not (isEnumDBType .DBType)) (or (eq "types.String" $column.Type) (eq "types.UUID" $column.Type)) }}
+        {{- if not (isEnumDBType .DBType) }}
+        {{- if or (contains $column.Type $stringTypes) (hasPrefix "types.Int" $column.Type) }}
             if q.{{$colAlias}} != nil {
                 query = append(query, queryWrapperFunc(qm.WhereIn({{$alias.UpSingular}}Where.{{$colAlias}}.field, q.{{$colAlias}})))
             }
+        {{- end}}
         {{- end}}
     {{- end}}
     return query
