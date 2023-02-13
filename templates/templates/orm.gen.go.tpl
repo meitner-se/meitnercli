@@ -33,6 +33,7 @@ func (o *{{$alias.UpSingular}}) InsertDefined({{if .NoContext}}exec boil.Executo
 
     if o.R != nil {
     {{range $rel := .Table.ToManyRelationships -}}
+    {{- if $rel.ToJoinTable -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         if o.R.{{$relAlias.Local | plural }} != nil {
             auditLogValues = append(auditLogValues, audit.LogValue{Column: model.{{$alias.UpSingular}}Column{{$relAlias.Local | singular}}IDs, New: o.Get{{$relAlias.Local | singular}}IDs(true), Old: nil})
@@ -41,6 +42,7 @@ func (o *{{$alias.UpSingular}}) InsertDefined({{if .NoContext}}exec boil.Executo
                 return err
             }
         }
+    {{- end -}}
     {{end -}}{{- /* range relationships */ -}}
     }
 
@@ -76,27 +78,29 @@ func (o *{{$alias.UpSingular}}) UpdateDefined({{if .NoContext}}exec boil.Executo
     // Check if any join tables should be updated and load the existing values before updating if we have an operating audit log
     if newValues.R != nil {
         {{range $rel := .Table.ToManyRelationships -}}
+        {{- if $rel.ToJoinTable -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-        if newValues.R.{{$relAlias.Local | plural }} != nil {
-            if !audit.IsNoop(auditLog) {
-                {{$relAlias.Local | singular | camelCase }}Slice, err := o.{{$relAlias.Local | plural }}(qm.Select({{$relAlias.Local | singular }}Columns.ID)).All(ctx, exec)
-                if err != nil {
-                    return err
-                }
+            if newValues.R.{{$relAlias.Local | plural }} != nil {
+                if !audit.IsNoop(auditLog) {
+                    {{$relAlias.Local | singular | camelCase }}Slice, err := o.{{$relAlias.Local | plural }}(qm.Select({{$relAlias.Local | singular }}Columns.ID)).All(ctx, exec)
+                    if err != nil {
+                        return err
+                    }
 
-                if o.R == nil {
-                    o.R = o.R.NewStruct()
+                    if o.R == nil {
+                        o.R = o.R.NewStruct()
+                    }
+                    
+                    o.R.{{$relAlias.Local}} = {{$relAlias.Local | singular | camelCase }}Slice
                 }
-                
-                o.R.{{$relAlias.Local}} = {{$relAlias.Local | singular | camelCase }}Slice
             }
-        }
 
-        auditLogValues = append(auditLogValues, audit.LogValue{Column: model.{{$alias.UpSingular}}Column{{$relAlias.Local | singular}}IDs, New: newValues.Get{{$relAlias.Local | singular}}IDs(true), Old: o.Get{{$relAlias.Local | singular}}IDs(true)})
-        err := o.Set{{$relAlias.Local | plural}}(ctx, exec, false, newValues.R.{{$relAlias.Local | plural }}...)
-        if err != nil {
-            return err
-        }
+            auditLogValues = append(auditLogValues, audit.LogValue{Column: model.{{$alias.UpSingular}}Column{{$relAlias.Local | singular}}IDs, New: newValues.Get{{$relAlias.Local | singular}}IDs(true), Old: o.Get{{$relAlias.Local | singular}}IDs(true)})
+            err := o.Set{{$relAlias.Local | plural}}(ctx, exec, false, newValues.R.{{$relAlias.Local | plural }}...)
+            if err != nil {
+                return err
+            }
+        {{- end -}}
         {{end -}}{{- /* range relationships */ -}}
     }
 

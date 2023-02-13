@@ -74,9 +74,11 @@ type command_{{ titleCase .PkgName }}Service interface {
             {{ end }}
 
             {{- range $rel := $table.ToManyRelationships -}}
+            {{- if $rel.ToJoinTable -}}
                 {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
                 // type: "types.UUID"
                 {{ $relAlias.Local | singular }}IDs []string
+            {{- end -}}
             {{end -}}{{- /* range relationships */ -}}
         }
 
@@ -130,9 +132,11 @@ type command_{{ titleCase .PkgName }}Service interface {
             {{ end }}
 
             {{- range $rel := $table.ToManyRelationships -}}
+            {{- if $rel.ToJoinTable -}}
                 {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
                 // type: "types.UUID"
                 {{ $relAlias.Local | singular }}IDs []string
+            {{- end -}}
             {{end -}}{{- /* range relationships */ -}}
         }
 
