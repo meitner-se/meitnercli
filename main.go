@@ -61,6 +61,7 @@ type config struct {
 		Packages      struct {
 			API    string `conf:"default:meitner/pkg/api"`
 			Audit  string `conf:"default:meitner/pkg/audit"`
+			Cache  string `conf:"default:meitner/pkg/cache"`
 			Errors string `conf:"default:meitner/pkg/errors"`
 			Types  string `conf:"default:meitner/pkg/types"`
 		}
@@ -281,8 +282,8 @@ func generate(cfg config) error {
 
 		generationToConfig := map[string]boilerconfig.Wrapper{
 			"default":    boilerconfig.Default(ormDir),
-			"orm":        boilerconfig.ORM(ormDir, pkgServiceModel, cfg.Go.Packages.Audit),
-			"boiler":     boilerconfig.Boiler(repoDir, pkgORM, pkgServiceModel, cfg.Go.Packages.Errors, cfg.Go.Packages.Audit, cfg.Stubs, cfg.StubLayer),
+			"orm":        boilerconfig.ORM(ormDir, pkgServiceModel, cfg.Go.Packages.Audit, cfg.Go.Packages.Cache),
+			"boiler":     boilerconfig.Boiler(repoDir, pkgORM, pkgServiceModel, cfg.Go.Packages.Errors, cfg.Go.Packages.Audit, cfg.Go.Packages.Cache, cfg.Stubs, cfg.StubLayer),
 			"repository": boilerconfig.Repository(repositoryDir, pkgServiceModel, cfg.Go.Packages.Types, cfg.Stubs, cfg.StubLayer),
 			"model":      boilerconfig.Model(serviceModelDir, cfg.Go.Packages.Types, cfg.Go.Packages.Errors),
 			"definition": boilerconfig.Definition(definitionDir, serviceName, cfg.Stubs, cfg.StubLayer),

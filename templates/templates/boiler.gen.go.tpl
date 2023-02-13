@@ -40,7 +40,7 @@ func (r *repo) Create{{$alias.UpSingular}}(ctx context.Context, input *model.{{$
 		{{- end -}}
 	{{ end }}
 
-	if err := orm.{{$alias.UpSingular}}FromModel(input).InsertDefined(ctx, r.db, r.audit); err != nil {
+	if err := orm.{{$alias.UpSingular}}FromModel(input).InsertDefined(ctx, r.db, r.audit, r.cache); err != nil {
 		return errors.Wrap(err, errors.MessageCannotCreateEntity("{{$alias.DownSingular}}"))
 	}
 
@@ -69,7 +69,7 @@ func (r *repo) Update{{$alias.UpSingular}}(ctx context.Context, input *model.{{$
 		{{- end -}}
 	{{ end }}
 
-	err = {{$alias.DownSingular}}.UpdateDefined(ctx, r.db, r.audit, orm.{{$alias.UpSingular}}FromModel(input))
+	err = {{$alias.DownSingular}}.UpdateDefined(ctx, r.db, r.audit, r.cache, orm.{{$alias.UpSingular}}FromModel(input))
     if err != nil {
 		return errors.Wrap(err, errors.MessageCannotUpdateEntity("{{$alias.DownSingular}}"))
 	}
@@ -78,7 +78,7 @@ func (r *repo) Update{{$alias.UpSingular}}(ctx context.Context, input *model.{{$
 }
 
 func (r *repo) Delete{{$alias.UpSingular}}(ctx context.Context, input *model.{{$alias.UpSingular}}) error {
-	err := orm.{{$alias.UpSingular}}FromModel(input).DeleteDefined(ctx, r.db, r.audit)
+	err := orm.{{$alias.UpSingular}}FromModel(input).DeleteDefined(ctx, r.db, r.audit, r.cache)
     if err != nil {
         return errors.Wrap(err, errors.MessageCannotDeleteEntity("{{$alias.DownSingular}}"))
     }
@@ -87,7 +87,7 @@ func (r *repo) Delete{{$alias.UpSingular}}(ctx context.Context, input *model.{{$
 }
 
 func (r *repo) Get{{$alias.UpSingular}}(ctx context.Context, {{ $pkArgs }}) (*model.{{$alias.UpSingular}}, error) {
-	{{$alias.DownSingular}}, err := orm.Get{{$alias.UpSingular}}(ctx, r.db, {{ $pkNames | join ", " }})
+	{{$alias.DownSingular}}, err := orm.Get{{$alias.UpSingular}}(ctx, r.db, r.cache, {{ $pkNames | join ", " }})
 	if err == sql.ErrNoRows {
 		return nil, errors.NewNotFoundWrapped(err, errors.MessageCannotFindEntity("{{$alias.DownSingular}}"))
 	}
@@ -116,7 +116,7 @@ func (r *repo) Get{{$alias.UpSingular}}(ctx context.Context, {{ $pkArgs }}) (*mo
 {{end -}}
 
 func (r *repo) List{{$alias.UpPlural}}(ctx context.Context, query model.{{$alias.UpSingular}}Query) ([]*model.{{$alias.UpSingular}}, *types.Int64, error) {
-    {{$alias.DownPlural}}, totalCount, err := orm.List{{$alias.UpPlural}}(ctx, r.db, query)
+    {{$alias.DownPlural}}, totalCount, err := orm.List{{$alias.UpPlural}}(ctx, r.db, r.cache, query)
     if err != nil {
 		return nil, nil, errors.Wrap(err, errors.MessageCannotFindEntity("{{$alias.DownSingular}}"))
 	}

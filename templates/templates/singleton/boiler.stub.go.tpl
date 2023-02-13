@@ -4,12 +4,14 @@
 
 type repo struct {
     db *sql.DB
+	cache cache.Client
     audit audit.Log
 }
 
-func New(db *sql.DB) *repo {
+func New(db *sql.DB, cache cache.Client) *repo {
     return &repo{
         db: db,
+		cache: cache,
         audit: audit.WriterLog(os.Stdout),
     }
 }
