@@ -8,82 +8,94 @@
 {{- $schemaTable := .Table.Name | .SchemaTable}}
 
 func (r *repo) Create{{$alias.UpSingular}}(ctx context.Context, input *model.{{$alias.UpSingular}}) error {	
-	{{- if containsAny $colNames (or $.AutoColumns.Created "created_at") (or $.AutoColumns.Updated "updated_at") -}}
-		currentTime := time.Now().UTC()
-	{{- end }}
+	return r.WithinTransaction(ctx, func(ctx context.Context) error {
+		exec := database.GetBoilExec(ctx, r.db)
 
-	{{- if containsAny $colNames "created_by" "updated_by" }}
-		currentUserID := &uuid.Nil // TODO : Get from context
-	{{- end }}
-	
-	{{- $numberOfPKeys := len .Table.PKey.Columns }}
-	{{ if and (containsAny $colNames "id") (eq $numberOfPKeys 1) }}
-		id, err := uuid.NewRandom()
-		if err != nil {
-			return errors.Wrap(err, "cannot generate uuid")
+		{{ if containsAny $colNames (or $.AutoColumns.Created "created_at") (or $.AutoColumns.Updated "updated_at") -}}
+			currentTime := time.Now().UTC()
+		{{- end }}
+
+		{{- if containsAny $colNames "created_by" "updated_by" }}
+			currentUserID := &uuid.Nil // TODO : Get from context
+		{{- end }}
+		
+		{{- $numberOfPKeys := len .Table.PKey.Columns }}
+		{{ if and (containsAny $colNames "id") (eq $numberOfPKeys 1) }}
+			id, err := uuid.NewRandom()
+			if err != nil {
+				return errors.Wrap(err, "cannot generate uuid")
+			}
+		{{ end }}
+
+		// Make sure to set the values of the auto-columns to the service model pointer, since they might be used by the caller.
+		// The auto-columns for insert are: "ID", "CreatedAt", "UpdatedAt", "CreatedBy", "UpdatedBy"
+		{{ if and (containsAny $colNames "id") (eq $numberOfPKeys 1) -}}
+			input.ID = types.NewUUID(id)
+		{{- end }}
+
+		{{- range $ind, $col := .Table.Columns -}}
+			{{- $colAlias := $alias.Column $col.Name -}}
+			{{- if or (eq $col.Name (or $.AutoColumns.Created "created_at")) (eq $col.Name (or $.AutoColumns.Updated "updated_at")) }}
+				input.{{$colAlias}} = types.NewTimestamp(currentTime)
+			{{- end -}}
+			{{- if or (eq $col.Name "created_by") (eq $col.Name "updated_by") }}
+				input.{{$colAlias}} = types.NewUUIDFromPtr(currentUserID)
+			{{- end -}}
+		{{ end }}
+
+		if err := orm.{{$alias.UpSingular}}FromModel(input).InsertDefined(ctx, exec, r.audit); err != nil {
+			return errors.Wrap(err, errors.MessageCannotCreateEntity("{{$alias.DownSingular}}"))
 		}
-	{{ end }}
 
-	// Make sure to set the values of the auto-columns to the service model pointer, since they might be used by the caller.
-	// The auto-columns for insert are: "ID", "CreatedAt", "UpdatedAt", "CreatedBy", "UpdatedBy"
-	{{ if and (containsAny $colNames "id") (eq $numberOfPKeys 1) -}}
-		input.ID = types.NewUUID(id)
-	{{- end }}
-
-	{{- range $ind, $col := .Table.Columns -}}
-		{{- $colAlias := $alias.Column $col.Name -}}
-		{{- if or (eq $col.Name (or $.AutoColumns.Created "created_at")) (eq $col.Name (or $.AutoColumns.Updated "updated_at")) }}
-			input.{{$colAlias}} = types.NewTimestamp(currentTime)
-		{{- end -}}
-		{{- if or (eq $col.Name "created_by") (eq $col.Name "updated_by") }}
-			input.{{$colAlias}} = types.NewUUIDFromPtr(currentUserID)
-		{{- end -}}
-	{{ end }}
-
-	if err := orm.{{$alias.UpSingular}}FromModel(input).InsertDefined(ctx, r.db, r.audit); err != nil {
-		return errors.Wrap(err, errors.MessageCannotCreateEntity("{{$alias.DownSingular}}"))
-	}
-
-    return nil
+		return nil
+	})
 }
 
 func (r *repo) Update{{$alias.UpSingular}}(ctx context.Context, input *model.{{$alias.UpSingular}}) error {
-	{{$alias.DownSingular}}, err := orm.Find{{$alias.UpSingular}}(ctx, r.db, {{ prefixStringSlice "input." ($colDefs.Names | stringMap (aliasCols $alias) | stringMap .StringFuncs.titleCase) | join ", " }})
-	if err == sql.ErrNoRows {
-		return errors.NewNotFoundWrapped(err, errors.MessageCannotFindEntity("{{$alias.DownSingular}}"))
-	}
-	if err != nil {
-		return errors.Wrap(err, errors.MessageCannotFindEntity("{{$alias.DownSingular}}"))
-	}
+	return r.WithinTransaction(ctx, func(ctx context.Context) error {
+		exec := database.GetBoilExec(ctx, r.db)
 
-	// Make sure to set the values of the auto-columns to the service model pointer, since they might be used by the caller.
-	// The auto-columns for update are: "UpdatedAt", "UpdatedBy"
+		{{$alias.DownSingular}}, err := orm.Find{{$alias.UpSingular}}(ctx, exec, {{ prefixStringSlice "input." ($colDefs.Names | stringMap (aliasCols $alias) | stringMap .StringFuncs.titleCase) | join ", " }})
+		if err == sql.ErrNoRows {
+			return errors.NewNotFoundWrapped(err, errors.MessageCannotFindEntity("{{$alias.DownSingular}}"))
+		}
+		if err != nil {
+			return errors.Wrap(err, errors.MessageCannotFindEntity("{{$alias.DownSingular}}"))
+		}
 
-	{{- range $ind, $col := .Table.Columns -}}
-		{{- $colAlias := $alias.Column $col.Name -}}
-		{{- if or (eq $col.Name (or $.AutoColumns.Updated "updated_at")) }}
-			input.{{$colAlias}} = types.NewTimestamp(time.Now().UTC())
-		{{- end -}}
-		{{- if eq $col.Name "updated_by" }}
-			input.{{$colAlias}} = types.NewUUIDFromPtr(&uuid.Nil) // TODO : Get from context
-		{{- end -}}
-	{{ end }}
+		// Make sure to set the values of the auto-columns to the service model pointer, since they might be used by the caller.
+		// The auto-columns for update are: "UpdatedAt", "UpdatedBy"
 
-	err = {{$alias.DownSingular}}.UpdateDefined(ctx, r.db, r.audit, orm.{{$alias.UpSingular}}FromModel(input))
-    if err != nil {
-		return errors.Wrap(err, errors.MessageCannotUpdateEntity("{{$alias.DownSingular}}"))
-	}
+		{{- range $ind, $col := .Table.Columns -}}
+			{{- $colAlias := $alias.Column $col.Name -}}
+			{{- if or (eq $col.Name (or $.AutoColumns.Updated "updated_at")) }}
+				input.{{$colAlias}} = types.NewTimestamp(time.Now().UTC())
+			{{- end -}}
+			{{- if eq $col.Name "updated_by" }}
+				input.{{$colAlias}} = types.NewUUIDFromPtr(&uuid.Nil) // TODO : Get from context
+			{{- end -}}
+		{{ end }}
 
-    return nil
+		err = {{$alias.DownSingular}}.UpdateDefined(ctx, exec, r.audit, orm.{{$alias.UpSingular}}FromModel(input))
+		if err != nil {
+			return errors.Wrap(err, errors.MessageCannotUpdateEntity("{{$alias.DownSingular}}"))
+		}
+
+		return nil
+	})
 }
 
 func (r *repo) Delete{{$alias.UpSingular}}(ctx context.Context, input *model.{{$alias.UpSingular}}) error {
-	err := orm.{{$alias.UpSingular}}FromModel(input).DeleteDefined(ctx, r.db, r.audit)
-    if err != nil {
-        return errors.Wrap(err, errors.MessageCannotDeleteEntity("{{$alias.DownSingular}}"))
-    }
+	return r.WithinTransaction(ctx, func(ctx context.Context) error {
+		exec := database.GetBoilExec(ctx, r.db)
 
-    return nil
+		err := orm.{{$alias.UpSingular}}FromModel(input).DeleteDefined(ctx, exec, r.audit)
+		if err != nil {
+			return errors.Wrap(err, errors.MessageCannotDeleteEntity("{{$alias.DownSingular}}"))
+		}
+
+    	return nil
+	})
 }
 
 func (r *repo) Get{{$alias.UpSingular}}(ctx context.Context, {{ $pkArgs }}) (*model.{{$alias.UpSingular}}, error) {
