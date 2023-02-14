@@ -34,10 +34,10 @@ func {{$alias.UpSingular}}QueryToModel(toModel api.{{$alias.UpSingular}}QueryReq
 	}
 }
 
-func {{$alias.DownSingular}}QueryNestedToModels(toModels []api.{{$alias.UpSingular}}QueryNestedRequest) []model.{{$alias.UpSingular}}QueryNested {
+func {{$alias.DownSingular}}QueryNestedToModels(toModels []*api.{{$alias.UpSingular}}QueryNestedRequest) []model.{{$alias.UpSingular}}QueryNested {
 	models := make([]model.{{$alias.UpSingular}}QueryNested, len(toModels))
 	for i := range toModels {
-		models[i] = *{{$alias.DownSingular}}QueryNestedToModel(&toModels[i])
+		models[i] = *{{$alias.DownSingular}}QueryNestedToModel(toModels[i])
 	}
 	return models
 }
@@ -54,7 +54,10 @@ func {{$alias.DownSingular}}QueryNestedToModel(toModel *api.{{$alias.UpSingular}
 	}
 }
 
-func {{$alias.DownSingular}}QueryParamsToModel(toModel api.{{$alias.UpSingular}}QueryParamsRequest) model.{{$alias.UpSingular}}QueryParams {
+func {{$alias.DownSingular}}QueryParamsToModel(toModel *api.{{$alias.UpSingular}}QueryParamsRequest) model.{{$alias.UpSingular}}QueryParams {
+	if toModel == nil {
+		return model.{{$alias.UpSingular}}QueryParams{}
+	}
 	return model.{{$alias.UpSingular}}QueryParams{
 		Equals:    {{$alias.DownSingular}}QueryParamsFieldsToModel(toModel.Equals),
 		NotEquals: {{$alias.DownSingular}}QueryParamsFieldsToModel(toModel.NotEquals),
