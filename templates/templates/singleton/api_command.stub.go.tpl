@@ -2,8 +2,8 @@
 //
 // TODO: Replace ".stub" with ".def" in the filename and delete the comments above, included the top disclaimer.
 
-// command_{{ titleCase .PkgName }}Service is the API to perform state changes of the {{ titleCase .PkgName }}Service
-type command_{{ titleCase .PkgName }}Service interface {
+// _command_{{ titleCase .PkgName }}Service is the API to perform state changes of the {{ titleCase .PkgName }}Service
+type _command_{{ titleCase .PkgName }}Service interface {
 {{range $table := .Tables}}
     {{ if and (not $table.IsView) (not $table.IsJoinTable) -}}
         {{- $alias := $.Aliases.Table $table.Name -}}
@@ -157,3 +157,5 @@ type command_{{ titleCase .PkgName }}Service interface {
         type {{$alias.UpSingular}}DeleteResponse struct{}
     {{ end }}
 {{ end }}
+
+var _ _command_{{ titleCase .PkgName }}Service // make sure interface is used to prevent staticcheck to error

@@ -2,8 +2,8 @@
 //
 // TODO: Replace ".stub" with ".def" in the filename and delete the comments above, included the top disclaimer.
 
-// command_{{ titleCase .PkgName }}Service is the API to read states of the {{ titleCase .PkgName }}Service
-type API_Query_{{ titleCase .PkgName }}Service interface {
+// _query_{{ titleCase .PkgName }}Service is the API to read states of the {{ titleCase .PkgName }}Service
+type _query_{{ titleCase .PkgName }}Service interface {
 {{ range $table := .Tables}}
     {{ if and (not $table.IsView) (not $table.IsJoinTable) -}}
         {{- $alias := $.Aliases.Table $table.Name -}}
@@ -52,3 +52,5 @@ type API_Query_{{ titleCase .PkgName }}Service interface {
         }
     {{ end }}
 {{ end }}
+
+var _ _query_{{ titleCase .PkgName }}Service // make sure interface is used to prevent staticcheck to error
