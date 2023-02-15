@@ -632,16 +632,17 @@ func getQueryModsFrom{{$alias.UpSingular}}QueryOrderBy(q *model.{{$alias.UpSingu
     })
 
     orderByStrings := []string{}
-    {{- range $pkName := $pkNames }}
-        orderByStrings = append(orderByStrings, {{$alias.UpSingular}}TableColumns.{{$pkName | titleCase}} + " asc") // Always order by primary key first as ascending to keep consistency
-    {{- end}}
     for _, o := range orderByFields {
         orderByStrings = append(orderByStrings, o.field + " " + o.order)
     }
 
-    query := []qm.QueryMod{}
-	query = append(query, qm.OrderBy(strings.Join(orderByStrings, ",")))
-	return query
+    {{- range $pkName := $pkNames }}
+        orderByStrings = append(orderByStrings, {{$alias.UpSingular}}TableColumns.{{$pkName | titleCase}} + " asc") // Always order by primary key first as ascending to keep consistency
+    {{- end}}
+
+	return []qm.QueryMod{
+        qm.OrderBy(strings.Join(orderByStrings, ",")),
+    }
 }
 
 {{end -}}
