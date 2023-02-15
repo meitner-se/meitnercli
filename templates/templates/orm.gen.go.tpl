@@ -32,9 +32,8 @@ func (o *{{$alias.UpSingular}}) InsertDefined({{if .NoContext}}exec boil.Executo
 	}
 
     if o.R != nil {
-    {{range $rel := .Table.ToManyRelationships -}}
-    {{- if $rel.ToJoinTable -}}
-        {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+    {{- range $rel := get_load_relations $.Tables .Table -}}
+    {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         if o.R.{{$relAlias.Local | plural }} != nil {
             auditLogValues = append(auditLogValues, audit.NewLogValue(model.{{$alias.UpSingular}}Column{{$relAlias.Local | singular}}IDs, "UUID", o.Get{{$relAlias.Local | singular}}IDs(true), nil))
             err := o.Add{{$relAlias.Local | plural}}(ctx, exec, false, o.R.{{$relAlias.Local | plural }}...)
@@ -42,7 +41,6 @@ func (o *{{$alias.UpSingular}}) InsertDefined({{if .NoContext}}exec boil.Executo
                 return err
             }
         }
-    {{- end -}}
     {{end -}}{{- /* range relationships */ -}}
     }
 
@@ -77,7 +75,7 @@ func (o *{{$alias.UpSingular}}) UpdateDefined({{if .NoContext}}exec boil.Executo
 
     // Check if any join tables should be updated and load the existing values before updating if we have an operating audit log
     if newValues.R != nil {
-        {{range $rel := .Table.ToManyRelationships -}}
+        {{- range $rel := get_load_relations $.Tables .Table -}}
         {{- if $rel.ToJoinTable -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
             if newValues.R.{{$relAlias.Local | plural }} != nil {
@@ -168,13 +166,22 @@ func (o *{{$alias.UpSingular}}) Set{{ $relAlias.Local | singular }}IDs(ids []typ
 }
 {{end}}
 
-func Get{{$alias.UpSingular}}({{if $.NoContext}}exec boil.Executor{{else}}ctx context.Context, exec boil.ContextExecutor{{end}}, {{ $pkArgs }}) (*model.{{$alias.UpSingular}}, error) {        
-    {{$alias.DownSingular}}, err := Find{{$alias.UpSingular}}({{if not $.NoContext}}ctx,{{end}} exec, {{ $pkNames | join ", " }})
+func Get{{$alias.UpSingular}}({{if $.NoContext}}exec boil.Executor{{else}}ctx context.Context, exec boil.ContextExecutor{{end}}, {{ $pkArgs }}) (*model.{{$alias.UpSingular}}, error) {
+    // Create queryMods from SelectedFields as nil, which will load all relations by default,
+    // which is expected when using the Get-method
+    queryMods := getQueryModsFrom{{$alias.UpSingular}}QuerySelectedFields(nil)
+
+    // Add the primary keys to the query
+    {{- range $pkName := $pkNames }}
+        queryMods = append(queryMods, {{$alias.UpSingular}}Where.{{ $pkName | titleCase }}.EQ({{ $pkName }}))
+    {{ end }}
+
+    {{$alias.DownSingular}}, err := {{$alias.UpPlural}}(queryMods...).One({{if not $.NoContext}}ctx,{{end}} exec)
     if err != nil {
         return nil, err
     }
     
-    return {{$alias.UpSingular}}ToModel({{$alias.DownSingular}}{{range .Table.ToManyRelationships -}}, false {{ end }}), nil
+    return {{$alias.UpSingular}}ToModel({{$alias.DownSingular}}{{- range $rel := get_load_relations $.Tables .Table -}}, false {{ end }}), nil
 }
 
 {{- range $column := .Table.Columns -}}
@@ -200,25 +207,23 @@ func List{{$alias.UpPlural}}({{if .NoContext}}exec boil.Executor{{else}}ctx cont
 	}
 
     var (
-        {{range $rel := .Table.ToManyRelationships -}}
+        {{- range $rel := get_load_relations $.Tables .Table -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-            load{{$relAlias.Local | singular}} bool
+            load{{$relAlias.Local | singular}} bool = true
         {{ end }}
     )
 
-    if query.Load != nil {
-        {{range $rel := .Table.ToManyRelationships -}}
+    if query.SelectedFields != nil {
+        {{- range $rel := get_load_relations $.Tables .Table -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-            if query.Load.{{$relAlias.Local | singular }} != nil {
-                load{{$relAlias.Local | singular}} = true
-            }
+            load{{$relAlias.Local | singular}} = query.SelectedFields.{{$relAlias.Local | singular }}IDs.Bool()
         {{ end -}}
     }
 
     // If offset and limit is nil, pagination is not used.
     // So if this happens we do not have to call the DB to get the total count without pagination.
     if query.Offset.IsNil() && query.Limit.IsNil() {
-        return {{$alias.UpSingular}}ToModels({{$alias.DownPlural}}{{range $rel := .Table.ToManyRelationships -}}{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}, load{{$relAlias.Local | singular }} {{ end }}), types.NewInt64(int64(len({{$alias.DownPlural}}))).Ptr(), nil
+        return {{$alias.UpSingular}}ToModels({{$alias.DownPlural}}{{- range $rel := get_load_relations $.Tables .Table -}}{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}, load{{$relAlias.Local | singular }} {{ end }}), types.NewInt64(int64(len({{$alias.DownPlural}}))).Ptr(), nil
     }
 
     // Get the total count without pagination
@@ -227,7 +232,7 @@ func List{{$alias.UpPlural}}({{if .NoContext}}exec boil.Executor{{else}}ctx cont
 		return nil, nil, err
 	}
 
-	return {{$alias.UpSingular}}ToModels({{$alias.DownPlural}}{{range $rel := .Table.ToManyRelationships -}}{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}, load{{$relAlias.Local | singular }} {{ end }}), types.NewInt64({{$alias.DownPlural}}Count).Ptr(), nil
+	return {{$alias.UpSingular}}ToModels({{$alias.DownPlural}}{{- range $rel := get_load_relations $.Tables .Table -}}{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}, load{{$relAlias.Local | singular }} {{ end }}), types.NewInt64({{$alias.DownPlural}}Count).Ptr(), nil
 }
 
 {{ range $fKey := .Table.FKeys -}}
@@ -248,30 +253,30 @@ func {{$alias.UpSingular}}FromModel(model *model.{{$alias.UpSingular}}) *{{$alia
             {{$colAlias}}: model.{{$colAlias}}{{ if (isEnumDBType .DBType) }}.String{{ end }},
         {{ end -}}
     }
-    {{range $rel := .Table.ToManyRelationships -}}
+    {{ range $rel := get_load_relations $.Tables .Table -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         {{$alias.DownSingular}}.Set{{$relAlias.Local | singular}}IDs(model.{{$relAlias.Local | singular}}IDs)
     {{end -}}{{- /* range relationships */ -}}
     return  {{$alias.DownSingular}}
 }
 
-func {{$alias.UpSingular}}ToModel(toModel *{{$alias.UpSingular}}{{range $rel := .Table.ToManyRelationships -}}{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}, load{{$relAlias.Local | singular}} bool{{ end }}) *model.{{$alias.UpSingular}} {
+func {{$alias.UpSingular}}ToModel(toModel *{{$alias.UpSingular}}{{ range $rel := get_load_relations $.Tables .Table -}}{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}, load{{$relAlias.Local | singular}} bool{{ end }}) *model.{{$alias.UpSingular}} {
     return &model.{{$alias.UpSingular}}{
         {{- range $column := .Table.Columns -}}
         {{- $colAlias := $alias.Column $column.Name}}
             {{$colAlias}}: {{ if (isEnumDBType .DBType) }}{{- $enumName := parseEnumName .DBType -}} model.{{ titleCase $enumName }}FromString(toModel.{{$colAlias}}) {{ else }} toModel.{{$colAlias}} {{ end }},
         {{- end}}
-        {{range $rel := .Table.ToManyRelationships -}}
+        {{ range $rel := get_load_relations $.Tables .Table -}}
             {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
             {{$relAlias.Local | singular}}IDs: toModel.Get{{$relAlias.Local | singular}}IDs(load{{$relAlias.Local | singular}}),
         {{end -}}{{- /* range relationships */ -}}
     }
 }
 
-func {{$alias.UpSingular}}ToModels(toModels []*{{$alias.UpSingular}}{{range $rel := .Table.ToManyRelationships -}}{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}, load{{$relAlias.Local | singular}} bool{{ end }}) []*model.{{$alias.UpSingular}} {
+func {{$alias.UpSingular}}ToModels(toModels []*{{$alias.UpSingular}}{{ range $rel := get_load_relations $.Tables .Table -}}{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}, load{{$relAlias.Local | singular}} bool{{ end }}) []*model.{{$alias.UpSingular}} {
     models := make([]*model.{{$alias.UpSingular}}, len(toModels))
     for i := range toModels {
-        models[i] = {{$alias.UpSingular}}ToModel(toModels[i]{{range $rel := .Table.ToManyRelationships -}}{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}, load{{$relAlias.Local | singular}}{{ end }})
+        models[i] = {{$alias.UpSingular}}ToModel(toModels[i]{{ range $rel := get_load_relations $.Tables .Table -}}{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}, load{{$relAlias.Local | singular}}{{ end }})
     }
     return models
 }
@@ -284,14 +289,10 @@ func getQueryModsFrom{{$alias.UpSingular}}Query(q model.{{$alias.UpSingular}}Que
         return queryMod
     }
 
-    queryForCount := []qm.QueryMod{}
-    queryWithPagination := []qm.QueryMod{}
-
-    queryForCount = append(queryForCount, getQueryModsFrom{{$alias.UpSingular}}QueryParams(q.Params, queryWrapperFunc)...)
-    queryWithPagination = queryForCount
+    queryForCount := getQueryModsFrom{{$alias.UpSingular}}QueryParams(q.Params, queryWrapperFunc)
+    queryWithPagination := queryForCount
     queryWithPagination = append(queryWithPagination, getQueryModsFrom{{$alias.UpSingular}}QuerySelectedFields(q.SelectedFields)...)
     queryWithPagination = append(queryWithPagination, getQueryModsFrom{{$alias.UpSingular}}QueryJoin(q.Join)...)
-    queryWithPagination = append(queryWithPagination, getQueryModsFrom{{$alias.UpSingular}}QueryLoad(q.Load)...)
     queryWithPagination = append(queryWithPagination, getQueryModsFrom{{$alias.UpSingular}}QueryOrderBy(q.OrderBy)...)
     
     for i := range q.Nested {
@@ -334,18 +335,32 @@ func getQueryModsFrom{{$alias.UpSingular}}QueryNested(q *model.{{$alias.UpSingul
 }
 
 func getQueryModsFrom{{$alias.UpSingular}}QuerySelectedFields(q *model.{{$alias.UpSingular}}QuerySelectedFields) []qm.QueryMod {
-    if q == nil {
-        return nil
-    }
-
     query := []qm.QueryMod{}
 
-    {{- range $column := .Table.Columns}}
+    // If there are no selected fields, all fields will be selected by default,
+    // therefore we to load the relations as well, to get the expected result.
+    if q == nil {
+        {{ range $rel := get_load_relations $.Tables .Table -}}
+        {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+            query = append(query, qm.Load({{$alias.UpSingular}}Rels.{{ $relAlias.Local | plural }}))
+        {{ end -}}
+
+        return query
+    }
+
+    {{ range $column := .Table.Columns}}
     {{- $colAlias := $alias.Column $column.Name}}
         if q.{{$colAlias}}.Bool() {
             query = append(query, qm.Select({{$alias.UpSingular}}TableColumns.{{$colAlias}}))
         }
     {{- end}}
+
+    {{ range $rel := get_load_relations $.Tables .Table -}}
+    {{ $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+        if q.{{$relAlias.Local | singular }}IDs.Bool() {
+            query = append(query, qm.Load({{$alias.UpSingular}}Rels.{{ $relAlias.Local | plural }}))
+        }
+    {{ end }}
 
     return query
 }
@@ -581,35 +596,6 @@ func getQueryModsFrom{{$alias.UpSingular}}QueryJoin(q *model.{{$alias.UpSingular
         }
     {{ end }}{{- /* range relationships */ -}}
     
-    return query
-}
-
-func getQueryModsFrom{{$alias.UpSingular}}QueryLoad(q *model.{{$alias.UpSingular}}QueryLoad) []qm.QueryMod {
-    if nil == q {
-        return nil
-    }
-
-    query := []qm.QueryMod{}
-    {{ range $rel := .Table.ToManyRelationships -}}
-        {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-        if q.{{ $relAlias.Local | singular }} != nil {
-            query{{ $relAlias.Local | singular }}WrapperFunc := func(queryMod qm.QueryMod) qm.QueryMod {
-                if q.{{ $relAlias.Local | singular }}.OrCondition.Bool() {
-                    return qm.Or2(queryMod)
-                }
-                return queryMod
-            }
-            query{{ $relAlias.Local | singular }} := getQueryModsFrom{{ $relAlias.Local | singular }}QueryParams(q.{{ $relAlias.Local | singular }}.Params, query{{ $relAlias.Local | singular }}WrapperFunc)
-            if !q.{{ $relAlias.Local | singular }}.Offset.IsNil() {
-                    query{{ $relAlias.Local | singular }} = append(query{{ $relAlias.Local | singular }}, qm.Offset(q.{{ $relAlias.Local | singular }}.Offset.Int()))
-            }
-            if !q.{{ $relAlias.Local | singular }}.Limit.IsNil() {
-                    query{{ $relAlias.Local | singular }} = append(query{{ $relAlias.Local | singular }}, qm.Limit(q.{{ $relAlias.Local | singular }}.Limit.Int()))
-            }
-
-            query = append(query, qm.Load({{$alias.UpSingular}}Rels.{{ $relAlias.Local | plural }}, query{{ $relAlias.Local | singular }}...))
-        }
-    {{ end }}{{- /* range relationships */ -}}
     return query
 }
 

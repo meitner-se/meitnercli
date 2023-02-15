@@ -14,7 +14,7 @@ func {{$alias.UpSingular}}FromModel(model *model.{{$alias.UpSingular}}) api.{{$a
         {{- $colAlias := $alias.Column $column.Name}}
             {{$colAlias}}: model.{{$colAlias}}.Ptr(),
         {{- end}}
-        {{range $rel := .Table.ToManyRelationships -}}
+        {{range $rel := get_load_relations $.Tables .Table -}}
             {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
             {{$relAlias.Local | singular}}IDs: model.{{$relAlias.Local | singular}}IDs,
         {{end -}}{{- /* range relationships */ -}}
@@ -27,7 +27,6 @@ func {{$alias.UpSingular}}QueryToModel(toModel api.{{$alias.UpSingular}}QueryReq
 		Params: {{$alias.DownSingular}}QueryParamsToModel(toModel.Params),
 		SelectedFields: (*model.{{$alias.UpSingular}}QuerySelectedFields)(toModel.SelectedFields),
 		Join: {{$alias.DownSingular}}QueryJoinToModel(toModel.Join),
-		Load: {{$alias.DownSingular}}QueryLoadToModel(toModel.Load),
 		OrderBy: {{$alias.DownSingular}}QueryOrderByToModel(toModel.OrderBy),
 		OrCondition: toModel.OrCondition,
 		OrConditionNested: toModel.OrConditionNested,
@@ -114,19 +113,6 @@ func {{$alias.DownSingular}}QueryJoinToModel(toModel *api.{{$alias.UpSingular}}Q
 	}
 {{ end -}}{{- /* range relationships */ -}}
 
-func {{$alias.DownSingular}}QueryLoadToModel(toModel *api.{{$alias.UpSingular}}QueryLoadRequest) *model.{{$alias.UpSingular}}QueryLoad {
-	if nil == toModel {
-		return nil
-	}
-
-	return &model.{{$alias.UpSingular}}QueryLoad{
-		{{ range $rel := .Table.ToManyRelationships }}
-			{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-			{{ $relAlias.Local | singular }}: {{$alias.DownSingular}}QueryLoad{{ $relAlias.Local | singular }}ToModel(toModel.{{ $relAlias.Local | singular }}),
-		{{ end -}}{{- /* range relationships */ -}}
-	}
-}
-
 func {{$alias.DownSingular}}QueryOrderByToModel(toModel *api.{{$alias.UpSingular}}QueryOrderByRequest) *model.{{$alias.UpSingular}}QueryOrderBy {
 	if nil == toModel {
 		return nil
@@ -139,21 +125,5 @@ func {{$alias.DownSingular}}QueryOrderByToModel(toModel *api.{{$alias.UpSingular
 		{{- end}}
 	}
 }
-
-{{ range $rel := .Table.ToManyRelationships }}
-	{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-	func {{$alias.DownSingular}}QueryLoad{{ $relAlias.Local | singular }}ToModel(toModel *api.{{$alias.UpSingular}}QueryLoad{{ $relAlias.Local | singular }}Request) *model.{{$alias.UpSingular}}QueryLoad{{ $relAlias.Local | singular }} {
-		if nil == toModel {
-			return nil
-		}
-
-		return &model.{{$alias.UpSingular}}QueryLoad{{ $relAlias.Local | singular }}{
-			Params: {{ $relAlias.Local | singular | camelCase }}QueryParamsToModel(toModel.Params),
-			OrCondition: toModel.OrCondition,
-			Offset: toModel.Offset,
-			Limit: toModel.Limit,
-		}
-	}
-{{ end -}}{{- /* range relationships */ -}}
 
 var _ types.Types // Init blank variable since types is imported automatically with boiler

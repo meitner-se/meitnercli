@@ -10,7 +10,7 @@ type {{$alias.UpSingular}} struct {
         {{$colAlias}} {{$column.Type}}
     {{end -}}
 
-    {{- range $rel := .Table.ToManyRelationships -}}
+    {{- range $rel := get_load_relations $.Tables .Table -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         {{ $relAlias.Local | singular }}IDs []types.UUID
     {{end -}}{{- /* range relationships */ -}}
@@ -71,7 +71,7 @@ const (
     {{- $colAlias := $alias.Column $column.Name -}}
         {{$alias.UpSingular}}Column{{$colAlias}} string = "{{$colAlias}}"
     {{end -}}
-    {{- range $rel := .Table.ToManyRelationships -}}
+    {{- range $rel := get_load_relations $.Tables .Table -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         {{- if not (hasSuffix "Logs" $relAlias.Local) -}}
             {{$alias.UpSingular}}Column{{ $relAlias.Local | singular }}IDs string = "{{ $relAlias.Local | singular }}IDs"
@@ -85,7 +85,7 @@ func {{$alias.UpSingular}}Columns() []string {
     {{- $colAlias := $alias.Column $column.Name -}}
         {{$alias.UpSingular}}Column{{$colAlias}},
     {{end -}}
-    {{- range $rel := .Table.ToManyRelationships -}}
+    {{- range $rel := get_load_relations $.Tables .Table -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         {{- if not (hasSuffix "Logs" $relAlias.Local) -}}
             {{$alias.UpSingular}}Column{{ $relAlias.Local | singular }}IDs,
@@ -469,9 +469,6 @@ type {{$alias.UpSingular}}Query struct {
     // Inner join with related tables
     Join *{{$alias.UpSingular}}QueryJoin
 
-    // Load the IDs of the relations
-    Load *{{$alias.UpSingular}}QueryLoad
-
     // To order by specific columns, by default we will always primary keys first as ascending
     OrderBy *{{$alias.UpSingular}}QueryOrderBy
     
@@ -501,6 +498,11 @@ type {{$alias.UpSingular}}QuerySelectedFields struct {
     {{- $colAlias := $alias.Column $column.Name}}
             {{$colAlias}} types.Bool
     {{- end}}
+
+    {{ range $rel := get_load_relations $.Tables .Table -}}
+        {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+        {{ $relAlias.Local | singular }}IDs types.Bool
+    {{end -}}{{- /* range relationships */ -}}
 }
 
 func New{{$alias.UpSingular}}QueryNested() {{$alias.UpSingular}}QueryNested {
@@ -615,32 +617,6 @@ type {{$alias.UpSingular}}QueryParamsLikeFields struct {
         {{- end}}
     {{- end}}
 }
-
-type {{$alias.UpSingular}}QueryLoad struct {
-    {{- range $rel := .Table.ToManyRelationships -}}
-        {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName }}
-        {{ $relAlias.Local | singular }} *{{$alias.UpSingular}}QueryLoad{{ $relAlias.Local | singular }}
-    {{- end }}{{- /* range relationships */ -}}
-}
-
-{{ range $rel := .Table.ToManyRelationships }}
-    {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-    type {{$alias.UpSingular}}QueryLoad{{ $relAlias.Local | singular }} struct {
-            // Params for the load
-            Params {{ $relAlias.Local | singular }}QueryParams
-
-            // OrCondition is used to define if the condition should use AND or OR between the params
-            //
-            // When true, the condition will have OR between the params, otherwise AND.
-            OrCondition types.Bool
-
-            // Offset into the results
-            Offset types.Int
-
-            // Limit the number of returned rows
-            Limit types.Int
-    }
-{{ end }}{{- /* range relationships */ -}}
 
 type {{$alias.UpSingular}}QueryJoin struct {
     {{- range $rel := .Table.ToManyRelationships -}}

@@ -1,9 +1,6 @@
 package boilerconfig
 
 import (
-	"strings"
-	"text/template"
-
 	"github.com/meitner-se/meitnercli/templates"
 
 	"github.com/volatiletech/sqlboiler/v4/boilingcore"
@@ -24,8 +21,5 @@ func Model(outFolder, pkgTypes, pkgErrors string) Wrapper {
 			formatPkgImportWithAlias(pkgErrors, "errors"),
 		}
 		cfg.DefaultTemplates = templates.Model
-		cfg.CustomTemplateFuncs = template.FuncMap{
-			"strip_prefix": strings.TrimPrefix,
-		}
 	}
 }

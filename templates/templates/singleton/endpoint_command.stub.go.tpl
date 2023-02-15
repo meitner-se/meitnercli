@@ -51,13 +51,9 @@ func (c *command) Create{{$alias.UpSingular}}(ctx context.Context, r api.{{$alia
         {{- end -}}
 
         {{ end }}
-        {{ range $rel := $table.ToManyRelationships -}}
+        {{- range $rel := get_load_relations $.Tables .Table -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-        {{- if $rel.ToJoinTable -}}
             {{ $relAlias.Local | singular }}IDs: r.{{ $relAlias.Local | singular }}IDs,
-        {{- else -}}
-            {{ $relAlias.Local | singular }}IDs: nil, // Cannot create relations for non-join tables
-        {{end -}}
         {{end -}}{{- /* range relationships */ -}}
     }
     
@@ -91,11 +87,7 @@ func (c *command) Update{{$alias.UpSingular}}(ctx context.Context, r api.{{$alia
         {{ end }}
         {{ range $rel := $table.ToManyRelationships -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-        {{- if $rel.ToJoinTable -}}
             {{ $relAlias.Local | singular }}IDs: r.{{ $relAlias.Local | singular }}IDs,
-        {{- else -}}
-            {{ $relAlias.Local | singular }}IDs: nil, // Cannot upsert relations for non-join tables
-        {{end -}}
         {{end -}}{{- /* range relationships */ -}}
     }
 

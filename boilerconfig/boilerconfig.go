@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"text/template"
 
 	"github.com/friendsofgo/errors"
 	"github.com/spf13/viper"
@@ -107,8 +108,11 @@ func GetConfig(driverName, configFile, typesPackage string) (*boilingcore.Config
 			SingularExact: viper.GetStringMapString("inflections.singular_exact"),
 			Irregular:     viper.GetStringMapString("inflections.irregular"),
 		},
-
 		Version: sqlBoilerVersion,
+		CustomTemplateFuncs: template.FuncMap{
+			"get_load_relations": getLoadRelations,
+			"strip_prefix":       strings.TrimPrefix,
+		},
 	}
 
 	return config, nil
@@ -240,4 +244,24 @@ func formatPkgImportWithAlias(pkg, expectedAlias string) string {
 		return fmt.Sprintf("\"%s\"", pkg)
 	}
 	return fmt.Sprintf("%s \"%s\"", expectedAlias, pkg)
+}
+
+func getLoadRelations(tables []drivers.Table, fromTable drivers.Table) []drivers.ToManyRelationship {
+	var toManyRelationships []drivers.ToManyRelationship
+
+	for _, toManyRelationship := range fromTable.ToManyRelationships {
+		for _, t := range tables {
+			if t.Name != toManyRelationship.JoinTable {
+				continue
+			}
+
+			if !strings.Contains(t.GetColumn(toManyRelationship.JoinForeignColumn).Comment, "load") {
+				continue
+			}
+
+			toManyRelationships = append(toManyRelationships, toManyRelationship)
+		}
+	}
+
+	return toManyRelationships
 }

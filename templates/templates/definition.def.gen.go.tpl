@@ -37,8 +37,8 @@ type {{$alias.UpSingular}} struct {
     {{end}}
     {{end -}}
 
-    {{- range $rel := .Table.ToManyRelationships -}}
-		{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+    {{- range $rel := get_load_relations $.Tables .Table -}}
+	{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         // type: "types.UUID"
 		{{ $relAlias.Local | singular }}IDs []string
 	{{end -}}{{- /* range relationships */ -}}
@@ -65,11 +65,6 @@ type {{$alias.UpSingular}}QueryRequest struct {
     //
     // optional: true
 	Join *{{$alias.UpSingular}}QueryJoinRequest
-
-	// Load the IDs of the relations
-    //
-    // optional: true
-	Load *{{$alias.UpSingular}}QueryLoadRequest
 
     // To order by specific columns, by default we will always primary keys first as ascending
     //
@@ -112,6 +107,13 @@ type {{$alias.UpSingular}}QuerySelectedFieldsRequest struct {
             // type: "types.Bool"
             {{$colAlias}} *bool
     {{- end}}
+
+    {{- range $rel := get_load_relations $.Tables .Table -}}
+	{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+        // optional: true
+        // type: "types.Bool"
+		{{ $relAlias.Local | singular }}IDs *bool
+	{{end -}}{{- /* range relationships */ -}}
 }
 
 type {{$alias.UpSingular}}QueryNestedRequest struct {
@@ -284,44 +286,6 @@ type {{$alias.UpSingular}}QueryParamsLikeFieldsRequest struct {
 
     {{- end}}
 }
-
-type {{$alias.UpSingular}}QueryLoadRequest struct {
-	{{- range $rel := .Table.ToManyRelationships -}}
-		{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName }}
-        // optional: true
-		{{ $relAlias.Local | singular }} *{{$alias.UpSingular}}QueryLoad{{ $relAlias.Local | singular }}Request
-	{{- end }}{{- /* range relationships */ -}}
-}
-
-{{ range $rel := .Table.ToManyRelationships }}
-	{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-    type {{$alias.UpSingular}}QueryLoad{{ $relAlias.Local | singular }}Request struct {
-        // Params for the load
-        //
-        // optional: true
-        Params *{{ $relAlias.Local | singular }}QueryParamsRequest
-
-        // OrCondition is used to define if the condition should use AND or OR between the params
-        //
-        // When true, the condition will have OR between the params, otherwise AND.
-        //
-        // optional: true
-        // type: "types.Bool"
-        OrCondition *bool
-
-        // Offset into the results
-        //
-        // optional: true
-        // type: "types.Int"
-        Offset *int
-
-        // Limit the number of returned rows
-        //
-        // optional: true
-        // type: "types.Int"
-        Limit *int
-    }
-{{ end }}{{- /* range relationships */ -}}
 
 type {{$alias.UpSingular}}QueryJoinRequest struct {
 	{{- range $rel := .Table.ToManyRelationships -}}
