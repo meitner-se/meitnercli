@@ -16,7 +16,7 @@ func {{$alias.UpSingular}}FromModel(model *model.{{$alias.UpSingular}}) api.{{$a
         {{- end}}
         {{range $rel := get_load_relations $.Tables .Table -}}
             {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-            {{$relAlias.Local | singular}}IDs: &model.{{$relAlias.Local | singular}}IDs,
+            {{$relAlias.Local | singular}}IDs: slice.Pointer(model.{{$relAlias.Local | singular}}IDs),
         {{end -}}{{- /* range relationships */ -}}
     }
 }
@@ -126,4 +126,6 @@ func {{$alias.DownSingular}}QueryOrderByToModel(toModel *api.{{$alias.UpSingular
 	}
 }
 
-var _ types.Types // Init blank variable since types is imported automatically with boiler
+// Force package dependencies 
+var _ types.Types 			// Init blank variable since types is imported automatically with boiler
+var _ = slice.Pointer[any] // Init blank variable since slice is imported automatically with boiler

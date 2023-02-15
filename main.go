@@ -80,6 +80,7 @@ type config struct {
 			Audit    string `conf:"help:name of the audit package which should be used in generation, default:meitner/pkg/audit"`
 			Database string `conf:"help:name of the database package which should be used in generation, default:meitner/pkg/database"`
 			Errors   string `conf:"help:name of the errors package which should be used in generation, default:meitner/pkg/errors"`
+			Slice    string `conf:"help:name of the slice package which should be used in generation, defualt:meitner/pkg/slice"`
 			Types    string `conf:"help:name of the types package which should be used in generation, default:meitner/pkg/types"`
 		}
 	}
@@ -195,7 +196,7 @@ func generate(cfg config) error {
 			"repository": boilerconfig.Repository(repositoryDir, pkgServiceModel, cfg.Go.Packages.Types, cfg.Stubs, cfg.Layer),
 			"model":      boilerconfig.Model(serviceModelDir, cfg.Go.Packages.Types, cfg.Go.Packages.Errors),
 			"definition": boilerconfig.Definition(definitionDir, serviceName, cfg.Stubs, cfg.Layer),
-			"conversion": boilerconfig.Conversion(conversionDir, pkgServiceModel, cfg.Go.Packages.API),
+			"conversion": boilerconfig.Conversion(conversionDir, pkgServiceModel, cfg.Go.Packages.API, cfg.Go.Packages.Slice),
 		}
 
 		for generationName, generationConfig := range generationToConfig {

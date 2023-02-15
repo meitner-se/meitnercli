@@ -7,7 +7,7 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/importers"
 )
 
-func Conversion(outFolder, pkgServiceModel, pkgAPI string) Wrapper {
+func Conversion(outFolder, pkgServiceModel, pkgAPI, pkgSlice string) Wrapper {
 	return func(cfg *boilingcore.Config) {
 		cfg.PkgName = "conversion"
 		cfg.OutFolder = outFolder
@@ -19,6 +19,7 @@ func Conversion(outFolder, pkgServiceModel, pkgAPI string) Wrapper {
 		cfg.Imports.All.ThirdParty = importers.List{
 			formatPkgImportWithAlias(pkgServiceModel, "model"),
 			formatPkgImportWithAlias(pkgAPI, "api"),
+			formatPkgImportWithAlias(pkgSlice, "slice"),
 		}
 		cfg.DefaultTemplates = templates.Conversion
 	}
