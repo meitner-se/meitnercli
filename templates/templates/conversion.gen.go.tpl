@@ -1,11 +1,11 @@
 {{- $alias := .Aliases.Table .Table.Name -}}
 
-func {{$alias.UpSingular}}FromModels(models []*model.{{$alias.UpSingular}}) []api.{{$alias.UpSingular}} {
+func {{$alias.UpSingular}}FromModels(models []*model.{{$alias.UpSingular}}) *[]api.{{$alias.UpSingular}} {
 	fromModels := make([]api.{{$alias.UpSingular}}, len(models))
 	for i := range models {
 		fromModels[i] = {{$alias.UpSingular}}FromModel(models[i])
 	}
-	return fromModels
+	return &fromModels
 }
 
 func {{$alias.UpSingular}}FromModel(model *model.{{$alias.UpSingular}}) api.{{$alias.UpSingular}} {
@@ -16,7 +16,7 @@ func {{$alias.UpSingular}}FromModel(model *model.{{$alias.UpSingular}}) api.{{$a
         {{- end}}
         {{range $rel := get_load_relations $.Tables .Table -}}
             {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-            {{$relAlias.Local | singular}}IDs: model.{{$relAlias.Local | singular}}IDs,
+            {{$relAlias.Local | singular}}IDs: &model.{{$relAlias.Local | singular}}IDs,
         {{end -}}{{- /* range relationships */ -}}
     }
 }
