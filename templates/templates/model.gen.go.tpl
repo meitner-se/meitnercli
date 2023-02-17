@@ -94,6 +94,17 @@ func {{$alias.UpSingular}}Columns() []string {
     }
 }
 
+func {{$alias.UpSingular}}RequiredColumns() []string {
+    return []string{
+    {{- range $column := .Table.Columns -}}
+    {{- if not $column.Nullable}}
+        {{- $colAlias := $alias.Column $column.Name -}}
+            {{$alias.UpSingular}}Column{{$colAlias}},
+        {{end}}
+    {{end -}}
+    }
+}
+
 // {{$alias.UpSingular}}FromStringsConversionFunc is a type definition for a conversion function that helps to convert a slice of strings into a {{$alias.UpSingular}}-struct.
 //
 // Is used as an input argument for the generated function: "{{$alias.UpSingular}}FromStrings" (which converts the default fields), but the conversion func should be used to convert the custom values.
