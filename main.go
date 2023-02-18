@@ -85,6 +85,7 @@ type config struct {
 			Logger   string `conf:"help:name of the logger package which should be used in generation, default:meitner/pkg/logger"`
 			Slice    string `conf:"help:name of the slice package which should be used in generation, defualt:meitner/pkg/slice"`
 			Types    string `conf:"help:name of the types package which should be used in generation, default:meitner/pkg/types"`
+			Valid    string `conf:"help:name of the valid package which should be used to add validations in generation, default:meitner/pkg/valid"`
 		}
 	}
 	OtoSkipBackend     bool `conf:"help:skip backend oto templates, default:false" yaml:"oto_skip_backend_only"`
@@ -196,7 +197,7 @@ func generate(cfg config) error {
 			"orm":        boilerconfig.ORM(ormDir, pkgServiceModel, cfg.Go.Packages.Audit),
 			"boiler":     boilerconfig.Boiler(repoDir, pkgORM, pkgServiceModel, pkgRepository, cfg.Go.Packages.Errors, cfg.Go.Packages.Audit, cfg.Go.Packages.Database, cfg.Go.Packages.Logger, cfg.Go.Packages.Types, cfg.Stubs, cfg.Layer),
 			"repository": boilerconfig.Repository(repositoryDir, pkgServiceModel, cfg.Go.Packages.Types, cfg.Stubs, cfg.Layer),
-			"model":      boilerconfig.Model(serviceModelDir, cfg.Go.Packages.Types, cfg.Go.Packages.Errors),
+			"model":      boilerconfig.Model(serviceModelDir, cfg.Go.Packages.Types, cfg.Go.Packages.Errors, cfg.Go.Packages.Valid),
 			"definition": boilerconfig.Definition(definitionDir, serviceName, cfg.Stubs, cfg.Layer),
 			"conversion": boilerconfig.Conversion(conversionDir, pkgServiceModel, cfg.Go.Packages.API, cfg.Go.Packages.Slice),
 		}

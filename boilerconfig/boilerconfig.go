@@ -110,10 +110,13 @@ func GetConfig(driverName, configFile, serviceName, typesPackage string) (*boili
 		},
 		Version: sqlBoilerVersion,
 		CustomTemplateFuncs: template.FuncMap{
-			"get_join_relations": getJoinRelations,
-			"get_load_relations": getLoadRelations,
-			"get_service_name":   func() string { return serviceName },
-			"strip_prefix":       strings.TrimPrefix,
+			"get_join_relations":   getJoinRelations,
+			"get_load_relations":   getLoadRelations,
+			"get_service_name":     func() string { return serviceName },
+			"strip_prefix":         strings.TrimPrefix,
+			"col_is_email_address": func(c drivers.Column) bool { return strings.Contains(c.Comment, "email_address") },
+			"col_is_phone_number":  func(c drivers.Column) bool { return strings.Contains(c.Comment, "phone_number") },
+			"col_is_url":           func(c drivers.Column) bool { return strings.Contains(c.Comment, "url") },
 		},
 	}
 
