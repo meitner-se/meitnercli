@@ -7,7 +7,7 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/importers"
 )
 
-func Boiler(outFolder, pkgORM, pkgServiceModel, pkgErrors, pkgAudit, pkgDatabase string, withStub bool, stubLayer string) Wrapper {
+func Boiler(outFolder, pkgORM, pkgServiceModel, pkgRepository, pkgErrors, pkgAudit, pkgDatabase, pkgLogger, pkgTypes string, withStub bool, stubLayer string) Wrapper {
 	return func(cfg *boilingcore.Config) {
 		cfg.PkgName = "boiler"
 		cfg.OutFolder = outFolder
@@ -30,12 +30,16 @@ func Boiler(outFolder, pkgORM, pkgServiceModel, pkgErrors, pkgAudit, pkgDatabase
 			singletonImports := importers.Map{
 				"boiler": importers.Set{
 					Standard: importers.List{
+						formatPkgImport("context"),
 						formatPkgImport("database/sql"),
-						formatPkgImport("os"),
 						formatPkgImport("embed"),
 					},
 					ThirdParty: importers.List{
+						formatPkgImportWithAlias(pkgRepository, "repository"),
 						formatPkgImportWithAlias(pkgAudit, "audit"),
+						formatPkgImportWithAlias(pkgDatabase, "database"),
+						formatPkgImportWithAlias(pkgLogger, "logger"),
+						formatPkgImportWithAlias(pkgTypes, "types"),
 						formatPkgImport("github.com/pressly/goose/v3"),
 					},
 				},

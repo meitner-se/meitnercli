@@ -288,20 +288,22 @@ type {{$alias.UpSingular}}QueryParamsLikeFieldsRequest struct {
 }
 
 type {{$alias.UpSingular}}QueryJoinRequest struct {
-	{{- range $rel := .Table.ToManyRelationships -}}
+	{{ range $rel := get_join_relations $.Tables .Table -}}
+        {{- $ftable := $.Aliases.Table .ForeignTable -}}
 		{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName }}
         // optional: true
 		{{ $relAlias.Local | singular }} *{{$alias.UpSingular}}QueryJoin{{ $relAlias.Local | singular }}Request
 	{{- end }}{{- /* range relationships */ -}}
 }
 
-{{ range $rel := .Table.ToManyRelationships -}}
+{{ range $rel := get_join_relations $.Tables .Table -}}
+    {{- $ftable := $.Aliases.Table .ForeignTable -}}
 	{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
     type {{$alias.UpSingular}}QueryJoin{{ $relAlias.Local | singular }}Request struct {
             // Params for the query
             //
             // optional: true
-            Params *{{ $relAlias.Local | singular }}QueryParamsRequest
+            Params *{{$ftable.UpSingular}}QueryParamsRequest
 
             // OrCondition is used to define if the condition should use AND or OR between the params
             //

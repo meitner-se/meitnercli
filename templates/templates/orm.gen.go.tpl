@@ -130,7 +130,8 @@ func (o *{{$alias.UpSingular}}) DeleteDefined({{if .NoContext}}exec boil.Executo
     return nil
 }
 
-{{ range $rel := .Table.ToManyRelationships -}}
+{{ range $rel := get_load_relations $.Tables .Table -}}
+{{- $ftable := $.Aliases.Table .ForeignTable -}}
 {{ $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
 func (o *{{$alias.UpSingular}}) Get{{ $relAlias.Local | singular }}IDs(load bool) []types.UUID {
     if o.R == nil || o.R.{{ $relAlias.Local | plural }} == nil {
@@ -157,9 +158,9 @@ func (o *{{$alias.UpSingular}}) Set{{ $relAlias.Local | singular }}IDs(ids []typ
 		o.R = &{{$alias.DownSingular}}R{}
 	}
 
-	o.R.{{ $relAlias.Local | plural }} =  make({{ $relAlias.Local | singular }}Slice, len(ids))
+	o.R.{{ $relAlias.Local | plural }} =  make({{$ftable.UpSingular}}Slice, len(ids))
 	for i := range ids {
-        o.R.{{ $relAlias.Local | plural }}[i] = &{{ $relAlias.Local | singular }}{
+        o.R.{{ $relAlias.Local | plural }}[i] = &{{$ftable.UpSingular}}{
             ID: ids[i],
         }
 	}
@@ -181,7 +182,7 @@ func Get{{$alias.UpSingular}}({{if $.NoContext}}exec boil.Executor{{else}}ctx co
         return nil, err
     }
     
-    return {{$alias.UpSingular}}ToModel({{$alias.DownSingular}}{{- range $rel := get_load_relations $.Tables .Table -}}, false {{ end }}), nil
+    return {{$alias.UpSingular}}ToModel({{$alias.DownSingular}}{{- range get_load_relations $.Tables .Table -}}, true {{ end }}), nil
 }
 
 {{- range $column := .Table.Columns -}}
@@ -193,7 +194,7 @@ func Get{{$alias.UpSingular}}({{if $.NoContext}}exec boil.Executor{{else}}ctx co
                     return nil, err
                 }
                 
-                return {{$alias.UpSingular}}ToModel({{$alias.DownSingular}}{{range .Table.ToManyRelationships -}}, false {{ end }}), nil
+                return {{$alias.UpSingular}}ToModel({{$alias.DownSingular}}{{- range get_load_relations $.Tables .Table -}}, true {{ end }}), nil
         }
     {{ end }}
 {{end -}}
@@ -242,7 +243,7 @@ func List{{$alias.UpPlural}}By{{ titleCase $fKey.Column }}({{if $.NoContext}}exe
 		return nil, err
 	}
     
-    return {{$alias.UpSingular}}ToModels({{$alias.DownPlural}}), nil
+    return {{$alias.UpSingular}}ToModels({{$alias.DownPlural}}{{- range get_load_relations $.Tables $.Table -}}, true {{ end }}), nil
 }
 {{ end }}
 
@@ -581,7 +582,8 @@ func getQueryModsFrom{{$alias.UpSingular}}QueryJoin(q *model.{{$alias.UpSingular
     }
 
     query := []qm.QueryMod{}
-    {{ range $rel := .Table.ToManyRelationships -}}
+    {{ range $rel := get_join_relations $.Tables .Table -}}
+        {{- $ftable := $.Aliases.Table .ForeignTable -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         if q.{{ $relAlias.Local | singular }} != nil {
             query{{ $relAlias.Local | singular }}WrapperFunc := func(queryMod qm.QueryMod) qm.QueryMod {
@@ -592,7 +594,7 @@ func getQueryModsFrom{{$alias.UpSingular}}QueryJoin(q *model.{{$alias.UpSingular
             }
 
             query = append(query, qm.InnerJoin("{{ $rel.ForeignTable }} ON {{ $rel.ForeignTable }}.{{ $rel.ForeignColumn }} = {{ $rel.Table }}.id"))
-            query = append(query, getQueryModsFrom{{ $relAlias.Local | singular }}QueryParams(q.{{ $relAlias.Local | singular }}.Params, query{{ $relAlias.Local | singular }}WrapperFunc)...)
+            query = append(query, getQueryModsFrom{{$ftable.UpSingular}}QueryParams(q.{{ $relAlias.Local | singular }}.Params, query{{ $relAlias.Local | singular }}WrapperFunc)...)
         }
     {{ end }}{{- /* range relationships */ -}}
     

@@ -92,14 +92,15 @@ func {{$alias.DownSingular}}QueryJoinToModel(toModel *api.{{$alias.UpSingular}}Q
 		return nil
 	}
 	return &model.{{$alias.UpSingular}}QueryJoin{
-		{{ range $rel := .Table.ToManyRelationships }}
+		{{ range $rel := get_join_relations $.Tables .Table -}}
 			{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
 			{{ $relAlias.Local | singular }}: {{$alias.DownSingular}}QueryJoin{{ $relAlias.Local | singular }}ToModel(toModel.{{ $relAlias.Local | singular }}),
 		{{ end -}}{{- /* range relationships */ -}}
 	}
 }
 
-{{ range $rel := .Table.ToManyRelationships }}
+{{ range $rel := get_join_relations $.Tables .Table -}}
+    {{- $ftable := $.Aliases.Table .ForeignTable -}}
 	{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
 	func {{$alias.DownSingular}}QueryJoin{{ $relAlias.Local | singular }}ToModel(toModel *api.{{$alias.UpSingular}}QueryJoin{{ $relAlias.Local | singular }}Request) *model.{{$alias.UpSingular}}QueryJoin{{ $relAlias.Local | singular }} {
 		if nil == toModel {
@@ -107,7 +108,7 @@ func {{$alias.DownSingular}}QueryJoinToModel(toModel *api.{{$alias.UpSingular}}Q
 		}
 
 		return &model.{{$alias.UpSingular}}QueryJoin{{ $relAlias.Local | singular }}{
-			Params: {{ $relAlias.Local | singular | camelCase }}QueryParamsToModel(toModel.Params),
+			Params: {{ $ftable.DownSingular }}QueryParamsToModel(toModel.Params),
 			OrCondition: toModel.OrCondition,
 		}
 	}

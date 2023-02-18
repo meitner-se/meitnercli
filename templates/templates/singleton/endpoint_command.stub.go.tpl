@@ -1,10 +1,6 @@
-// THIS IS A STUB: discard the disclaimer at the top of the file, stubs should be edited.
-//
-// TODO: Replace ".stub" with ".def" in the filename and delete the comments above, included the top disclaimer.
-
 type commandService interface {
-{{ range $table := .Tables}}
-    {{ if and (not $table.IsView) (not $table.IsJoinTable) -}}
+{{- range $table := .Tables -}}
+    {{- if and (not $table.IsView) (not $table.IsJoinTable) -}}
         {{- $alias := $.Aliases.Table $table.Name -}}
         {{- $colDefs := sqlColDefinitions $table.Columns $table.PKey.Columns -}}
         {{- $pkNames := $colDefs.Names | stringMap (aliasCols $alias) | stringMap $.StringFuncs.camelCase | stringMap $.StringFuncs.replaceReserved -}}
@@ -51,7 +47,7 @@ func (c *command) Create{{$alias.UpSingular}}(ctx context.Context, r api.{{$alia
         {{- end -}}
 
         {{ end }}
-        {{- range $rel := get_load_relations $.Tables .Table -}}
+        {{- range $rel := get_load_relations $.Tables $table -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
             {{ $relAlias.Local | singular }}IDs: r.{{ $relAlias.Local | singular }}IDs,
         {{end -}}{{- /* range relationships */ -}}
@@ -83,9 +79,9 @@ func (c *command) Update{{$alias.UpSingular}}(ctx context.Context, r api.{{$alia
                 {{ $colAlias }}: r.{{ $colAlias }},
             {{- end -}}
         {{- end -}}
-
         {{ end }}
-        {{ range $rel := $table.ToManyRelationships -}}
+
+        {{- range $rel := get_load_relations $.Tables $table -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
             {{ $relAlias.Local | singular }}IDs: r.{{ $relAlias.Local | singular }}IDs,
         {{end -}}{{- /* range relationships */ -}}

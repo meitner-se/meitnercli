@@ -1,7 +1,3 @@
-// THIS IS A STUB: discard the disclaimer at the top of the file, stubs should be edited.
-//
-// TODO: Remove ".stub" from the filename and delete the comments above, included the top disclaimer.
-
 {{- if .Table.IsView -}}
 {{- else -}}
 {{- $alias := .Aliases.Table .Table.Name -}}

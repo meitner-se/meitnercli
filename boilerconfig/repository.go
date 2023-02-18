@@ -22,6 +22,14 @@ func Repository(outFolder, pkgServiceModel, pkgTypes string, withStub bool, stub
 		cfg.DefaultTemplates = templates.Repository
 
 		if (withStub || stubLayer != "") && (stubLayer == "" || stubLayer == "repository") {
+			singletonImports := importers.Map{
+				"repository": importers.Set{
+					Standard: importers.List{
+						formatPkgImport("context"),
+					},
+				},
+			}
+			cfg.Imports.Singleton = singletonImports
 			cfg.DefaultTemplates = templates.RepositoryWithStub
 		}
 	}

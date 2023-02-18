@@ -630,17 +630,18 @@ type {{$alias.UpSingular}}QueryParamsLikeFields struct {
 }
 
 type {{$alias.UpSingular}}QueryJoin struct {
-    {{- range $rel := .Table.ToManyRelationships -}}
+    {{- range $rel := get_join_relations $.Tables .Table -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName }}
         {{ $relAlias.Local | singular }} *{{$alias.UpSingular}}QueryJoin{{ $relAlias.Local | singular }}
     {{- end }}{{- /* range relationships */ -}}
 }
 
-{{ range $rel := .Table.ToManyRelationships -}}
+{{ range $rel := get_join_relations $.Tables .Table -}}
+    {{- $ftable := $.Aliases.Table .ForeignTable -}}
     {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
     type {{$alias.UpSingular}}QueryJoin{{ $relAlias.Local | singular }} struct {
             // Params for the query
-            Params {{ $relAlias.Local | singular }}QueryParams
+            Params {{$ftable.UpSingular}}QueryParams
 
             // OrCondition is used to define if the condition should use AND or OR between the params
             //

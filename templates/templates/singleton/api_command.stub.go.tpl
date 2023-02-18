@@ -1,10 +1,6 @@
-// THIS IS A STUB: discard the disclaimer at the top of the file, stubs should be edited.
-//
-// TODO: Replace ".stub" with ".def" in the filename and delete the comments above, included the top disclaimer.
-
 // _command_{{ titleCase .PkgName }}Service is the API to perform state changes of the {{ titleCase .PkgName }}Service
 type _command_{{ titleCase .PkgName }}Service interface {
-{{range $table := .Tables}}
+{{- range $table := .Tables}}
     {{ if and (not $table.IsView) (not $table.IsJoinTable) -}}
         {{- $alias := $.Aliases.Table $table.Name -}}
 
@@ -73,7 +69,7 @@ type _command_{{ titleCase .PkgName }}Service interface {
             {{- end }}
             {{ end }}
 
-            {{- range $rel := get_load_relations $.Tables .Table -}}
+            {{- range $rel := get_load_relations $.Tables $table -}}
                 {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
                 // type: "types.UUID"
                 {{ $relAlias.Local | singular }}IDs []string
@@ -129,7 +125,7 @@ type _command_{{ titleCase .PkgName }}Service interface {
             {{- end }}
             {{ end }}
 
-            {{- range $rel := get_load_relations $.Tables .Table -}}
+            {{- range $rel := get_load_relations $.Tables $table -}}
                 {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
                 // type: "types.UUID"
                 {{ $relAlias.Local | singular }}IDs []string

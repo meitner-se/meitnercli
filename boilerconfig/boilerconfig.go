@@ -63,7 +63,7 @@ func GetState(cfg *boilingcore.Config, dbName, dbUser, dbPassword, dbHost string
 	return state, nil
 }
 
-func GetConfig(driverName, configFile, typesPackage string) (*boilingcore.Config, error) {
+func GetConfig(driverName, configFile, serviceName, typesPackage string) (*boilingcore.Config, error) {
 	err := initConfig(configFile)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot initialize config")
@@ -110,7 +110,9 @@ func GetConfig(driverName, configFile, typesPackage string) (*boilingcore.Config
 		},
 		Version: sqlBoilerVersion,
 		CustomTemplateFuncs: template.FuncMap{
+			"get_join_relations": getJoinRelations,
 			"get_load_relations": getLoadRelations,
+			"get_service_name":   func() string { return serviceName },
 			"strip_prefix":       strings.TrimPrefix,
 		},
 	}
@@ -251,12 +253,50 @@ func getLoadRelations(tables []drivers.Table, fromTable drivers.Table) []drivers
 
 	for _, toManyRelationship := range fromTable.ToManyRelationships {
 		for _, t := range tables {
-			if t.Name != toManyRelationship.JoinTable {
+			if t.Name != toManyRelationship.ForeignTable {
 				continue
 			}
 
-			if !strings.Contains(t.GetColumn(toManyRelationship.JoinForeignColumn).Comment, "load") {
+			if t.Name == toManyRelationship.JoinTable {
+				if !strings.Contains(t.GetColumn(toManyRelationship.JoinForeignColumn).Comment, "load") {
+					continue
+				}
+			}
+
+			if len(t.Columns) == 2 && len(t.PKey.Columns) == 2 {
+				var column drivers.Column
+				for _, c := range t.Columns {
+					if c.Name == toManyRelationship.ForeignColumn {
+						continue
+					}
+
+					column = c
+				}
+
+				if !strings.Contains(column.Comment, "load") {
+					continue
+				}
+			}
+
+			toManyRelationships = append(toManyRelationships, toManyRelationship)
+		}
+	}
+
+	return toManyRelationships
+}
+
+func getJoinRelations(tables []drivers.Table, fromTable drivers.Table) []drivers.ToManyRelationship {
+	var toManyRelationships []drivers.ToManyRelationship
+
+	for _, toManyRelationship := range fromTable.ToManyRelationships {
+		for _, t := range tables {
+			if t.Name != toManyRelationship.ForeignTable {
 				continue
+			}
+
+			// If we have a join table without two foreign keys, ignore
+			if t.IsJoinTable && len(t.FKeys) != 2 {
+				break
 			}
 
 			toManyRelationships = append(toManyRelationships, toManyRelationship)

@@ -1,10 +1,6 @@
-// THIS IS A STUB: discard the disclaimer at the top of the file, stubs should be edited.
-//
-// TODO: Replace ".stub" with ".def" in the filename and delete the comments above, included the top disclaimer.
-
 // _query_{{ titleCase .PkgName }}Service is the API to read states of the {{ titleCase .PkgName }}Service
 type _query_{{ titleCase .PkgName }}Service interface {
-{{ range $table := .Tables}}
+{{- range $table := .Tables}}
     {{ if and (not $table.IsView) (not $table.IsJoinTable) -}}
         {{- $alias := $.Aliases.Table $table.Name -}}
         // Get{{$alias.UpSingular}} gets the {{$alias.UpSingular}}-entity by the given params

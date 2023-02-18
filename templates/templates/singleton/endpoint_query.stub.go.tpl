@@ -1,7 +1,3 @@
-// THIS IS A STUB: discard the disclaimer at the top of the file, stubs should be edited.
-//
-// TODO: Replace ".stub" with ".def" in the filename and delete the comments above, included the top disclaimer.
-
 type queryService interface {
 {{ range $table := .Tables}}
     {{ if and (not $table.IsView) (not $table.IsJoinTable) -}}

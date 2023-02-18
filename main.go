@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
@@ -80,6 +82,7 @@ type config struct {
 			Audit    string `conf:"help:name of the audit package which should be used in generation, default:meitner/pkg/audit"`
 			Database string `conf:"help:name of the database package which should be used in generation, default:meitner/pkg/database"`
 			Errors   string `conf:"help:name of the errors package which should be used in generation, default:meitner/pkg/errors"`
+			Logger   string `conf:"help:name of the logger package which should be used in generation, default:meitner/pkg/logger"`
 			Slice    string `conf:"help:name of the slice package which should be used in generation, defualt:meitner/pkg/slice"`
 			Types    string `conf:"help:name of the types package which should be used in generation, default:meitner/pkg/types"`
 		}
@@ -190,36 +193,45 @@ func generate(cfg config) error {
 		pkgRepository := fmt.Sprintf("%s/%s/repository", cfg.Go.ModuleName, serviceDir)
 
 		generationToConfig := map[string]boilerconfig.Wrapper{
-			"default":    boilerconfig.Default(ormDir),
 			"orm":        boilerconfig.ORM(ormDir, pkgServiceModel, cfg.Go.Packages.Audit),
-			"boiler":     boilerconfig.Boiler(repoDir, pkgORM, pkgServiceModel, cfg.Go.Packages.Errors, cfg.Go.Packages.Audit, cfg.Go.Packages.Database, cfg.Stubs, cfg.Layer),
+			"boiler":     boilerconfig.Boiler(repoDir, pkgORM, pkgServiceModel, pkgRepository, cfg.Go.Packages.Errors, cfg.Go.Packages.Audit, cfg.Go.Packages.Database, cfg.Go.Packages.Logger, cfg.Go.Packages.Types, cfg.Stubs, cfg.Layer),
 			"repository": boilerconfig.Repository(repositoryDir, pkgServiceModel, cfg.Go.Packages.Types, cfg.Stubs, cfg.Layer),
 			"model":      boilerconfig.Model(serviceModelDir, cfg.Go.Packages.Types, cfg.Go.Packages.Errors),
 			"definition": boilerconfig.Definition(definitionDir, serviceName, cfg.Stubs, cfg.Layer),
 			"conversion": boilerconfig.Conversion(conversionDir, pkgServiceModel, cfg.Go.Packages.API, cfg.Go.Packages.Slice),
 		}
 
+		// Run default generation separately, since we dont want to set cross service join tables
+		if err := runGeneration(cfg, configFilePath, serviceName, false, boilerconfig.Default(ormDir)); err != nil {
+			return errors.Wrap(err, "default")
+		}
+
 		for generationName, generationConfig := range generationToConfig {
-			if err := runGeneration(cfg, configFilePath, generationConfig); err != nil {
+			if err := runGeneration(cfg, configFilePath, serviceName, true, generationConfig); err != nil {
 				return errors.Wrap(err, generationName)
 			}
 		}
 
 		if cfg.Stubs || cfg.Layer != "" {
 			if cfg.Layer == "" || cfg.Layer == "service" {
-				err = runGeneration(cfg, configFilePath, boilerconfig.Service(serviceDir, serviceName, pkgRepository, pkgServiceModel))
+				err = runGeneration(cfg, configFilePath, serviceName, true, boilerconfig.Service(serviceDir, serviceName, pkgRepository, pkgServiceModel))
 				if err != nil {
 					return errors.Wrap(err, "service stubs")
 				}
 			}
 
 			if cfg.Layer == "" || cfg.Layer == "endpoint" {
-				err = runGeneration(cfg, configFilePath, boilerconfig.Endpoint(endpointDir, serviceName, pkgServiceModel, pkgConversion, cfg.Go.Packages.API, cfg.Go.Packages.Types))
+				err = runGeneration(cfg, configFilePath, serviceName, true, boilerconfig.Endpoint(endpointDir, serviceName, pkgServiceModel, pkgConversion, cfg.Go.Packages.API, cfg.Go.Packages.Types))
 				if err != nil {
 					return errors.Wrap(err, "endpoint stubs")
 				}
 			}
 		}
+	}
+
+	err = removeDisclaimerFromStubs("./")
+	if err != nil {
+		return err
 	}
 
 	for i, o := range cfg.Oto {
@@ -422,8 +434,8 @@ func runGenerationWithOto(templatePath, definitionPath, outputPath, packageName 
 	return nil
 }
 
-func runGeneration(cfg config, configFilePath string, configWrapper boilerconfig.Wrapper) error {
-	boilerConfig, err := boilerconfig.GetConfig(boilerDriver, configFilePath, cfg.Go.Packages.Types)
+func runGeneration(cfg config, configFilePath, serviceName string, setCrossServiceJoinTable bool, configWrapper boilerconfig.Wrapper) error {
+	boilerConfig, err := boilerconfig.GetConfig(boilerDriver, configFilePath, serviceName, cfg.Go.Packages.Types)
 	if err != nil {
 		return errors.Wrap(err, "cannot get boiler config")
 	}
@@ -433,6 +445,20 @@ func runGeneration(cfg config, configFilePath string, configWrapper boilerconfig
 	boilerState, err := boilerconfig.GetState(boilerConfig, cfg.DB.Name, cfg.DB.User, cfg.DB.Password, cfg.DB.Host, cfg.DB.Port, cfg.DB.SSLMode)
 	if err != nil {
 		return errors.Wrap(err, "cannot get boiler state")
+	}
+
+	if setCrossServiceJoinTable {
+		for i, t := range boilerState.Tables {
+			if t.IsJoinTable {
+				continue
+			}
+
+			if len(t.Columns) != 2 && len(t.PKey.Columns) != 2 {
+				continue
+			}
+
+			boilerState.Tables[i].IsJoinTable = true
+		}
 	}
 
 	err = boilerState.Run()
@@ -515,4 +541,72 @@ func serviceDirectoryFromBoilerConfigPath(boilerConfigPath string) string {
 func serviceNameFromBoilerConfigPath(boilerConfigPath string) string {
 	_, serviceName := filepath.Split(serviceDirectoryFromBoilerConfigPath(boilerConfigPath))
 	return serviceName
+}
+
+func removeDisclaimerFromStubs(rootDir string) error {
+	return filepath.Walk(rootDir, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !strings.Contains(info.Name(), ".stub.") {
+			return nil
+		}
+
+		file, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+
+		defer file.Close()
+
+		newContent := bytes.Buffer{}
+
+		scanner := bufio.NewScanner(file)
+		scannedLines := 0
+		scanner.Split(func(data []byte, atEOF bool) (int, []byte, error) {
+			advance, token, err := bufio.ScanLines(data, atEOF)
+			if err != nil {
+				return 0, nil, err
+			}
+
+			scannedLines++
+
+			if token == nil {
+				return advance, nil, nil
+			}
+
+			switch scannedLines {
+			case 1, 2, 3:
+				return advance, token, nil
+			}
+
+			_, err = newContent.Write(append(token, '\n'))
+			if err != nil {
+				return 0, nil, err
+			}
+
+			return advance, token, nil
+		})
+
+		for scanner.Scan() {
+			// Scan through the file and let the Split-function do the work
+		}
+
+		if err := scanner.Err(); err != nil {
+			return err
+		}
+
+		newFile, err := os.Create(path)
+		if err != nil {
+			return err
+		}
+
+		_, err = newFile.Write(newContent.Bytes())
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
