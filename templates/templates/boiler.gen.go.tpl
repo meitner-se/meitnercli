@@ -19,19 +19,20 @@ func (r *repo) Create{{$alias.UpSingular}}(ctx context.Context, input *model.{{$
 			currentUserID := &uuid.Nil // TODO : Get from context
 		{{- end }}
 		
-		{{- $numberOfPKeys := len .Table.PKey.Columns }}
-		{{ if and (containsAny $colNames "id") (eq $numberOfPKeys 1) }}
-			id, err := uuid.NewRandom()
-			if err != nil {
-				return errors.Wrap(err, "cannot generate uuid")
-			}
-		{{ end }}
-
 		// Make sure to set the values of the auto-columns to the service model pointer, since they might be used by the caller.
 		// The auto-columns for insert are: "ID", "CreatedAt", "UpdatedAt", "CreatedBy", "UpdatedBy"
-		{{ if and (containsAny $colNames "id") (eq $numberOfPKeys 1) -}}
-			input.ID = types.NewUUID(id)
-		{{- end }}
+		{{- $numberOfPKeys := len .Table.PKey.Columns }}
+		{{ if and (containsAny $colNames "id") (eq $numberOfPKeys 1) }}
+			// Generate the ID if it hasn't been set already
+			if !input.ID.IsDefined() {
+				id, err := uuid.NewRandom()
+				if err != nil {
+					return errors.Wrap(err, "cannot generate uuid")
+				}
+
+				input.ID = types.NewUUID(id)
+			}
+		{{ end }}
 
 		{{- range $ind, $col := .Table.Columns -}}
 			{{- $colAlias := $alias.Column $col.Name -}}
