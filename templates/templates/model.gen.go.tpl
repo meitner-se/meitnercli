@@ -52,14 +52,38 @@ func (o {{$alias.UpSingular}}) Validate(isUpdate bool, validateBusinessFunc {{$a
             {{ end }}
             {{ end }}
 
+            {{- if (col_is_color $column) }}
+                if !o.{{$colAlias}}.IsNil() && !valid.Color(o.{{$colAlias}}.String()) {
+                    errFields.InvalidValue(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}}).WithValue(o.{{$colAlias}}))
+                }
+            {{ end }}
+
+            {{- if (col_is_country_code $column) }}
+                if !o.{{$colAlias}}.IsNil() && !valid.CountryCode(o.{{$colAlias}}.String()) {
+                    errFields.InvalidValue(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}}).WithValue(o.{{$colAlias}}))
+                }
+            {{ end }}
+
             {{- if (col_is_email_address $column) }}
                 if !o.{{$colAlias}}.IsNil() && !valid.EmailAddress(o.{{$colAlias}}.String()) {
                     errFields.InvalidValue(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}}).WithValue(o.{{$colAlias}}))
                 }
             {{ end }}
 
+            {{- if (col_is_municipality_code $column) }}
+                if !o.{{$colAlias}}.IsNil() && !valid.MunicipalityCode(o.{{$colAlias}}.String()) {
+                    errFields.InvalidValue(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}}).WithValue(o.{{$colAlias}}))
+                }
+            {{ end }}
+
             {{- if (col_is_phone_number $column) }}
                 if !o.{{$colAlias}}.IsNil() && !valid.PhoneNumber(o.{{$colAlias}}.String()) {
+                    errFields.InvalidValue(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}}).WithValue(o.{{$colAlias}}))
+                }
+            {{ end }}
+
+            {{- if (col_is_time_zone $column) }}
+                if !o.{{$colAlias}}.IsNil() && !valid.TimeZone(o.{{$colAlias}}.String()) {
                     errFields.InvalidValue(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}}).WithValue(o.{{$colAlias}}))
                 }
             {{ end }}
