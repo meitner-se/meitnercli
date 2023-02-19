@@ -48,6 +48,14 @@ func (s *svc) List{{ $alias.UpPlural }}(ctx context.Context, query model.{{ $ali
 
 func (s *svc) validate{{ $alias.UpSingular }}Func(ctx context.Context) model.{{ $alias.UpSingular }}ValidateBusinessFunc {
 	return func({{ $alias.DownSingular }} model.{{ $alias.UpSingular }}, isUpdate bool) error {
+		errFields := errors.NewErrFields()
+
+		// TODO : Add validations
+
+		if errFields.NotEmpty() {
+			return errFields
+		}
+		
 		return nil
 	}
 }

@@ -7,7 +7,7 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/importers"
 )
 
-func Service(outFolder, serviceName, pkgRepository, pkgServiceModel string) Wrapper {
+func Service(outFolder, serviceName, pkgRepository, pkgServiceModel, pkgErrors string) Wrapper {
 	return func(cfg *boilingcore.Config) {
 		singletonImports := importers.Map{
 			"service": importers.Set{
@@ -25,6 +25,7 @@ func Service(outFolder, serviceName, pkgRepository, pkgServiceModel string) Wrap
 		cfg.Imports.Singleton = singletonImports
 		cfg.Imports.All.Standard = nil
 		cfg.Imports.All.ThirdParty = importers.List{
+			formatPkgImportWithAlias(pkgErrors, "errors"),
 			formatPkgImportWithAlias(pkgServiceModel, "model"),
 		}
 		cfg.DefaultTemplates = templates.ServiceStub

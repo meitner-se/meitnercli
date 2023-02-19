@@ -215,7 +215,7 @@ func generate(cfg config) error {
 
 		if cfg.Stubs || cfg.Layer != "" {
 			if cfg.Layer == "" || cfg.Layer == "service" {
-				err = runGeneration(cfg, configFilePath, serviceName, true, boilerconfig.Service(serviceDir, serviceName, pkgRepository, pkgServiceModel))
+				err = runGeneration(cfg, configFilePath, serviceName, true, boilerconfig.Service(serviceDir, serviceName, pkgRepository, pkgServiceModel, cfg.Go.Packages.Errors))
 				if err != nil {
 					return errors.Wrap(err, "service stubs")
 				}
