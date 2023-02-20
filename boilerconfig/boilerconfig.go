@@ -215,12 +215,12 @@ func getBoilerTypeReplacements(typesPackage string) []boilingcore.TypeReplace {
 	// since enums are generated as Type.string and a custom DBType which we do not know of.
 	boilerTypeReplacements := []boilingcore.TypeReplace{
 		{
-			Match:   drivers.Column{Type: "string", Nullable: true},
+			Match:   drivers.Column{Type: "string", Nullable: false},
 			Replace: drivers.Column{Type: "types.String"},
 			Imports: importers.Set{ThirdParty: importers.List{formatPkgImportWithAlias(typesPackage, "types")}},
 		},
 		{
-			Match:   drivers.Column{Type: "string", Nullable: false},
+			Match:   drivers.Column{Type: "null.String", Nullable: true},
 			Replace: drivers.Column{Type: "types.String"},
 			Imports: importers.Set{ThirdParty: importers.List{formatPkgImportWithAlias(typesPackage, "types")}},
 		},
