@@ -36,17 +36,17 @@ type _command_{{ titleCase .PkgName }}Service interface {
 
             {{- if not (containsAny $pkNames $colAlias ) -}}
 
-            {{ range $column.Comment | splitLines }} // {{ . }} {{ end -}}
-            {{ if .Nullable }} // nullable: true {{ end -}}
+            {{- range $column.Comment | splitLines }} // {{ . }} {{ end -}}
+            {{- if .Nullable -}} // nullable: true {{- end -}}
 
-            {{ if (isEnumDBType .DBType) -}}
+            {{- if (isEnumDBType .DBType) }}
                 // options: [{{- parseEnumVals $column.DBType | stringMap $.StringFuncs.quoteWrap | join ", " -}}]
                 // type: "types.String"
                 {{$colAlias}} {{ if $column.Nullable }}*{{ end }}string
             {{ else }}
                 // type: "{{$column.Type}}"
                 {{$colAlias}} 
-            
+
                 {{- $stringTypes := "types.String, types.UUID, types.Timestamp, types.Time, types.Date" -}}
                 {{- if contains $column.Type $stringTypes -}}
                     {{" "}}{{ if $column.Nullable }}*{{ end }}string
@@ -63,17 +63,17 @@ type _command_{{ titleCase .PkgName }}Service interface {
                 {{- if contains "JSON" $column.Type -}}
                     {{" "}}{{ if $column.Nullable }}*{{ end }}interface{}
                 {{end -}}
-            
+
             {{- end }}
             {{- end }}
             {{- end }}
             {{ end }}
 
-            {{- range $rel := get_load_relations $.Tables $table -}}
+            {{- range $rel := get_load_relations $.Tables $table }}
                 {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
                 // type: "types.UUID"
                 {{ $relAlias.Local | singular }}IDs []string
-            {{end -}}{{- /* range relationships */ -}}
+            {{end }}
         }
 
         // {{$alias.UpSingular}}CreateResponse is the output object for creating a new {{$alias.UpSingular}}-entity

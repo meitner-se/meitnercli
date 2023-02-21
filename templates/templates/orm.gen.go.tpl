@@ -33,7 +33,7 @@ func (o *{{$alias.UpSingular}}) InsertDefined({{if .NoContext}}exec boil.Executo
     {{- range $rel := get_load_relations $.Tables .Table -}}
     {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         if o.R.{{$relAlias.Local | plural }} != nil {
-            auditLogValues = append(auditLogValues, audit.NewLogValue(model.{{$alias.UpSingular}}Column{{$relAlias.Local | singular}}IDs, "UUID", o.Get{{$relAlias.Local | singular}}IDs(true), nil))
+            auditLogValues = append(auditLogValues, audit.NewLogValue(model.{{$alias.UpSingular}}Column{{$relAlias.Local | singular}}IDs, "UUID", o.Get{{ get_load_relation_name $.Aliases $rel }}(true), nil))
             err := o.Add{{$relAlias.Local | plural}}(ctx, exec, false, o.R.{{$relAlias.Local | plural }}...)
             if err != nil {
                 return err
@@ -129,24 +129,26 @@ func (o *{{$alias.UpSingular}}) DeleteDefined({{if .NoContext}}exec boil.Executo
 {{ range $rel := get_load_relations $.Tables .Table -}}
 {{- $ftable := $.Aliases.Table .ForeignTable -}}
 {{ $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-func (o *{{$alias.UpSingular}}) Get{{ $relAlias.Local | singular }}IDs(load bool) []types.UUID {
+{{ $loadCol := get_load_relation_column $.Aliases $.Tables $rel }}
+{{ $loadType := get_load_relation_type $.Aliases $.Tables $rel "model." }}
+func (o *{{$alias.UpSingular}}) Get{{ get_load_relation_name $.Aliases $rel }}(load bool) []{{ $loadType }} {
     if o.R == nil || o.R.{{ $relAlias.Local | plural }} == nil {
         if load {
-            return []types.UUID{}
+            return []{{ $loadType }}{}
         }
 		return nil
 	}
 
-	ids := make([]types.UUID, len(o.R.{{ $relAlias.Local | plural }}))
+	{{ $relAlias.Local | plural | camelCase }} := make([]{{ $loadType }}, len(o.R.{{ $relAlias.Local | plural }}))
 	for i := range o.R.{{ $relAlias.Local | plural }} {
-		ids[i] = o.R.{{ $relAlias.Local | plural }}[i].ID
+		{{ $relAlias.Local | plural | camelCase }}[i] = o.R.{{ $relAlias.Local | plural }}[i].{{ $rel.ForeignColumn | titleCase }}
 	}
 
-	return ids
+	return {{ $relAlias.Local | plural | camelCase }}
 }
 
-func (o *{{$alias.UpSingular}}) Set{{ $relAlias.Local | singular }}IDs(ids []types.UUID) {
-    if ids == nil {
+func (o *{{$alias.UpSingular}}) Set{{ get_load_relation_name $.Aliases $rel }}({{ $relAlias.Local | plural | camelCase }} []{{ $loadType }}) {
+    if {{ $relAlias.Local | plural | camelCase }} == nil {
         return
     }
 
@@ -154,10 +156,10 @@ func (o *{{$alias.UpSingular}}) Set{{ $relAlias.Local | singular }}IDs(ids []typ
 		o.R = &{{$alias.DownSingular}}R{}
 	}
 
-	o.R.{{ $relAlias.Local | plural }} =  make({{$ftable.UpSingular}}Slice, len(ids))
-	for i := range ids {
+	o.R.{{ $relAlias.Local | plural }} =  make({{$ftable.UpSingular}}Slice, len({{ $relAlias.Local | plural | camelCase }}))
+	for i := range {{ $relAlias.Local | plural | camelCase }} {
         o.R.{{ $relAlias.Local | plural }}[i] = &{{$ftable.UpSingular}}{
-            ID: ids[i],
+            {{ $rel.ForeignColumn | titleCase }}: {{ $relAlias.Local | plural | camelCase }}[i],
         }
 	}
 }
@@ -252,7 +254,7 @@ func {{$alias.UpSingular}}FromModel(model *model.{{$alias.UpSingular}}) *{{$alia
     }
     {{ range $rel := get_load_relations $.Tables .Table -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-        {{$alias.DownSingular}}.Set{{$relAlias.Local | singular}}IDs(model.{{$relAlias.Local | singular}}IDs)
+        {{$alias.DownSingular}}.Set{{ get_load_relation_name $.Aliases $rel }}(model.{{ get_load_relation_name $.Aliases $rel }})
     {{end -}}{{- /* range relationships */ -}}
     return  {{$alias.DownSingular}}
 }
@@ -265,7 +267,7 @@ func {{$alias.UpSingular}}ToModel(toModel *{{$alias.UpSingular}}{{ range $rel :=
         {{- end}}
         {{ range $rel := get_load_relations $.Tables .Table -}}
             {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-            {{$relAlias.Local | singular}}IDs: toModel.Get{{$relAlias.Local | singular}}IDs(load{{$relAlias.Local | singular}}),
+            {{ get_load_relation_name $.Aliases $rel }}: toModel.Get{{ get_load_relation_name $.Aliases $rel }}(load{{$relAlias.Local | singular}}),
         {{end -}}{{- /* range relationships */ -}}
     }
 }

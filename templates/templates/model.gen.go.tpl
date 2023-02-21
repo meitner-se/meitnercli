@@ -11,8 +11,7 @@ type {{$alias.UpSingular}} struct {
     {{end -}}
 
     {{- range $rel := get_load_relations $.Tables .Table -}}
-        {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-        {{ $relAlias.Local | singular }}IDs []types.UUID
+        {{ get_load_relation_name $.Aliases $rel }} []{{ get_load_relation_type $.Aliases $.Tables $rel "" }}
     {{end -}}{{- /* range relationships */ -}}
 }
 
@@ -293,8 +292,6 @@ func {{$alias.UpPlural}}ToStrings({{$alias.DownPlural}} []*{{$alias.UpSingular}}
     return conversionFunc(fields, rows)
 }
 
-// {{.Table.Columns | filterColumnsByEnum }}
-
 {{$once := onceNew}}
 {{$onceNull := onceNew}}
     {{- range $col := .Table.Columns | filterColumnsByEnum -}}
@@ -337,6 +334,116 @@ func {{$alias.UpPlural}}ToStrings({{$alias.DownPlural}} []*{{$alias.UpSingular}}
                     {{end }}
                     
                     func {{$enumName}}FromString(s types.String) {{$enumType}} { return {{$enumType}}{String: s} }
+
+                    {{range $val := $vals -}}
+                        {{- $enumValue := titleCase $val -}}
+                        func (e {{$enumName}}) Is{{ $val }}() bool { return e.String.String() == {{printf "%q" $val}} }
+                    {{end -}}
+
+                {{- end -}}
+
+                {{if $.AddEnumTypes}}
+                    {{ if $enumFirstIter }}
+                        func (e {{$enumName}}) IsValid() bool {
+                            {{- /* $first is being used to add a comma to all enumValues, but the first one.*/ -}}
+                            {{- $first := true -}}
+                            {{- /* $enumValues will contain a comma separated string holding all enum consts */ -}}
+                            {{- $enumValues := "" -}}
+                            {{ range $val := $vals -}}
+                                {{- if $first -}}
+                                    {{- $first = false -}}
+                                {{- else -}}
+                                    {{- $enumValues = printf "%s%s" $enumValues ", " -}}
+                                {{- end -}}
+
+                                {{- $enumValue := titleCase $val -}}
+                                {{- $enumValues = printf "%s%s%s()" $enumValues $enumName $enumValue -}}
+                            {{- end}}
+                            {{- if $col.Nullable }}
+                                if e.IsNil() {
+                                    return true // This is a nullable enum
+                                }
+                            {{end}}
+                            switch e {
+                            case {{$enumValues}}:
+                                return true
+                            default:
+                                return false
+                            }
+                        }
+                    {{- end -}}
+                {{end -}}
+            {{else}}
+                // Enum values for {{.Table.Name}} {{$col.Name}} are not proper Go identifiers, cannot emit constants
+            {{- end -}}
+            {{/* Save column type name after generation.
+             Needs to be at the bottom because we check for the first iteration
+             inside the .Table.Columns loop. */}}
+            {{- if $isNamed -}}
+                {{- if $col.Nullable -}}
+                    {{$_ := $onceNull.Put $name}}
+                {{- else -}}
+                    {{$_ := $once.Put $name}}
+                {{- end -}}
+            {{- end -}}
+        {{- end -}}
+    {{- end }}
+    {{- range $col := get_load_relations_enum_columns $.Tables .Table -}}
+        {{- $name := parseEnumName $col.DBType -}}
+        {{- $vals := parseEnumVals $col.DBType -}}
+        {{- $isNamed := ne (len $name) 0}}
+        {{- $enumName := "" -}}
+        {{- if not (and
+            $isNamed
+            (and
+                ($once.Has $name)
+                ($onceNull.Has $name)
+            )
+        ) -}}
+            {{- if gt (len $vals) 0}}
+                {{- if $isNamed -}}
+                    {{ $enumName = titleCase $name}}
+                {{- else -}}
+                    {{ $enumName = printf "%s%s" (titleCase .Table.Name) (titleCase $col.Name)}}
+                {{- end -}}
+                {{/* First iteration for enum type $name (nullable or not) */}}
+                {{- $enumFirstIter := and
+                    (not ($once.Has $name))
+                    (not ($onceNull.Has $name))
+                -}}
+
+                {{- if $enumFirstIter -}}
+                    {{$enumType := "string" }}
+                    {{$allvals := "\n"}}
+
+                    {{if $.AddEnumTypes}}
+                        {{- $enumType = $enumName -}}
+                        type {{$enumName}} struct { types.String }
+                    {{end}}
+
+                    // Enum values for {{$enumName}}
+                    {{range $val := $vals -}}
+                        {{- $enumValue := titleCase $val -}}
+                        func {{$enumName}}{{$enumValue}}() {{$enumType}} { return {{$enumType}}{types.NewString({{printf "%q" $val}})} }
+                    {{end }}
+                    
+                    func {{$enumName}}FromString(s types.String) {{$enumType}} { return {{$enumType}}{String: s} }
+
+                    func {{$enumName}}FromStrings(strings []types.String) []{{$enumName}} {
+                        enums := make([]{{$enumName}}, len(strings))
+                        for i := range strings {
+                            enums[i] = {{$enumName}}{strings[i]}
+                        }
+                        return enums
+                    }
+
+                    func {{$enumName}}ToStrings(enums []{{$enumName}}) []types.String {
+                        strings := make([]types.String, len(enums))
+                        for i := range enums {
+                            strings[i] = enums[i].String
+                        }
+                        return strings
+                    }
 
                     {{range $val := $vals -}}
                         {{- $enumValue := titleCase $val -}}
