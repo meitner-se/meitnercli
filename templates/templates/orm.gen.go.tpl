@@ -581,8 +581,11 @@ func getQueryModsFrom{{$alias.UpSingular}}QueryJoin(q *model.{{$alias.UpSingular
 
     query := []qm.QueryMod{}
     {{ range $rel := get_join_relations $.Tables .Table -}}
+        {{- $schemaForeignTable := $rel.ForeignTable | $.SchemaTable -}}
+        {{- $ltable := $.Aliases.Table $rel.Table -}}
         {{- $ftable := $.Aliases.Table .ForeignTable -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+        {{$schemaJoinTable := $rel.JoinTable | $.SchemaTable -}}
         if q.{{ $relAlias.Local | singular }} != nil {
             query{{ $relAlias.Local | singular }}WrapperFunc := func(queryMod qm.QueryMod) qm.QueryMod {
                 if q.{{ $relAlias.Local | singular }}.OrCondition.Bool() {
@@ -591,7 +594,8 @@ func getQueryModsFrom{{$alias.UpSingular}}QueryJoin(q *model.{{$alias.UpSingular
                 return queryMod
             }
 
-            query = append(query, qm.InnerJoin("{{ $rel.ForeignTable }} ON {{ $rel.ForeignTable }}.{{ $rel.ForeignColumn }} = {{ $rel.Table }}.id"))
+            query = append(query, qm.InnerJoin("{{$schemaJoinTable}} on {{ $rel.Table | $.Quotes}}.{{$rel.ForeignColumn | $.Quotes}} = {{$schemaJoinTable}}.{{$rel.JoinLocalColumn | $.Quotes}}"))
+            query = append(query, qm.InnerJoin("{{$schemaForeignTable}} on {{$schemaForeignTable}}.{{ $rel.ForeignColumn | $.Quotes}} = {{$schemaJoinTable}}.{{$rel.JoinForeignColumn | $.Quotes}}"))
             query = append(query, getQueryModsFrom{{$ftable.UpSingular}}QueryParams(q.{{ $relAlias.Local | singular }}.Params, query{{ $relAlias.Local | singular }}WrapperFunc)...)
         }
     {{ end }}{{- /* range relationships */ -}}
