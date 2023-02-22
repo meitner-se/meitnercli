@@ -13,6 +13,8 @@ type commandService interface {
 {{ end }}
 }
 
+var _ api.Command_{{get_service_name | titleCase }}Service = (*command)(nil)
+
 type command struct {
     svc commandService
 }
