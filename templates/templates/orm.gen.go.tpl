@@ -336,10 +336,22 @@ func getQueryModsFrom{{$alias.UpSingular}}QueryNested(q *model.{{$alias.UpSingul
 
 func getQueryModsFrom{{$alias.UpSingular}}QuerySelectedFields(q *model.{{$alias.UpSingular}}QuerySelectedFields) []qm.QueryMod {
     query := []qm.QueryMod{}
+    selectedFields := []string{}
+
+    {{ if ne (len $pkNames) 0 }}
+    // Always select primary keys as distinct (required when joining on many2many relationships)
+    primaryKeys := []string{}
+    {{- range $pkName := $pkNames }}
+        primaryKeys = append(primaryKeys, {{$alias.UpSingular}}TableColumns.{{$pkName | titleCase}})
+    {{- end}}
+        selectedFields = append(selectedFields, "DISTINCT ("+ strings.Join(primaryKeys, ", ") + ")")
+    {{end}}
 
     // If there are no selected fields, all fields will be selected by default,
     // therefore we to load the relations as well, to get the expected result.
     if q == nil {
+        selectedFields = append(selectedFields, strmangle.PrefixStringSlice(TableNames.{{$alias.UpSingular}}, {{$alias.DownSingular}}AllColumns)...)
+        query = append(query, qm.Select(strings.Join(selectedFields, ", ")))
         {{ range $rel := get_load_relations $.Tables .Table -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
             query = append(query, qm.Load({{$alias.UpSingular}}Rels.{{ $relAlias.Local | plural }}))
@@ -351,9 +363,11 @@ func getQueryModsFrom{{$alias.UpSingular}}QuerySelectedFields(q *model.{{$alias.
     {{ range $column := .Table.Columns}}
     {{- $colAlias := $alias.Column $column.Name}}
         if q.{{$colAlias}}.Bool() {
-            query = append(query, qm.Select({{$alias.UpSingular}}TableColumns.{{$colAlias}}))
+            selectedFields = append(selectedFields, {{$alias.UpSingular}}TableColumns.{{$colAlias}})
         }
     {{- end}}
+
+    query = append(query, qm.Select(strings.Join(selectedFields, ", ")))
 
     {{ range $rel := get_load_relations $.Tables .Table -}}
     {{ $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}

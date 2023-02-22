@@ -23,6 +23,7 @@ func ORM(outFolder, pkgServiceModel, pkgAudit string) Wrapper {
 			formatPkgImportWithAlias(pkgAudit, "audit"),
 			formatPkgImport("github.com/google/uuid"),
 			formatPkgImport("github.com/friendsofgo/errors"),
+			formatPkgImport("github.com/volatiletech/strmangle"),
 			formatPkgImport("github.com/volatiletech/sqlboiler/v4/boil"),
 			formatPkgImport("github.com/volatiletech/sqlboiler/v4/queries/qm"),
 		}
