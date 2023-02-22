@@ -5,6 +5,7 @@
 {{- $pkNames := $colDefs.Names | stringMap (aliasCols $alias) | stringMap .StringFuncs.camelCase | stringMap .StringFuncs.replaceReserved -}}
 {{- $pkArgs := joinSlices " " $pkNames $colDefs.Types | join ", " -}}
 {{- $schemaTable := .Table.Name | .SchemaTable}}
+ {{- $stringTypes := "types.String, types.UUID, types.Time, types.Date" -}}
 
 // InsertDefined inserts {{$alias.UpSingular}} with the defined values only.
 func (o *{{$alias.UpSingular}}) InsertDefined({{if .NoContext}}exec boil.Executor{{else}}ctx context.Context, exec boil.ContextExecutor{{end}}, auditLog audit.Log) error {
@@ -367,49 +368,46 @@ func getQueryModsFrom{{$alias.UpSingular}}QuerySelectedFields(q *model.{{$alias.
 func getQueryModsFrom{{$alias.UpSingular}}QueryParams(q model.{{$alias.UpSingular}}QueryParams, queryWrapperFunc func(qm.QueryMod) qm.QueryMod) []qm.QueryMod {
     query := []qm.QueryMod{}
 
-    {
-        if q.Equals != nil {
-            query = append(query, getQueryModsFrom{{$alias.UpSingular}}EQ(q.Equals, queryWrapperFunc)...)
-        }
-        if q.NotEquals != nil {
-            query = append(query, getQueryModsFrom{{$alias.UpSingular}}NEQ(q.NotEquals, queryWrapperFunc)...)
-        }
+    if q.Equals != nil {
+        query = append(query, getQueryModsFrom{{$alias.UpSingular}}EQ(q.Equals, queryWrapperFunc)...)
     }
-  
-    {
-        if q.Empty != nil {
-            query = append(query, getQueryModsFrom{{$alias.UpSingular}}Empty(q.Empty, queryWrapperFunc)...)
-        }
-        if q.NotEmpty != nil {
-            query = append(query, getQueryModsFrom{{$alias.UpSingular}}NotEmpty(q.NotEmpty, queryWrapperFunc)...)
-        }
+    if q.NotEquals != nil {
+        query = append(query, getQueryModsFrom{{$alias.UpSingular}}NEQ(q.NotEquals, queryWrapperFunc)...)
     }
 
-    {
-        if q.GreaterThan != nil {
-            query = append(query, getQueryModsFrom{{$alias.UpSingular}}GreaterThan(q.GreaterThan, queryWrapperFunc)...)
-        }
-        if q.SmallerThan != nil {
-            query = append(query, getQueryModsFrom{{$alias.UpSingular}}SmallerThan(q.SmallerThan, queryWrapperFunc)...)
-        }
+    if q.Empty != nil {
+        query = append(query, getQueryModsFrom{{$alias.UpSingular}}Empty(q.Empty, queryWrapperFunc)...)
+    }
+    if q.NotEmpty != nil {
+        query = append(query, getQueryModsFrom{{$alias.UpSingular}}NotEmpty(q.NotEmpty, queryWrapperFunc)...)
     }
 
-    {
-        if q.GreaterOrEqual != nil {
-            query = append(query, getQueryModsFrom{{$alias.UpSingular}}GreaterOrEqual(q.GreaterOrEqual, queryWrapperFunc)...)
-        }
-        if q.SmallerOrEqual != nil {
-            query = append(query, getQueryModsFrom{{$alias.UpSingular}}SmallerOrEqual(q.SmallerOrEqual, queryWrapperFunc)...)
-        }
+    if q.In != nil {
+        query = append(query, getQueryModsFrom{{$alias.UpSingular}}In(q.In, queryWrapperFunc)...)
+    }
+    if q.NotIn != nil {
+        query = append(query, getQueryModsFrom{{$alias.UpSingular}}NotIn(q.NotIn, queryWrapperFunc)...)
     }
 
-    {
-        if q.Like != nil {
-            query = append(query, getQueryModsFrom{{$alias.UpSingular}}Like(q.Like, queryWrapperFunc)...)
-        }
-        if q.NotLike != nil {
-            query = append(query, getQueryModsFrom{{$alias.UpSingular}}NotLike(q.NotLike, queryWrapperFunc)...)
-        }
+    if q.GreaterThan != nil {
+        query = append(query, getQueryModsFrom{{$alias.UpSingular}}GreaterThan(q.GreaterThan, queryWrapperFunc)...)
+    }
+    if q.SmallerThan != nil {
+        query = append(query, getQueryModsFrom{{$alias.UpSingular}}SmallerThan(q.SmallerThan, queryWrapperFunc)...)
+    }
+
+    if q.GreaterOrEqual != nil {
+        query = append(query, getQueryModsFrom{{$alias.UpSingular}}GreaterOrEqual(q.GreaterOrEqual, queryWrapperFunc)...)
+    }
+    if q.SmallerOrEqual != nil {
+        query = append(query, getQueryModsFrom{{$alias.UpSingular}}SmallerOrEqual(q.SmallerOrEqual, queryWrapperFunc)...)
+    }
+
+    if q.Like != nil {
+        query = append(query, getQueryModsFrom{{$alias.UpSingular}}Like(q.Like, queryWrapperFunc)...)
+    }
+    if q.NotLike != nil {
+        query = append(query, getQueryModsFrom{{$alias.UpSingular}}NotLike(q.NotLike, queryWrapperFunc)...)
     }
 
     return query
@@ -469,13 +467,12 @@ func getQueryModsFrom{{$alias.UpSingular}}NotEmpty(q *model.{{$alias.UpSingular}
 
 func getQueryModsFrom{{$alias.UpSingular}}In(q *model.{{$alias.UpSingular}}QueryParamsInFields, queryWrapperFunc func(qm.QueryMod) qm.QueryMod) []qm.QueryMod {
     query := []qm.QueryMod{}
-    {{- $stringTypes := "types.String, types.UUID, types.Time, types.Date" -}}
     {{- range $column := .Table.Columns}}
     {{- $colAlias := $alias.Column $column.Name}}
         {{- if not (isEnumDBType .DBType) }}
         {{- if or (contains $column.Type $stringTypes) (hasPrefix "types.Int" $column.Type) }}
             if q.{{$colAlias}} != nil {
-                query = append(query, queryWrapperFunc(qm.WhereIn({{$alias.UpSingular}}Where.{{$colAlias}}.field, q.{{$colAlias}})))
+                query = append(query, queryWrapperFunc({{$alias.UpSingular}}Where.{{$colAlias}}.IN(q.{{$colAlias}})))
             }
         {{- end}}
         {{- end}}
@@ -489,7 +486,7 @@ func getQueryModsFrom{{$alias.UpSingular}}NotIn(q *model.{{$alias.UpSingular}}Qu
     {{- $colAlias := $alias.Column $column.Name}}
         {{- if and (not (isEnumDBType .DBType)) (or (eq "types.String" $column.Type) (eq "types.UUID" $column.Type)) }}
             if q.{{$colAlias}} != nil {
-                query = append(query, queryWrapperFunc(qm.WhereNotIn({{$alias.UpSingular}}Where.{{$colAlias}}.field, q.{{$colAlias}})))
+                query = append(query, queryWrapperFunc({{$alias.UpSingular}}Where.{{$colAlias}}.NIN(q.{{$colAlias}})))
             }
         {{- end}}
     {{- end}}
@@ -648,6 +645,30 @@ func getQueryModsFrom{{$alias.UpSingular}}QueryOrderBy(q *model.{{$alias.UpSingu
         qm.OrderBy(strings.Join(orderByStrings, ",")),
     }
 }
+
+{{- range .Table.Columns -}}
+{{- if (oncePut $.DBTypes .Type)}}
+{{- if or (eq "types.UUID" .Type) (hasPrefix "types.Int" .Type) }}
+
+{{$name := printf "whereHelper%s" (goVarname .Type)}}
+
+func (w {{$name}}) IN(slice []{{.Type}}) qm.QueryMod {
+	values := make([]interface{}, 0, len(slice))
+	for _, value := range slice {
+		values = append(values, value)
+	}
+	return qm.WhereIn(w.field + " IN ?", values...)
+}
+func (w {{$name}}) NIN(slice []{{.Type}}) qm.QueryMod {
+	values := make([]interface{}, 0, len(slice))
+	for _, value := range slice {
+	  values = append(values, value)
+	}
+	return qm.WhereNotIn(w.field + " NOT IN ?", values...)
+}
+{{end}}
+{{end}}
+{{end}}
 
 {{end -}}
 
