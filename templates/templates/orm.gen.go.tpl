@@ -648,7 +648,8 @@ func getQueryModsFrom{{$alias.UpSingular}}QueryOrderBy(q *model.{{$alias.UpSingu
 
 {{- range .Table.Columns -}}
 {{- if (oncePut $.DBTypes .Type)}}
-{{- if or (eq "types.UUID" .Type) (hasPrefix "types.Int" .Type) }}
+{{- if not (or (isPrimitive .Type) (isNullPrimitive .Type) (isEnumDBType .DBType)) -}}
+{{- if or (contains .Type $stringTypes) (hasPrefix "types.Int" .Type) }}
 
 {{$name := printf "whereHelper%s" (goVarname .Type)}}
 
@@ -666,6 +667,8 @@ func (w {{$name}}) NIN(slice []{{.Type}}) qm.QueryMod {
 	}
 	return qm.WhereNotIn(w.field + " NOT IN ?", values...)
 }
+
+{{end}}
 {{end}}
 {{end}}
 {{end}}
