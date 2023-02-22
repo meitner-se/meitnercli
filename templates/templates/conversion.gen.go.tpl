@@ -30,6 +30,8 @@ func {{$alias.UpSingular}}QueryToModel(toModel api.{{$alias.UpSingular}}QueryReq
 		OrderBy: {{$alias.DownSingular}}QueryOrderByToModel(toModel.OrderBy),
 		OrCondition: toModel.OrCondition,
 		OrConditionNested: toModel.OrConditionNested,
+		Offset: toModel.Offset,
+		Limit: toModel.Limit,
 	}
 }
 
