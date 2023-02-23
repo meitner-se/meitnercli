@@ -291,14 +291,13 @@ func getQueryModsFrom{{$alias.UpSingular}}Query(q model.{{$alias.UpSingular}}Que
 
     queryForCount := getQueryModsFrom{{$alias.UpSingular}}QueryParams(q.Params, queryWrapperFunc)
     queryForCount = append(queryForCount, getQueryModsFrom{{$alias.UpSingular}}QueryForJoin(q)...)
+    for i := range q.Nested {
+        queryForCount = append(queryForCount, queryWrapperFunc(getQueryModsFrom{{$alias.UpSingular}}QueryNested(&q.Nested[i])))
+    }
 
     queryWithPagination := queryForCount
     queryWithPagination = append(queryWithPagination, getQueryModsFrom{{$alias.UpSingular}}QuerySelectedFields(q.SelectedFields)...)
     queryWithPagination = append(queryWithPagination, getQueryModsFrom{{$alias.UpSingular}}QueryOrderBy(q.OrderBy)...)
-
-    for i := range q.Nested {
-        queryWithPagination = append(queryWithPagination, getQueryModsFrom{{$alias.UpSingular}}QueryNested(&q.Nested[i], q.OrConditionNested.Bool())...)
-    }
 
     // If offset and limit is nil, do not append them to the query
     if q.Offset.IsNil() && q.Limit.IsNil() {
@@ -313,7 +312,7 @@ func getQueryModsFrom{{$alias.UpSingular}}Query(q model.{{$alias.UpSingular}}Que
     return queryForCount, queryWithPagination
 }
 
-func getQueryModsFrom{{$alias.UpSingular}}QueryNested(q *model.{{$alias.UpSingular}}QueryNested, orConditionNested bool) []qm.QueryMod {
+func getQueryModsFrom{{$alias.UpSingular}}QueryNested(q *model.{{$alias.UpSingular}}QueryNested) qm.QueryMod {
 	queryWrapperFunc := func(queryMod qm.QueryMod) qm.QueryMod {
 		if q.OrCondition.Bool() {
 			return qm.Or2(queryMod)
@@ -324,15 +323,11 @@ func getQueryModsFrom{{$alias.UpSingular}}QueryNested(q *model.{{$alias.UpSingul
 	query := []qm.QueryMod{}
 	query = append(query, getQueryModsFrom{{$alias.UpSingular}}QueryParams(q.Params, queryWrapperFunc)...)
 
-	if orConditionNested {
-		query = []qm.QueryMod{qm.Or2(qm.Expr(query...))}
-	}
-
     if q.Nested != nil {
-        query = append(query, getQueryModsFrom{{$alias.UpSingular}}QueryNested(q.Nested, q.OrConditionNested.Bool())...)
+        query = append(query, queryWrapperFunc(getQueryModsFrom{{$alias.UpSingular}}QueryNested(q.Nested)))
     }
 
-	return query
+	return qm.Expr(query...)
 }
 
 func getQueryModsFrom{{$alias.UpSingular}}QuerySelectedFields(q *model.{{$alias.UpSingular}}QuerySelectedFields) []qm.QueryMod {

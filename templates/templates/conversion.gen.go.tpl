@@ -28,7 +28,6 @@ func {{$alias.UpSingular}}QueryToModel(toModel api.{{$alias.UpSingular}}QueryReq
 		SelectedFields: (*model.{{$alias.UpSingular}}QuerySelectedFields)(toModel.SelectedFields),
 		OrderBy: {{$alias.DownSingular}}QueryOrderByToModel(toModel.OrderBy),
 		OrCondition: toModel.OrCondition,
-		OrConditionNested: toModel.OrConditionNested,
 		Offset: toModel.Offset,
 		Limit: toModel.Limit,
 	}
@@ -50,7 +49,6 @@ func {{$alias.DownSingular}}QueryNestedToModel(toModel *api.{{$alias.UpSingular}
 		Nested: {{$alias.DownSingular}}QueryNestedToModel(toModel.Nested),
 		Params: {{$alias.DownSingular}}QueryParamsToModel(toModel.Params),
 		OrCondition: toModel.OrCondition,
-		OrConditionNested: toModel.OrConditionNested,
 	}
 }
 

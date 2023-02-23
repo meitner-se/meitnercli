@@ -74,14 +74,6 @@ type {{$alias.UpSingular}}QueryRequest struct {
     // type: "types.Bool"
 	OrCondition *bool
 
-    // OrConditionNested is used to define if the nested query should be wrapped in an AND or OR clause.
-    //
-    // When true, the nested clause will be wrapped with OR, otherwise AND.
-    //
-    // optional: true
-    // type: "types.Bool"
-	OrConditionNested *bool
-
     // Offset into the results
     //
     // optional: true
@@ -130,14 +122,6 @@ type {{$alias.UpSingular}}QueryNestedRequest struct {
     // optional: true
     // type: "types.Bool"
 	OrCondition *bool
-
-    // OrConditionNested is used to define if the nested query should be wrapped in an AND or OR clause.
-    //
-    // When true, the nested clause will be wrapped with OR, otherwise AND.
-    //
-    // optional: true
-    // type: "types.Bool"
-	OrConditionNested *bool
 }
 
 type {{$alias.UpSingular}}QueryParamsRequest struct {

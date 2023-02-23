@@ -522,11 +522,6 @@ type {{$alias.UpSingular}}Query struct {
     // When true, the condition will have OR between the params, otherwise AND.
     OrCondition types.Bool
 
-    // OrConditionNested is used to define if the nested query should be wrapped in an AND or OR clause.
-    //
-    // When true, the nested clause will be wrapped with OR, otherwise AND.
-    OrConditionNested types.Bool
-
     // Offset into the results
     Offset types.Int
 
@@ -566,11 +561,6 @@ type {{$alias.UpSingular}}QueryNested struct {
     //
     // When true, the condition will have OR between the params, otherwise AND.
     OrCondition types.Bool
-
-    // OrConditionNested is used to define if the nested query should be wrapped in an AND or OR clause.
-    //
-    // When true, the nested clause will be wrapped with OR, otherwise AND.
-    OrConditionNested types.Bool
 }
 
 func New{{$alias.UpSingular}}QueryParams() {{$alias.UpSingular}}QueryParams {
