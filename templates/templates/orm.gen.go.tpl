@@ -351,7 +351,7 @@ func getQueryModsFrom{{$alias.UpSingular}}QuerySelectedFields(q *model.{{$alias.
     // If there are no selected fields, all fields will be selected by default,
     // therefore we to load the relations as well, to get the expected result.
     if q == nil {
-        selectedFields = append(selectedFields, strmangle.PrefixStringSlice(TableNames.{{$alias.UpSingular}}, {{$alias.DownSingular}}AllColumns)...)
+        selectedFields = append(selectedFields, strmangle.PrefixStringSlice(TableNames.{{$alias.UpSingular}} + ".", {{$alias.DownSingular}}AllColumns)...)
         query = append(query, qm.Select(strings.Join(selectedFields, ", ")))
         {{ range $rel := get_load_relations $.Tables .Table -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
