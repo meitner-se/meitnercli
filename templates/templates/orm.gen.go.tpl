@@ -290,11 +290,12 @@ func getQueryModsFrom{{$alias.UpSingular}}Query(q model.{{$alias.UpSingular}}Que
     }
 
     queryForCount := getQueryModsFrom{{$alias.UpSingular}}QueryParams(q.Params, queryWrapperFunc)
+    queryForCount = append(queryForCount, getQueryModsFrom{{$alias.UpSingular}}QueryForJoin(q)...)
+
     queryWithPagination := queryForCount
     queryWithPagination = append(queryWithPagination, getQueryModsFrom{{$alias.UpSingular}}QuerySelectedFields(q.SelectedFields)...)
-    queryWithPagination = append(queryWithPagination, getQueryModsFrom{{$alias.UpSingular}}QueryJoin(q.Join)...)
     queryWithPagination = append(queryWithPagination, getQueryModsFrom{{$alias.UpSingular}}QueryOrderBy(q.OrderBy)...)
-    
+
     for i := range q.Nested {
         queryWithPagination = append(queryWithPagination, getQueryModsFrom{{$alias.UpSingular}}QueryNested(&q.Nested[i], q.OrConditionNested.Bool())...)
     }
@@ -437,6 +438,13 @@ func getQueryModsFrom{{$alias.UpSingular}}EQ(q *model.{{$alias.UpSingular}}Query
             }
         {{- end}}
     {{- end}}
+    {{ range $rel := get_join_relations $.Tables .Table -}}
+        {{$schemaJoinTable := $rel.JoinTable | $.SchemaTable -}}
+
+        if q.{{ get_load_relation_name $.Aliases $rel | singular }}.IsDefined() {
+            query = append(query, queryWrapperFunc(qm.Where("{{ $schemaJoinTable }}.{{$rel.JoinForeignColumn | $.Quotes}} = ?", q.{{ get_load_relation_name $.Aliases $rel | singular }})))
+        }
+    {{end -}}{{- /* range relationships */ -}}
     return query
 }
 
@@ -450,6 +458,13 @@ func getQueryModsFrom{{$alias.UpSingular}}NEQ(q *model.{{$alias.UpSingular}}Quer
             }
         {{- end}}
     {{- end}}
+    {{ range $rel := get_join_relations $.Tables .Table -}}
+        {{$schemaJoinTable := $rel.JoinTable | $.SchemaTable -}}
+
+        if q.{{ get_load_relation_name $.Aliases $rel | singular }}.IsDefined() {
+            query = append(query, queryWrapperFunc(qm.Where("{{ $schemaJoinTable }}.{{$rel.JoinForeignColumn | $.Quotes}} != ?", q.{{ get_load_relation_name $.Aliases $rel | singular }})))
+        }
+    {{end -}}{{- /* range relationships */ -}}
     return query
 }
 
@@ -491,6 +506,14 @@ func getQueryModsFrom{{$alias.UpSingular}}In(q *model.{{$alias.UpSingular}}Query
         {{- end}}
         {{- end}}
     {{- end}}
+
+    {{ range $rel := get_join_relations $.Tables .Table -}}
+        {{$schemaJoinTable := $rel.JoinTable | $.SchemaTable -}}
+
+        if q.{{ get_load_relation_name $.Aliases $rel | singular }} != nil {
+            query = append(query, queryWrapperFunc(qm.Where("{{ $schemaJoinTable }}.{{$rel.JoinForeignColumn | $.Quotes}} IN ?", q.{{ get_load_relation_name $.Aliases $rel | singular }})))
+        }
+    {{end -}}{{- /* range relationships */ -}}
     return query
 }
 
@@ -504,6 +527,14 @@ func getQueryModsFrom{{$alias.UpSingular}}NotIn(q *model.{{$alias.UpSingular}}Qu
             }
         {{- end}}
     {{- end}}
+
+    {{ range $rel := get_join_relations $.Tables .Table -}}
+        {{$schemaJoinTable := $rel.JoinTable | $.SchemaTable -}}
+
+        if q.{{ get_load_relation_name $.Aliases $rel | singular }} != nil {
+            query = append(query, queryWrapperFunc(qm.Where("{{ $schemaJoinTable }}.{{$rel.JoinForeignColumn | $.Quotes}} NOT IN ?", q.{{ get_load_relation_name $.Aliases $rel | singular }})))
+        }
+    {{end -}}{{- /* range relationships */ -}}
     return query
 }
 
@@ -585,32 +616,52 @@ func getQueryModsFrom{{$alias.UpSingular}}NotLike(q *model.{{$alias.UpSingular}}
     return query
 }
 
-func getQueryModsFrom{{$alias.UpSingular}}QueryJoin(q *model.{{$alias.UpSingular}}QueryJoin) []qm.QueryMod {
-    if nil == q {
-        return nil
+func getQueryModsFrom{{$alias.UpSingular}}QueryForJoin(q model.{{$alias.UpSingular}}Query) []qm.QueryMod {
+    {{ range $rel := get_join_relations $.Tables .Table -}}
+    {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+        join{{$relAlias.Local | singular }} := false
+    {{end }}
+
+    checkParams := func(p model.{{$alias.UpSingular}}QueryParams) {
+    {{ range $rel := get_join_relations $.Tables .Table -}}
+    {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+        if p.Equals != nil {
+            if p.Equals.{{ get_load_relation_name $.Aliases $rel | singular }}.IsDefined() {
+                join{{$relAlias.Local | singular }} = true
+            }
+        }
+        if p.NotEquals != nil {
+            if p.NotEquals.{{ get_load_relation_name $.Aliases $rel | singular }}.IsDefined() {
+                join{{$relAlias.Local | singular }} = true
+            }
+        }
+        if p.In != nil {
+            if p.In.{{ get_load_relation_name $.Aliases $rel | singular }} != nil {
+                join{{$relAlias.Local | singular }} = true
+            }
+        }
+        if p.NotIn != nil {
+            if p.NotIn.{{ get_load_relation_name $.Aliases $rel | singular }} != nil {
+                join{{$relAlias.Local | singular }} = true
+            }
+        }
+    {{end -}}{{- /* range relationships */ -}}
     }
+
+    checkParams(q.Params)
+	for _, nested := range q.Nested {
+		check{{$alias.UpSingular}}QueryParamsRecursive(checkParams, nested)
+	}
 
     query := []qm.QueryMod{}
     {{ range $rel := get_join_relations $.Tables .Table -}}
-        {{- $schemaForeignTable := $rel.ForeignTable | $.SchemaTable -}}
-        {{- $ltable := $.Aliases.Table $rel.Table -}}
-        {{- $ftable := $.Aliases.Table .ForeignTable -}}
-        {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-        {{$schemaJoinTable := $rel.JoinTable | $.SchemaTable -}}
-        if q.{{ $relAlias.Local | singular }} != nil {
-            query{{ $relAlias.Local | singular }}WrapperFunc := func(queryMod qm.QueryMod) qm.QueryMod {
-                if q.{{ $relAlias.Local | singular }}.OrCondition.Bool() {
-                    return qm.Or2(queryMod)
-                }
-                return queryMod
-            }
-
+    {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+    {{- $schemaJoinTable := $rel.JoinTable | $.SchemaTable -}}
+        if join{{$relAlias.Local | singular }} {
             query = append(query, qm.InnerJoin("{{$schemaJoinTable}} on {{ $rel.Table | $.Quotes}}.{{$rel.ForeignColumn | $.Quotes}} = {{$schemaJoinTable}}.{{$rel.JoinLocalColumn | $.Quotes}}"))
-            query = append(query, qm.InnerJoin("{{$schemaForeignTable}} on {{$schemaForeignTable}}.{{ $rel.ForeignColumn | $.Quotes}} = {{$schemaJoinTable}}.{{$rel.JoinForeignColumn | $.Quotes}}"))
-            query = append(query, getQueryModsFrom{{$ftable.UpSingular}}QueryParams(q.{{ $relAlias.Local | singular }}.Params, query{{ $relAlias.Local | singular }}WrapperFunc)...)
         }
-    {{ end }}{{- /* range relationships */ -}}
-    
+    {{end }}
+
     return query
 }
 
@@ -658,6 +709,14 @@ func getQueryModsFrom{{$alias.UpSingular}}QueryOrderBy(q *model.{{$alias.UpSingu
 	return []qm.QueryMod{
         qm.OrderBy(strings.Join(orderByStrings, ",")),
     }
+}
+
+func check{{$alias.UpSingular}}QueryParamsRecursive(checkParamsFunc func(model.{{$alias.UpSingular}}QueryParams), nested model.{{$alias.UpSingular}}QueryNested) {
+	checkParamsFunc(nested.Params)
+
+	if nested.Nested != nil {
+		check{{$alias.UpSingular}}QueryParamsRecursive(checkParamsFunc, *nested.Nested)
+	}
 }
 
 {{- range .Table.Columns -}}

@@ -514,9 +514,6 @@ type {{$alias.UpSingular}}Query struct {
     // Selected fields for the query, leave nil for all fields.
     SelectedFields *{{$alias.UpSingular}}QuerySelectedFields
 
-    // Inner join with related tables
-    Join *{{$alias.UpSingular}}QueryJoin
-
     // To order by specific columns, by default we will always primary keys first as ascending
     OrderBy *{{$alias.UpSingular}}QueryOrderBy
     
@@ -609,6 +606,9 @@ type {{$alias.UpSingular}}QueryParamsFields struct {
         {{- $colAlias := $alias.Column $column.Name}}
         {{$colAlias}} {{ if and (isEnumDBType .DBType) (.Nullable) }} {{ strip_prefix $column.Type "Null" }} {{ else }} {{$column.Type}} {{ end }}
     {{- end}}
+    {{ range $rel := get_join_relations $.Tables .Table -}}
+        {{ get_load_relation_name $.Aliases $rel | singular }} {{ get_load_relation_type $.Aliases $.Tables $rel "" }}
+    {{end -}}{{- /* range relationships */ -}}
 }
 
 func New{{$alias.UpSingular}}QueryParamsNullableFields() *{{$alias.UpSingular}}QueryParamsNullableFields {
@@ -638,6 +638,9 @@ type {{$alias.UpSingular}}QueryParamsInFields struct {
         {{- end -}}
 
     {{- end}}
+    {{ range $rel := get_join_relations $.Tables .Table -}}
+        {{ get_load_relation_name $.Aliases $rel | singular }} []{{ get_load_relation_type $.Aliases $.Tables $rel "" }}
+    {{end -}}{{- /* range relationships */ -}}
 }
 
 func New{{$alias.UpSingular}}QueryParamsComparableFields() *{{$alias.UpSingular}}QueryParamsComparableFields {
@@ -665,27 +668,6 @@ type {{$alias.UpSingular}}QueryParamsLikeFields struct {
         {{- end}}
     {{- end}}
 }
-
-type {{$alias.UpSingular}}QueryJoin struct {
-    {{- range $rel := get_join_relations $.Tables .Table -}}
-        {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName }}
-        {{ $relAlias.Local | singular }} *{{$alias.UpSingular}}QueryJoin{{ $relAlias.Local | singular }}
-    {{- end }}{{- /* range relationships */ -}}
-}
-
-{{ range $rel := get_join_relations $.Tables .Table -}}
-    {{- $ftable := $.Aliases.Table .ForeignTable -}}
-    {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-    type {{$alias.UpSingular}}QueryJoin{{ $relAlias.Local | singular }} struct {
-            // Params for the query
-            Params {{$ftable.UpSingular}}QueryParams
-
-            // OrCondition is used to define if the condition should use AND or OR between the params
-            //
-            // When true, the condition will have OR between the params, otherwise AND.
-            OrCondition types.Bool
-    }
-{{end -}}{{- /* range relationships */ -}}
 
 type {{$alias.UpSingular}}QueryOrderBy struct {
     {{- range $column := .Table.Columns}}

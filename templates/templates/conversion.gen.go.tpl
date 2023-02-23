@@ -26,7 +26,6 @@ func {{$alias.UpSingular}}QueryToModel(toModel api.{{$alias.UpSingular}}QueryReq
 		Nested: {{$alias.DownSingular}}QueryNestedToModels(toModel.Nested),
 		Params: {{$alias.DownSingular}}QueryParamsToModel(toModel.Params),
 		SelectedFields: (*model.{{$alias.UpSingular}}QuerySelectedFields)(toModel.SelectedFields),
-		Join: {{$alias.DownSingular}}QueryJoinToModel(toModel.Join),
 		OrderBy: {{$alias.DownSingular}}QueryOrderByToModel(toModel.OrderBy),
 		OrCondition: toModel.OrCondition,
 		OrConditionNested: toModel.OrConditionNested,
@@ -85,36 +84,11 @@ func {{$alias.DownSingular}}QueryParamsFieldsToModel(toModel *api.{{$alias.UpSin
 		{{- $colAlias := $alias.Column $column.Name}}
 				{{$colAlias}}: {{ if (isEnumDBType .DBType) }}{{- $enumName := parseEnumName .DBType -}} model.{{ titleCase $enumName }}FromString(toModel.{{$colAlias}}) {{ else }} toModel.{{$colAlias}} {{ end }},
 		{{- end}}
-	}
-}
-
-
-func {{$alias.DownSingular}}QueryJoinToModel(toModel *api.{{$alias.UpSingular}}QueryJoinRequest) *model.{{$alias.UpSingular}}QueryJoin {
-	if nil == toModel {
-		return nil
-	}
-	return &model.{{$alias.UpSingular}}QueryJoin{
 		{{ range $rel := get_join_relations $.Tables .Table -}}
-			{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-			{{ $relAlias.Local | singular }}: {{$alias.DownSingular}}QueryJoin{{ $relAlias.Local | singular }}ToModel(toModel.{{ $relAlias.Local | singular }}),
-		{{ end -}}{{- /* range relationships */ -}}
+        	{{ get_load_relation_name $.Aliases $rel | singular }}: toModel.{{ get_load_relation_name $.Aliases $rel | singular }},
+    	{{end -}}{{- /* range relationships */ -}}
 	}
 }
-
-{{ range $rel := get_join_relations $.Tables .Table -}}
-    {{- $ftable := $.Aliases.Table .ForeignTable -}}
-	{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-	func {{$alias.DownSingular}}QueryJoin{{ $relAlias.Local | singular }}ToModel(toModel *api.{{$alias.UpSingular}}QueryJoin{{ $relAlias.Local | singular }}Request) *model.{{$alias.UpSingular}}QueryJoin{{ $relAlias.Local | singular }} {
-		if nil == toModel {
-			return nil
-		}
-
-		return &model.{{$alias.UpSingular}}QueryJoin{{ $relAlias.Local | singular }}{
-			Params: {{ $ftable.DownSingular }}QueryParamsToModel(toModel.Params),
-			OrCondition: toModel.OrCondition,
-		}
-	}
-{{ end -}}{{- /* range relationships */ -}}
 
 func {{$alias.DownSingular}}QueryOrderByToModel(toModel *api.{{$alias.UpSingular}}QueryOrderByRequest) *model.{{$alias.UpSingular}}QueryOrderBy {
 	if nil == toModel {

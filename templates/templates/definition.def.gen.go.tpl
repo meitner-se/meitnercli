@@ -61,11 +61,6 @@ type {{$alias.UpSingular}}QueryRequest struct {
     // optional: true
     SelectedFields *{{$alias.UpSingular}}QuerySelectedFieldsRequest
 
-    // Inner join with related tables
-    //
-    // optional: true
-	Join *{{$alias.UpSingular}}QueryJoinRequest
-
     // To order by specific columns, by default we will always primary keys first as ascending
     //
     // optional: true
@@ -219,6 +214,12 @@ type {{$alias.UpSingular}}QueryParamsFieldsRequest struct {
 
         {{end -}}
     {{- end}}
+
+    {{ range $rel := get_join_relations $.Tables .Table -}}
+        // optional: true
+        // type: "{{ get_load_relation_type $.Aliases $.Tables $rel "" }}"
+        {{ get_load_relation_name $.Aliases $rel | singular }} *string
+    {{end -}}{{- /* range relationships */ -}}
 }
 
 type {{$alias.UpSingular}}QueryParamsNullableFieldsRequest struct {
@@ -230,7 +231,6 @@ type {{$alias.UpSingular}}QueryParamsNullableFieldsRequest struct {
             // type: "types.Bool"
             {{$colAlias}} *bool
         {{- end}}
-
     {{- end}}
 }
 
@@ -250,8 +250,13 @@ type {{$alias.UpSingular}}QueryParamsInFieldsRequest struct {
             // type: "{{$column.Type}}"
             {{$colAlias}} []*int
         {{end -}}
-
     {{- end}}
+
+    {{ range $rel := get_join_relations $.Tables .Table -}}
+        // optional: true
+        // type: "{{ get_load_relation_type $.Aliases $.Tables $rel "" }}"
+        {{ get_load_relation_name $.Aliases $rel | singular }} []*string
+    {{end -}}{{- /* range relationships */ -}}
 }
 
 type {{$alias.UpSingular}}QueryParamsComparableFieldsRequest struct {
@@ -286,34 +291,6 @@ type {{$alias.UpSingular}}QueryParamsLikeFieldsRequest struct {
 
     {{- end}}
 }
-
-type {{$alias.UpSingular}}QueryJoinRequest struct {
-	{{ range $rel := get_join_relations $.Tables .Table -}}
-        {{- $ftable := $.Aliases.Table .ForeignTable -}}
-		{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName }}
-        // optional: true
-		{{ $relAlias.Local | singular }} *{{$alias.UpSingular}}QueryJoin{{ $relAlias.Local | singular }}Request
-	{{- end }}{{- /* range relationships */ -}}
-}
-
-{{ range $rel := get_join_relations $.Tables .Table -}}
-    {{- $ftable := $.Aliases.Table .ForeignTable -}}
-	{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-    type {{$alias.UpSingular}}QueryJoin{{ $relAlias.Local | singular }}Request struct {
-            // Params for the query
-            //
-            // optional: true
-            Params *{{$ftable.UpSingular}}QueryParamsRequest
-
-            // OrCondition is used to define if the condition should use AND or OR between the params
-            //
-            // When true, the condition will have OR between the params, otherwise AND.
-            //
-            // optional: true
-            // type: "types.Bool"
-            OrCondition *bool
-    }
-{{end -}}{{- /* range relationships */ -}}
 
 type {{$alias.UpSingular}}QueryOrderByRequest struct {
     {{- range $column := .Table.Columns}}
