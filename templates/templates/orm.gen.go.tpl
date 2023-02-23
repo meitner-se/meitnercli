@@ -509,9 +509,11 @@ func getQueryModsFrom{{$alias.UpSingular}}In(q *model.{{$alias.UpSingular}}Query
 
     {{ range $rel := get_join_relations $.Tables .Table -}}
         {{$schemaJoinTable := $rel.JoinTable | $.SchemaTable -}}
+        {{$loadCol := get_load_relation_column $.Aliases $.Tables $rel -}}
+        {{$whereHelper := printf "whereHelper%s" (goVarname $loadCol.Type) -}}
 
         if q.{{ get_load_relation_name $.Aliases $rel | singular }} != nil {
-            query = append(query, queryWrapperFunc(qm.Where("{{ $schemaJoinTable }}.{{$rel.JoinForeignColumn | $.Quotes}} IN ?", q.{{ get_load_relation_name $.Aliases $rel | singular }})))
+            query = append(query, queryWrapperFunc({{ $whereHelper }}{"{{ $schemaJoinTable }}.{{$rel.JoinForeignColumn | $.Quotes}}"}.IN(q.{{ get_load_relation_name $.Aliases $rel | singular }})))
         }
     {{end -}}{{- /* range relationships */ -}}
     return query
@@ -530,9 +532,11 @@ func getQueryModsFrom{{$alias.UpSingular}}NotIn(q *model.{{$alias.UpSingular}}Qu
 
     {{ range $rel := get_join_relations $.Tables .Table -}}
         {{$schemaJoinTable := $rel.JoinTable | $.SchemaTable -}}
+        {{$loadCol := get_load_relation_column $.Aliases $.Tables $rel -}}
+        {{$whereHelper := printf "whereHelper%s" (goVarname $loadCol.Type) -}}
 
         if q.{{ get_load_relation_name $.Aliases $rel | singular }} != nil {
-            query = append(query, queryWrapperFunc(qm.Where("{{ $schemaJoinTable }}.{{$rel.JoinForeignColumn | $.Quotes}} NOT IN ?", q.{{ get_load_relation_name $.Aliases $rel | singular }})))
+            query = append(query, queryWrapperFunc({{ $whereHelper }}{"{{ $schemaJoinTable }}.{{$rel.JoinForeignColumn | $.Quotes}}"}.NIN(q.{{ get_load_relation_name $.Aliases $rel | singular }})))
         }
     {{end -}}{{- /* range relationships */ -}}
     return query
