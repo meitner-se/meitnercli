@@ -14,7 +14,7 @@ func {{$alias.UpSingular}}FromModel(model *model.{{$alias.UpSingular}}) api.{{$a
         {{- $colAlias := $alias.Column $column.Name}}
             {{$colAlias}}: model.{{$colAlias}}.Ptr(),
         {{- end}}
-        {{range $rel := get_load_relations $.Tables .Table -}}
+        {{range $rel := getLoadRelations $.Tables .Table -}}
             {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
             {{$relAlias.Local | singular}}IDs: slice.Pointer(model.{{$relAlias.Local | singular}}IDs),
         {{end -}}{{- /* range relationships */ -}}
@@ -82,8 +82,8 @@ func {{$alias.DownSingular}}QueryParamsFieldsToModel(toModel *api.{{$alias.UpSin
 		{{- $colAlias := $alias.Column $column.Name}}
 				{{$colAlias}}: {{ if (isEnumDBType .DBType) }}{{- $enumName := parseEnumName .DBType -}} model.{{ titleCase $enumName }}FromString(toModel.{{$colAlias}}) {{ else }} toModel.{{$colAlias}} {{ end }},
 		{{- end}}
-		{{ range $rel := get_join_relations $.Tables .Table -}}
-        	{{ get_load_relation_name $.Aliases $rel | singular }}: toModel.{{ get_load_relation_name $.Aliases $rel | singular }},
+		{{ range $rel := getLoadRelations $.Tables .Table -}}
+        	{{ getLoadRelationName $.Aliases $rel | singular }}: toModel.{{ getLoadRelationName $.Aliases $rel | singular }},
     	{{end -}}{{- /* range relationships */ -}}
 	}
 }

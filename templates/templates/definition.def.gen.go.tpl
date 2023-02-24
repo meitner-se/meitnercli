@@ -37,7 +37,7 @@ type {{$alias.UpSingular}} struct {
     {{end}}
     {{end -}}
 
-    {{- range $rel := get_load_relations $.Tables .Table -}}
+    {{- range $rel := getLoadRelations $.Tables .Table -}}
 	{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         // type: "types.UUID"
 		{{ $relAlias.Local | singular }}IDs []string
@@ -95,7 +95,7 @@ type {{$alias.UpSingular}}QuerySelectedFieldsRequest struct {
             {{$colAlias}} *bool
     {{- end}}
 
-    {{- range $rel := get_load_relations $.Tables .Table -}}
+    {{- range $rel := getLoadRelations $.Tables .Table -}}
 	{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         // optional: true
         // type: "types.Bool"
@@ -199,10 +199,10 @@ type {{$alias.UpSingular}}QueryParamsFieldsRequest struct {
         {{end -}}
     {{- end}}
 
-    {{ range $rel := get_join_relations $.Tables .Table -}}
+    {{ range $rel := getLoadRelations $.Tables .Table -}}
         // optional: true
-        // type: "{{ get_load_relation_type $.Aliases $.Tables $rel "" }}"
-        {{ get_load_relation_name $.Aliases $rel | singular }} *string
+        // type: "{{ getLoadRelationType $.Aliases $.Tables $rel "" }}"
+        {{ getLoadRelationName $.Aliases $rel | singular }} *string
     {{end -}}{{- /* range relationships */ -}}
 }
 
@@ -236,10 +236,10 @@ type {{$alias.UpSingular}}QueryParamsInFieldsRequest struct {
         {{end -}}
     {{- end}}
 
-    {{ range $rel := get_join_relations $.Tables .Table -}}
+    {{ range $rel := getLoadRelations $.Tables .Table -}}
         // optional: true
-        // type: "{{ get_load_relation_type $.Aliases $.Tables $rel "" }}"
-        {{ get_load_relation_name $.Aliases $rel | singular }} []*string
+        // type: "{{ getLoadRelationType $.Aliases $.Tables $rel "" }}"
+        {{ getLoadRelationName $.Aliases $rel | singular }} []*string
     {{end -}}{{- /* range relationships */ -}}
 }
 

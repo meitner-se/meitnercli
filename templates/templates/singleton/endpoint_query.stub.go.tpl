@@ -13,7 +13,7 @@ type queryService interface {
 {{ end }}
 }
 
-var _ api.Query_{{get_service_name | titleCase }}Service = (*query)(nil)
+var _ api.Query_{{getServiceName | titleCase }}Service = (*query)(nil)
 
 type query struct {
     svc queryService

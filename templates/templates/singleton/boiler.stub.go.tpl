@@ -1,4 +1,4 @@
-const serviceName = "{{ get_service_name }}"
+const serviceName = "{{ getServiceName }}"
 
 var _ repository.Repository = (*repo)(nil)
 

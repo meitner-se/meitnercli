@@ -20,7 +20,7 @@ func (o *{{$alias.UpSingular}}) InsertDefined({{if .NoContext}}exec boil.Executo
             }
         {{- end}}
         if o.{{$colAlias}}.IsDefined() {
-            auditLogValues = append(auditLogValues, audit.NewLogValue({{$alias.UpSingular}}Columns.{{$colAlias}}, "{{ strip_prefix $column.Type "types." }}", o.{{$colAlias}}, nil))
+            auditLogValues = append(auditLogValues, audit.NewLogValue({{$alias.UpSingular}}Columns.{{$colAlias}}, "{{ stripPrefix $column.Type "types." }}", o.{{$colAlias}}, nil))
             whitelist.Cols = append(whitelist.Cols, {{$alias.UpSingular}}Columns.{{$colAlias}})
         }
     {{- end}}
@@ -31,10 +31,10 @@ func (o *{{$alias.UpSingular}}) InsertDefined({{if .NoContext}}exec boil.Executo
 	}
 
     if o.R != nil {
-    {{- range $rel := get_load_relations $.Tables .Table -}}
+    {{- range $rel := getLoadRelations $.Tables .Table -}}
     {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         if o.R.{{$relAlias.Local | plural }} != nil {
-            auditLogValues = append(auditLogValues, audit.NewLogValue(model.{{$alias.UpSingular}}Column{{$relAlias.Local | singular}}IDs, "UUID", o.Get{{ get_load_relation_name $.Aliases $rel }}(true), nil))
+            auditLogValues = append(auditLogValues, audit.NewLogValue(model.{{$alias.UpSingular}}Column{{$relAlias.Local | singular}}IDs, "UUID", o.Get{{ getLoadRelationName $.Aliases $rel }}(true), nil))
             err := o.Add{{$relAlias.Local | plural}}(ctx, exec, false, o.R.{{$relAlias.Local | plural }}...)
             if err != nil {
                 return err
@@ -64,7 +64,7 @@ func (o *{{$alias.UpSingular}}) UpdateDefined({{if .NoContext}}exec boil.Executo
                     return errors.New("{{$column.Name}} cannot be null")
                 }
             {{- end}}
-            auditLogValues = append(auditLogValues, audit.NewLogValue({{$alias.UpSingular}}Columns.{{$colAlias}}, "{{ strip_prefix $column.Type "types." }}", newValues.{{$colAlias}}, o.{{$colAlias}}))
+            auditLogValues = append(auditLogValues, audit.NewLogValue({{$alias.UpSingular}}Columns.{{$colAlias}}, "{{ stripPrefix $column.Type "types." }}", newValues.{{$colAlias}}, o.{{$colAlias}}))
             whitelist.Cols = append(whitelist.Cols, {{$alias.UpSingular}}Columns.{{$colAlias}})
             o.{{$colAlias}} = newValues.{{$colAlias}}
         }
@@ -72,7 +72,7 @@ func (o *{{$alias.UpSingular}}) UpdateDefined({{if .NoContext}}exec boil.Executo
 
     // Check if any join tables should be updated and load the existing values before updating if we have an operating audit log
     if newValues.R != nil {
-        {{- range $rel := get_load_relations $.Tables .Table -}}
+        {{- range $rel := getLoadRelations $.Tables .Table -}}
         {{- if $rel.ToJoinTable -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
             if newValues.R.{{$relAlias.Local | plural }} != nil {
@@ -127,12 +127,12 @@ func (o *{{$alias.UpSingular}}) DeleteDefined({{if .NoContext}}exec boil.Executo
     return nil
 }
 
-{{ range $rel := get_load_relations $.Tables .Table -}}
+{{ range $rel := getLoadRelations $.Tables .Table -}}
 {{- $ftable := $.Aliases.Table .ForeignTable -}}
 {{ $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-{{ $loadCol := get_load_relation_column $.Aliases $.Tables $rel }}
-{{ $loadType := get_load_relation_type $.Aliases $.Tables $rel "model." }}
-func (o *{{$alias.UpSingular}}) Get{{ get_load_relation_name $.Aliases $rel }}(load bool) []{{ $loadType }} {
+{{ $loadCol := getLoadRelationColumn $.Aliases $.Tables $rel }}
+{{ $loadType := getLoadRelationType $.Aliases $.Tables $rel "model." }}
+func (o *{{$alias.UpSingular}}) Get{{ getLoadRelationName $.Aliases $rel }}(load bool) []{{ $loadType }} {
     if o.R == nil || o.R.{{ $relAlias.Local | plural }} == nil {
         if load {
             return []{{ $loadType }}{}
@@ -148,7 +148,7 @@ func (o *{{$alias.UpSingular}}) Get{{ get_load_relation_name $.Aliases $rel }}(l
 	return {{ $relAlias.Local | plural | camelCase }}
 }
 
-func (o *{{$alias.UpSingular}}) Set{{ get_load_relation_name $.Aliases $rel }}({{ $relAlias.Local | plural | camelCase }} []{{ $loadType }}) {
+func (o *{{$alias.UpSingular}}) Set{{ getLoadRelationName $.Aliases $rel }}({{ $relAlias.Local | plural | camelCase }} []{{ $loadType }}) {
     if {{ $relAlias.Local | plural | camelCase }} == nil {
         return
     }
@@ -181,7 +181,7 @@ func Get{{$alias.UpSingular}}({{if $.NoContext}}exec boil.Executor{{else}}ctx co
         return nil, err
     }
     
-    return {{$alias.UpSingular}}ToModel({{$alias.DownSingular}}{{- range get_load_relations $.Tables .Table -}}, true {{ end }}), nil
+    return {{$alias.UpSingular}}ToModel({{$alias.DownSingular}}{{- range getLoadRelations $.Tables .Table -}}, true {{ end }}), nil
 }
 
 {{- range $column := .Table.Columns -}}
@@ -193,7 +193,7 @@ func Get{{$alias.UpSingular}}({{if $.NoContext}}exec boil.Executor{{else}}ctx co
                     return nil, err
                 }
                 
-                return {{$alias.UpSingular}}ToModel({{$alias.DownSingular}}{{- range get_load_relations $.Tables .Table -}}, true {{ end }}), nil
+                return {{$alias.UpSingular}}ToModel({{$alias.DownSingular}}{{- range getLoadRelations $.Tables .Table -}}, true {{ end }}), nil
         }
     {{ end }}
 {{end -}}
@@ -207,14 +207,14 @@ func List{{$alias.UpPlural}}({{if .NoContext}}exec boil.Executor{{else}}ctx cont
 	}
 
     var (
-        {{- range $rel := get_load_relations $.Tables .Table -}}
+        {{- range $rel := getLoadRelations $.Tables .Table -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
             load{{$relAlias.Local | singular}} bool = true
         {{ end }}
     )
 
     if query.SelectedFields != nil {
-        {{- range $rel := get_load_relations $.Tables .Table -}}
+        {{- range $rel := getLoadRelations $.Tables .Table -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
             load{{$relAlias.Local | singular}} = query.SelectedFields.{{$relAlias.Local | singular }}IDs.Bool()
         {{ end -}}
@@ -223,7 +223,7 @@ func List{{$alias.UpPlural}}({{if .NoContext}}exec boil.Executor{{else}}ctx cont
     // If offset and limit is nil, pagination is not used.
     // So if this happens we do not have to call the DB to get the total count without pagination.
     if query.Offset.IsNil() && query.Limit.IsNil() {
-        return {{$alias.UpSingular}}ToModels({{$alias.DownPlural}}{{- range $rel := get_load_relations $.Tables .Table -}}{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}, load{{$relAlias.Local | singular }} {{ end }}), types.NewInt64(int64(len({{$alias.DownPlural}}))).Ptr(), nil
+        return {{$alias.UpSingular}}ToModels({{$alias.DownPlural}}{{- range $rel := getLoadRelations $.Tables .Table -}}{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}, load{{$relAlias.Local | singular }} {{ end }}), types.NewInt64(int64(len({{$alias.DownPlural}}))).Ptr(), nil
     }
 
     // Get the total count without pagination
@@ -232,7 +232,7 @@ func List{{$alias.UpPlural}}({{if .NoContext}}exec boil.Executor{{else}}ctx cont
 		return nil, nil, err
 	}
 
-	return {{$alias.UpSingular}}ToModels({{$alias.DownPlural}}{{- range $rel := get_load_relations $.Tables .Table -}}{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}, load{{$relAlias.Local | singular }} {{ end }}), types.NewInt64({{$alias.DownPlural}}Count).Ptr(), nil
+	return {{$alias.UpSingular}}ToModels({{$alias.DownPlural}}{{- range $rel := getLoadRelations $.Tables .Table -}}{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}, load{{$relAlias.Local | singular }} {{ end }}), types.NewInt64({{$alias.DownPlural}}Count).Ptr(), nil
 }
 
 {{ range $fKey := .Table.FKeys -}}
@@ -242,7 +242,7 @@ func List{{$alias.UpPlural}}By{{ titleCase $fKey.Column }}({{if $.NoContext}}exe
 		return nil, err
 	}
     
-    return {{$alias.UpSingular}}ToModels({{$alias.DownPlural}}{{- range get_load_relations $.Tables $.Table -}}, true {{ end }}), nil
+    return {{$alias.UpSingular}}ToModels({{$alias.DownPlural}}{{- range getLoadRelations $.Tables $.Table -}}, true {{ end }}), nil
 }
 {{ end }}
 
@@ -253,30 +253,30 @@ func {{$alias.UpSingular}}FromModel(model *model.{{$alias.UpSingular}}) *{{$alia
             {{$colAlias}}: model.{{$colAlias}}{{ if (isEnumDBType .DBType) }}.String{{ end }},
         {{ end -}}
     }
-    {{ range $rel := get_load_relations $.Tables .Table -}}
+    {{ range $rel := getLoadRelations $.Tables .Table -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-        {{$alias.DownSingular}}.Set{{ get_load_relation_name $.Aliases $rel }}(model.{{ get_load_relation_name $.Aliases $rel }})
+        {{$alias.DownSingular}}.Set{{ getLoadRelationName $.Aliases $rel }}(model.{{ getLoadRelationName $.Aliases $rel }})
     {{end -}}{{- /* range relationships */ -}}
     return  {{$alias.DownSingular}}
 }
 
-func {{$alias.UpSingular}}ToModel(toModel *{{$alias.UpSingular}}{{ range $rel := get_load_relations $.Tables .Table -}}{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}, load{{$relAlias.Local | singular}} bool{{ end }}) *model.{{$alias.UpSingular}} {
+func {{$alias.UpSingular}}ToModel(toModel *{{$alias.UpSingular}}{{ range $rel := getLoadRelations $.Tables .Table -}}{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}, load{{$relAlias.Local | singular}} bool{{ end }}) *model.{{$alias.UpSingular}} {
     return &model.{{$alias.UpSingular}}{
         {{- range $column := .Table.Columns -}}
         {{- $colAlias := $alias.Column $column.Name}}
             {{$colAlias}}: {{ if (isEnumDBType .DBType) }}{{- $enumName := parseEnumName .DBType -}} model.{{ titleCase $enumName }}FromString(toModel.{{$colAlias}}) {{ else }} toModel.{{$colAlias}} {{ end }},
         {{- end}}
-        {{ range $rel := get_load_relations $.Tables .Table -}}
+        {{ range $rel := getLoadRelations $.Tables .Table -}}
             {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-            {{ get_load_relation_name $.Aliases $rel }}: toModel.Get{{ get_load_relation_name $.Aliases $rel }}(load{{$relAlias.Local | singular}}),
+            {{ getLoadRelationName $.Aliases $rel }}: toModel.Get{{ getLoadRelationName $.Aliases $rel }}(load{{$relAlias.Local | singular}}),
         {{end -}}{{- /* range relationships */ -}}
     }
 }
 
-func {{$alias.UpSingular}}ToModels(toModels []*{{$alias.UpSingular}}{{ range $rel := get_load_relations $.Tables .Table -}}{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}, load{{$relAlias.Local | singular}} bool{{ end }}) []*model.{{$alias.UpSingular}} {
+func {{$alias.UpSingular}}ToModels(toModels []*{{$alias.UpSingular}}{{ range $rel := getLoadRelations $.Tables .Table -}}{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}, load{{$relAlias.Local | singular}} bool{{ end }}) []*model.{{$alias.UpSingular}} {
     models := make([]*model.{{$alias.UpSingular}}, len(toModels))
     for i := range toModels {
-        models[i] = {{$alias.UpSingular}}ToModel(toModels[i]{{ range $rel := get_load_relations $.Tables .Table -}}{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}, load{{$relAlias.Local | singular}}{{ end }})
+        models[i] = {{$alias.UpSingular}}ToModel(toModels[i]{{ range $rel := getLoadRelations $.Tables .Table -}}{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}, load{{$relAlias.Local | singular}}{{ end }})
     }
     return models
 }
@@ -348,7 +348,7 @@ func getQueryModsFrom{{$alias.UpSingular}}QuerySelectedFields(q *model.{{$alias.
     if q == nil {
         selectedFields = append(selectedFields, strmangle.PrefixStringSlice(TableNames.{{$alias.UpSingular}} + ".", {{$alias.DownSingular}}AllColumns)...)
         query = append(query, qm.Select(strings.Join(selectedFields, ", ")))
-        {{ range $rel := get_load_relations $.Tables .Table -}}
+        {{ range $rel := getLoadRelations $.Tables .Table -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
             query = append(query, qm.Load({{$alias.UpSingular}}Rels.{{ $relAlias.Local | plural }}))
         {{ end -}}
@@ -365,7 +365,7 @@ func getQueryModsFrom{{$alias.UpSingular}}QuerySelectedFields(q *model.{{$alias.
 
     query = append(query, qm.Select(strings.Join(selectedFields, ", ")))
 
-    {{ range $rel := get_load_relations $.Tables .Table -}}
+    {{ range $rel := getLoadRelations $.Tables .Table -}}
     {{ $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         if q.{{$relAlias.Local | singular }}IDs.Bool() {
             query = append(query, qm.Load({{$alias.UpSingular}}Rels.{{ $relAlias.Local | plural }}))
@@ -433,11 +433,13 @@ func getQueryModsFrom{{$alias.UpSingular}}EQ(q *model.{{$alias.UpSingular}}Query
             }
         {{- end}}
     {{- end}}
-    {{ range $rel := get_join_relations $.Tables .Table -}}
+    {{ range $rel := getLoadRelations $.Tables .Table -}}
         {{$schemaJoinTable := $rel.JoinTable | $.SchemaTable -}}
+        {{$loadCol := getLoadRelationColumn $.Aliases $.Tables $rel -}}
+        {{$whereHelper := printf "whereHelper%s" (goVarname $loadCol.Type) -}}
 
-        if q.{{ get_load_relation_name $.Aliases $rel | singular }}.IsDefined() {
-            query = append(query, queryWrapperFunc(qm.Where("{{ $schemaJoinTable }}.{{$rel.JoinForeignColumn | $.Quotes}} = ?", q.{{ get_load_relation_name $.Aliases $rel | singular }})))
+        if q.{{ getLoadRelationName $.Aliases $rel | singular }}.IsDefined() {
+            query = append(query, queryWrapperFunc({{ $whereHelper }}{"{{ getLoadRelationTableColumn $.Aliases $.Tables $rel }}"}.EQ(q.{{ getLoadRelationName $.Aliases $rel | singular }})))
         }
     {{end -}}{{- /* range relationships */ -}}
     return query
@@ -453,11 +455,13 @@ func getQueryModsFrom{{$alias.UpSingular}}NEQ(q *model.{{$alias.UpSingular}}Quer
             }
         {{- end}}
     {{- end}}
-    {{ range $rel := get_join_relations $.Tables .Table -}}
+    {{ range $rel := getLoadRelations $.Tables .Table -}}
         {{$schemaJoinTable := $rel.JoinTable | $.SchemaTable -}}
+        {{$loadCol := getLoadRelationColumn $.Aliases $.Tables $rel -}}
+        {{$whereHelper := printf "whereHelper%s" (goVarname $loadCol.Type) -}}
 
-        if q.{{ get_load_relation_name $.Aliases $rel | singular }}.IsDefined() {
-            query = append(query, queryWrapperFunc(qm.Where("{{ $schemaJoinTable }}.{{$rel.JoinForeignColumn | $.Quotes}} != ?", q.{{ get_load_relation_name $.Aliases $rel | singular }})))
+        if q.{{ getLoadRelationName $.Aliases $rel | singular }}.IsDefined() {
+            query = append(query, queryWrapperFunc({{ $whereHelper }}{"{{ getLoadRelationTableColumn $.Aliases $.Tables $rel }}"}.NEQ(q.{{ getLoadRelationName $.Aliases $rel | singular }})))
         }
     {{end -}}{{- /* range relationships */ -}}
     return query
@@ -502,13 +506,13 @@ func getQueryModsFrom{{$alias.UpSingular}}In(q *model.{{$alias.UpSingular}}Query
         {{- end}}
     {{- end}}
 
-    {{ range $rel := get_join_relations $.Tables .Table -}}
+    {{ range $rel := getLoadRelations $.Tables .Table -}}
         {{$schemaJoinTable := $rel.JoinTable | $.SchemaTable -}}
-        {{$loadCol := get_load_relation_column $.Aliases $.Tables $rel -}}
+        {{$loadCol := getLoadRelationColumn $.Aliases $.Tables $rel -}}
         {{$whereHelper := printf "whereHelper%s" (goVarname $loadCol.Type) -}}
 
-        if q.{{ get_load_relation_name $.Aliases $rel | singular }} != nil {
-            query = append(query, queryWrapperFunc({{ $whereHelper }}{"{{ $schemaJoinTable }}.{{$rel.JoinForeignColumn | $.Quotes}}"}.IN(q.{{ get_load_relation_name $.Aliases $rel | singular }})))
+        if q.{{ getLoadRelationName $.Aliases $rel | singular }} != nil {
+            query = append(query, queryWrapperFunc({{ $whereHelper }}{"{{ getLoadRelationTableColumn $.Aliases $.Tables $rel }}"}.IN(q.{{ getLoadRelationName $.Aliases $rel | singular }})))
         }
     {{end -}}{{- /* range relationships */ -}}
     return query
@@ -525,13 +529,13 @@ func getQueryModsFrom{{$alias.UpSingular}}NotIn(q *model.{{$alias.UpSingular}}Qu
         {{- end}}
     {{- end}}
 
-    {{ range $rel := get_join_relations $.Tables .Table -}}
+    {{ range $rel := getLoadRelations $.Tables .Table -}}
         {{$schemaJoinTable := $rel.JoinTable | $.SchemaTable -}}
-        {{$loadCol := get_load_relation_column $.Aliases $.Tables $rel -}}
+        {{$loadCol := getLoadRelationColumn $.Aliases $.Tables $rel -}}
         {{$whereHelper := printf "whereHelper%s" (goVarname $loadCol.Type) -}}
 
-        if q.{{ get_load_relation_name $.Aliases $rel | singular }} != nil {
-            query = append(query, queryWrapperFunc({{ $whereHelper }}{"{{ $schemaJoinTable }}.{{$rel.JoinForeignColumn | $.Quotes}}"}.NIN(q.{{ get_load_relation_name $.Aliases $rel | singular }})))
+        if q.{{ getLoadRelationName $.Aliases $rel | singular }} != nil {
+            query = append(query, queryWrapperFunc({{ $whereHelper }}{"{{ getLoadRelationTableColumn $.Aliases $.Tables $rel }}"}.NIN(q.{{ getLoadRelationName $.Aliases $rel | singular }})))
         }
     {{end -}}{{- /* range relationships */ -}}
     return query
@@ -616,31 +620,31 @@ func getQueryModsFrom{{$alias.UpSingular}}NotLike(q *model.{{$alias.UpSingular}}
 }
 
 func getQueryModsFrom{{$alias.UpSingular}}QueryForJoin(q model.{{$alias.UpSingular}}Query) []qm.QueryMod {
-    {{ range $rel := get_join_relations $.Tables .Table -}}
+    {{ range $rel := getLoadRelations $.Tables .Table -}}
     {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         join{{$relAlias.Local | singular }} := false
     {{end }}
 
     checkParams := func(p model.{{$alias.UpSingular}}QueryParams) {
-    {{ range $rel := get_join_relations $.Tables .Table -}}
+    {{ range $rel := getLoadRelations $.Tables .Table -}}
     {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         if p.Equals != nil {
-            if p.Equals.{{ get_load_relation_name $.Aliases $rel | singular }}.IsDefined() {
+            if p.Equals.{{ getLoadRelationName $.Aliases $rel | singular }}.IsDefined() {
                 join{{$relAlias.Local | singular }} = true
             }
         }
         if p.NotEquals != nil {
-            if p.NotEquals.{{ get_load_relation_name $.Aliases $rel | singular }}.IsDefined() {
+            if p.NotEquals.{{ getLoadRelationName $.Aliases $rel | singular }}.IsDefined() {
                 join{{$relAlias.Local | singular }} = true
             }
         }
         if p.In != nil {
-            if p.In.{{ get_load_relation_name $.Aliases $rel | singular }} != nil {
+            if p.In.{{ getLoadRelationName $.Aliases $rel | singular }} != nil {
                 join{{$relAlias.Local | singular }} = true
             }
         }
         if p.NotIn != nil {
-            if p.NotIn.{{ get_load_relation_name $.Aliases $rel | singular }} != nil {
+            if p.NotIn.{{ getLoadRelationName $.Aliases $rel | singular }} != nil {
                 join{{$relAlias.Local | singular }} = true
             }
         }
@@ -653,11 +657,10 @@ func getQueryModsFrom{{$alias.UpSingular}}QueryForJoin(q model.{{$alias.UpSingul
 	}
 
     query := []qm.QueryMod{}
-    {{ range $rel := get_join_relations $.Tables .Table -}}
+    {{ range $rel := getLoadRelations $.Tables .Table -}}
     {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-    {{- $schemaJoinTable := $rel.JoinTable | $.SchemaTable -}}
         if join{{$relAlias.Local | singular }} {
-            query = append(query, qm.InnerJoin("{{$schemaJoinTable}} on {{ $rel.Table | $.Quotes}}.{{$rel.ForeignColumn | $.Quotes}} = {{$schemaJoinTable}}.{{$rel.JoinLocalColumn | $.Quotes}}"))
+            query = append(query, qm.InnerJoin("{{ getLoadRelationStatement $.Aliases $.Tables $rel }}"))
         }
     {{end }}
 

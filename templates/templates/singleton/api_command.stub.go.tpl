@@ -69,7 +69,7 @@ type Command_{{ titleCase .PkgName }}Service interface {
             {{- end }}
             {{ end }}
 
-            {{- range $rel := get_load_relations $.Tables $table }}
+            {{- range $rel := getLoadRelations $.Tables $table }}
                 {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
                 // type: "types.UUID"
                 {{ $relAlias.Local | singular }}IDs []string
@@ -125,7 +125,7 @@ type Command_{{ titleCase .PkgName }}Service interface {
             {{- end }}
             {{ end }}
 
-            {{- range $rel := get_load_relations $.Tables $table -}}
+            {{- range $rel := getLoadRelations $.Tables $table -}}
                 {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
                 // type: "types.UUID"
                 {{ $relAlias.Local | singular }}IDs []string

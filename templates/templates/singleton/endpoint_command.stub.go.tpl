@@ -13,7 +13,7 @@ type commandService interface {
 {{ end }}
 }
 
-var _ api.Command_{{get_service_name | titleCase }}Service = (*command)(nil)
+var _ api.Command_{{getServiceName | titleCase }}Service = (*command)(nil)
 
 type command struct {
     svc commandService
@@ -49,7 +49,7 @@ func (c *command) Create{{$alias.UpSingular}}(ctx context.Context, r api.{{$alia
         {{- end -}}
 
         {{ end }}
-        {{- range $rel := get_load_relations $.Tables $table -}}
+        {{- range $rel := getLoadRelations $.Tables $table -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
             {{ $relAlias.Local | singular }}IDs: r.{{ $relAlias.Local | singular }}IDs,
         {{end -}}{{- /* range relationships */ -}}
@@ -83,7 +83,7 @@ func (c *command) Update{{$alias.UpSingular}}(ctx context.Context, r api.{{$alia
         {{- end -}}
         {{ end }}
 
-        {{- range $rel := get_load_relations $.Tables $table -}}
+        {{- range $rel := getLoadRelations $.Tables $table -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
             {{ $relAlias.Local | singular }}IDs: r.{{ $relAlias.Local | singular }}IDs,
         {{end -}}{{- /* range relationships */ -}}

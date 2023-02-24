@@ -7,11 +7,11 @@ type {{$alias.UpSingular}} struct {
         {{- $orig_col_name := $column.Name -}}
         {{- range $column.Comment | splitLines -}}
         {{end -}}
-        {{$colAlias}} {{ if and (isEnumDBType .DBType) (.Nullable) }} {{ strip_prefix $column.Type "Null" }} {{ else }} {{$column.Type}} {{ end }}
+        {{$colAlias}} {{ if and (isEnumDBType .DBType) (.Nullable) }} {{ stripPrefix $column.Type "Null" }} {{ else }} {{$column.Type}} {{ end }}
     {{end -}}
 
-    {{- range $rel := get_load_relations $.Tables .Table -}}
-        {{ get_load_relation_name $.Aliases $rel }} []{{ get_load_relation_type $.Aliases $.Tables $rel "" }}
+    {{- range $rel := getLoadRelations $.Tables .Table -}}
+        {{ getLoadRelationName $.Aliases $rel }} []{{ getLoadRelationType $.Aliases $.Tables $rel "" }}
     {{end -}}{{- /* range relationships */ -}}
 }
 
@@ -51,43 +51,43 @@ func (o {{$alias.UpSingular}}) Validate(isUpdate bool, validateBusinessFunc {{$a
             {{ end }}
             {{ end }}
 
-            {{- if (col_is_color $column) }}
+            {{- if (columnIsColor $column) }}
                 if !o.{{$colAlias}}.IsNil() && !valid.Color(o.{{$colAlias}}.String()) {
                     errFields.InvalidValue(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}}).WithValue(o.{{$colAlias}}))
                 }
             {{ end }}
 
-            {{- if (col_is_country_code $column) }}
+            {{- if (columnIsCountryCode $column) }}
                 if !o.{{$colAlias}}.IsNil() && !valid.CountryCode(o.{{$colAlias}}.String()) {
                     errFields.InvalidValue(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}}).WithValue(o.{{$colAlias}}))
                 }
             {{ end }}
 
-            {{- if (col_is_email_address $column) }}
+            {{- if (columnIsEmailAddress $column) }}
                 if !o.{{$colAlias}}.IsNil() && !valid.EmailAddress(o.{{$colAlias}}.String()) {
                     errFields.InvalidValue(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}}).WithValue(o.{{$colAlias}}))
                 }
             {{ end }}
 
-            {{- if (col_is_municipality_code $column) }}
+            {{- if (columnIsMunicipalityCode $column) }}
                 if !o.{{$colAlias}}.IsNil() && !valid.MunicipalityCode(o.{{$colAlias}}.String()) {
                     errFields.InvalidValue(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}}).WithValue(o.{{$colAlias}}))
                 }
             {{ end }}
 
-            {{- if (col_is_phone_number $column) }}
+            {{- if (columnIsPhoneNumber $column) }}
                 if !o.{{$colAlias}}.IsNil() && !valid.PhoneNumber(o.{{$colAlias}}.String()) {
                     errFields.InvalidValue(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}}).WithValue(o.{{$colAlias}}))
                 }
             {{ end }}
 
-            {{- if (col_is_time_zone $column) }}
+            {{- if (columnIsTimeZone $column) }}
                 if !o.{{$colAlias}}.IsNil() && !valid.TimeZone(o.{{$colAlias}}.String()) {
                     errFields.InvalidValue(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}}).WithValue(o.{{$colAlias}}))
                 }
             {{ end }}
 
-            {{- if (col_is_url $column) }}
+            {{- if (columnIsURL $column) }}
                 if !o.{{$colAlias}}.IsNil() && !valid.URL(o.{{$colAlias}}.String()) {
                     errFields.InvalidValue(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}}).WithValue(o.{{$colAlias}}))
                 }
@@ -112,7 +112,7 @@ const (
     {{- $colAlias := $alias.Column $column.Name -}}
         {{$alias.UpSingular}}Column{{$colAlias}} string = "{{$colAlias}}"
     {{end -}}
-    {{- range $rel := get_load_relations $.Tables .Table -}}
+    {{- range $rel := getLoadRelations $.Tables .Table -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         {{- if not (hasSuffix "Logs" $relAlias.Local) -}}
             {{$alias.UpSingular}}Column{{ $relAlias.Local | singular }}IDs string = "{{ $relAlias.Local | singular }}IDs"
@@ -126,7 +126,7 @@ func {{$alias.UpSingular}}Columns() []string {
     {{- $colAlias := $alias.Column $column.Name -}}
         {{$alias.UpSingular}}Column{{$colAlias}},
     {{end -}}
-    {{- range $rel := get_load_relations $.Tables .Table -}}
+    {{- range $rel := getLoadRelations $.Tables .Table -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         {{- if not (hasSuffix "Logs" $relAlias.Local) -}}
             {{$alias.UpSingular}}Column{{ $relAlias.Local | singular }}IDs,
@@ -185,7 +185,7 @@ func {{$alias.UpSingular}}FromStrings(fields, values []string, conversionFunc {{
             {{- if (isEnumDBType .DBType) -}}
                 {{$alias.DownSingular}}.{{$colAlias}} = {{ parseEnumName $column.DBType | titleCase }}FromString(types.NewStringFromPtr(nil)) // Start by setting the value to nil before trying to parse the row value 
             {{- else }}
-                {{$alias.DownSingular}}.{{$colAlias}} = types.New{{ strip_prefix $column.Type "types." }}FromPtr(nil)  // Start by setting the value to nil before trying to parse the row value 
+                {{$alias.DownSingular}}.{{$colAlias}} = types.New{{ stripPrefix $column.Type "types." }}FromPtr(nil)  // Start by setting the value to nil before trying to parse the row value 
             {{- end }}
 
             // If the string isn't empty, parse it and set the new value
@@ -388,7 +388,7 @@ func {{$alias.UpPlural}}ToStrings({{$alias.DownPlural}} []*{{$alias.UpSingular}}
             {{- end -}}
         {{- end -}}
     {{- end }}
-    {{- range $col := get_load_relations_enum_columns $.Tables .Table -}}
+    {{- range $col := getLoadRelations_enum_columns $.Tables .Table -}}
         {{- $name := parseEnumName $col.DBType -}}
         {{- $vals := parseEnumVals $col.DBType -}}
         {{- $isNamed := ne (len $name) 0}}
@@ -539,7 +539,7 @@ type {{$alias.UpSingular}}QuerySelectedFields struct {
             {{$colAlias}} types.Bool
     {{- end}}
 
-    {{ range $rel := get_load_relations $.Tables .Table -}}
+    {{ range $rel := getLoadRelations $.Tables .Table -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         {{ $relAlias.Local | singular }}IDs types.Bool
     {{end -}}{{- /* range relationships */ -}}
@@ -594,10 +594,10 @@ func New{{$alias.UpSingular}}QueryParamsFields() *{{$alias.UpSingular}}QueryPara
 type {{$alias.UpSingular}}QueryParamsFields struct {
     {{- range $column := .Table.Columns}}
         {{- $colAlias := $alias.Column $column.Name}}
-        {{$colAlias}} {{ if and (isEnumDBType .DBType) (.Nullable) }} {{ strip_prefix $column.Type "Null" }} {{ else }} {{$column.Type}} {{ end }}
+        {{$colAlias}} {{ if and (isEnumDBType .DBType) (.Nullable) }} {{ stripPrefix $column.Type "Null" }} {{ else }} {{$column.Type}} {{ end }}
     {{- end}}
-    {{ range $rel := get_join_relations $.Tables .Table -}}
-        {{ get_load_relation_name $.Aliases $rel | singular }} {{ get_load_relation_type $.Aliases $.Tables $rel "" }}
+    {{ range $rel := getLoadRelations $.Tables .Table -}}
+        {{ getLoadRelationName $.Aliases $rel | singular }} {{ getLoadRelationType $.Aliases $.Tables $rel "" }}
     {{end -}}{{- /* range relationships */ -}}
 }
 
@@ -628,8 +628,8 @@ type {{$alias.UpSingular}}QueryParamsInFields struct {
         {{- end -}}
 
     {{- end}}
-    {{ range $rel := get_join_relations $.Tables .Table -}}
-        {{ get_load_relation_name $.Aliases $rel | singular }} []{{ get_load_relation_type $.Aliases $.Tables $rel "" }}
+    {{ range $rel := getLoadRelations $.Tables .Table -}}
+        {{ getLoadRelationName $.Aliases $rel | singular }} []{{ getLoadRelationType $.Aliases $.Tables $rel "" }}
     {{end -}}{{- /* range relationships */ -}}
 }
 

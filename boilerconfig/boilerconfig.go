@@ -111,21 +111,22 @@ func GetConfig(driverName, configFile, serviceName, typesPackage string) (*boili
 		},
 		Version: sqlBoilerVersion,
 		CustomTemplateFuncs: template.FuncMap{
-			"get_join_relations":              getJoinRelations,
-			"get_load_relations":              getLoadRelations,
-			"get_load_relation_name":          getLoadRelationName,
-			"get_load_relation_column":        getLoadRelationColumn,
-			"get_load_relation_type":          getLoadRelationType,
-			"get_load_relations_enum_columns": getLoadRelationsEnumColumns,
-			"get_service_name":                func() string { return serviceName },
-			"strip_prefix":                    strings.TrimPrefix,
-			"col_is_color":                    func(c drivers.Column) bool { return strings.Contains(c.Comment, "color") },
-			"col_is_country_code":             func(c drivers.Column) bool { return strings.Contains(c.Comment, "country_code") },
-			"col_is_email_address":            func(c drivers.Column) bool { return strings.Contains(c.Comment, "email_address") },
-			"col_is_municipality_code":        func(c drivers.Column) bool { return strings.Contains(c.Comment, "municipality_code") },
-			"col_is_phone_number":             func(c drivers.Column) bool { return strings.Contains(c.Comment, "phone_number") },
-			"col_is_time_zone":                func(c drivers.Column) bool { return strings.Contains(c.Comment, "time_zone") },
-			"col_is_url":                      func(c drivers.Column) bool { return strings.Contains(c.Comment, "url") },
+			"getLoadRelations":              getLoadRelations,
+			"getLoadRelationStatement":      getLoadRelationStatement,
+			"getLoadRelationName":           getLoadRelationName,
+			"getLoadRelationColumn":         getLoadRelationColumn,
+			"getLoadRelationTableColumn":    getLoadRelationTableColumn,
+			"getLoadRelationType":           getLoadRelationType,
+			"getLoadRelations_enum_columns": getLoadRelationsEnumColumns,
+			"getServiceName":                func() string { return serviceName },
+			"stripPrefix":                   strings.TrimPrefix,
+			"columnIsColor":                 func(c drivers.Column) bool { return strings.Contains(c.Comment, "color") },
+			"columnIsCountryCode":           func(c drivers.Column) bool { return strings.Contains(c.Comment, "country_code") },
+			"columnIsEmailAddress":          func(c drivers.Column) bool { return strings.Contains(c.Comment, "email_address") },
+			"columnIsMunicipalityCode":      func(c drivers.Column) bool { return strings.Contains(c.Comment, "municipality_code") },
+			"columnIsPhoneNumber":           func(c drivers.Column) bool { return strings.Contains(c.Comment, "phone_number") },
+			"columnIsTimeZone":              func(c drivers.Column) bool { return strings.Contains(c.Comment, "time_zone") },
+			"columnIsURL":                   func(c drivers.Column) bool { return strings.Contains(c.Comment, "url") },
 		},
 	}
 
@@ -315,6 +316,72 @@ func getLoadRelationColumn(aliases boilingcore.Aliases, tables []drivers.Table, 
 	panic("load relation column not found")
 }
 
+func getLoadRelationTableColumn(aliases boilingcore.Aliases, tables []drivers.Table, rel drivers.ToManyRelationship) string {
+	quoteFunc := func(s string) string { return fmt.Sprintf(`\"%s\"`, s) }
+
+	for _, t := range tables {
+		if t.Name != rel.ForeignTable {
+			continue
+		}
+
+		if rel.ToJoinTable {
+			return fmt.Sprintf("%s.%s",
+				quoteFunc(rel.JoinTable),
+				quoteFunc(rel.JoinForeignColumn),
+			)
+		}
+
+		for _, column := range t.Columns {
+			if column.Name == rel.ForeignColumn {
+				continue
+			}
+
+			return fmt.Sprintf("%s.%s",
+				quoteFunc(rel.ForeignTable),
+				quoteFunc(column.Name),
+			)
+		}
+	}
+
+	panic("load relation column not found")
+}
+
+func getLoadRelationStatement(aliases boilingcore.Aliases, tables []drivers.Table, rel drivers.ToManyRelationship) string {
+	quoteFunc := func(s string) string { return fmt.Sprintf(`\"%s\"`, s) }
+
+	for _, t := range tables {
+		if t.Name != rel.ForeignTable {
+			continue
+		}
+
+		if rel.ToJoinTable {
+			return fmt.Sprintf("%s ON %s.%s = %s.%s",
+				quoteFunc(rel.JoinTable),
+				quoteFunc(rel.Table),
+				quoteFunc(rel.ForeignColumn),
+				quoteFunc(rel.JoinTable),
+				quoteFunc(rel.JoinLocalColumn),
+			)
+		}
+
+		for _, column := range t.Columns {
+			if column.Name == rel.ForeignColumn {
+				continue
+			}
+
+			return fmt.Sprintf("%s ON %s.%s = %s.%s",
+				quoteFunc(t.Name),
+				quoteFunc(t.Name),
+				quoteFunc(rel.ForeignColumn),
+				quoteFunc(rel.Table),
+				quoteFunc(rel.Column),
+			)
+		}
+	}
+
+	panic("load relation column not found")
+}
+
 func isLoadTable(table drivers.Table, rel drivers.ToManyRelationship) bool {
 	if table.Name == rel.JoinTable {
 		return strings.Contains(table.GetColumn(rel.JoinForeignColumn).Comment, "load")
@@ -373,25 +440,4 @@ func getLoadRelationsEnumColumns(tables []drivers.Table, fromTable drivers.Table
 	}
 
 	return columns
-}
-
-func getJoinRelations(tables []drivers.Table, fromTable drivers.Table) []drivers.ToManyRelationship {
-	var toManyRelationships []drivers.ToManyRelationship
-
-	for _, toManyRelationship := range fromTable.ToManyRelationships {
-		for _, t := range tables {
-			if t.Name != toManyRelationship.ForeignTable {
-				continue
-			}
-
-			// If we have a join table without two foreign keys, ignore
-			if t.IsJoinTable && len(t.FKeys) != 2 {
-				break
-			}
-
-			toManyRelationships = append(toManyRelationships, toManyRelationship)
-		}
-	}
-
-	return toManyRelationships
 }
