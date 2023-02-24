@@ -704,8 +704,13 @@ func getQueryModsFrom{{$alias.UpSingular}}QueryOrderBy(q *model.{{$alias.UpSingu
         orderByStrings = append(orderByStrings, o.field + " " + o.order)
     }
 
+    // Add the default order by columns defined in the schema to keep consistency
+    {{- range getTableOrderByColumns .Table }}
+        orderByStrings = append(orderByStrings, "{{ . }}")
+    {{- end}}
+
     {{- range $pkName := $pkNames }}
-        orderByStrings = append(orderByStrings, {{$alias.UpSingular}}TableColumns.{{$pkName | titleCase}} + " asc") // Always order by primary key first as ascending to keep consistency
+        orderByStrings = append(orderByStrings, {{$alias.UpSingular}}TableColumns.{{$pkName | titleCase}} + " asc")
     {{- end}}
 
 	return []qm.QueryMod{

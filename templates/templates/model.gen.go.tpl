@@ -51,43 +51,45 @@ func (o {{$alias.UpSingular}}) Validate(isUpdate bool, validateBusinessFunc {{$a
             {{ end }}
             {{ end }}
 
-            {{- if (columnIsColor $column) }}
+            {{ $columnMetadata := getColumnMetadata $column }}
+
+            {{- if ($columnMetadata.Validate.Color) }}
                 if !o.{{$colAlias}}.IsNil() && !valid.Color(o.{{$colAlias}}.String()) {
                     errFields.InvalidValue(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}}).WithValue(o.{{$colAlias}}))
                 }
             {{ end }}
 
-            {{- if (columnIsCountryCode $column) }}
+            {{- if ($columnMetadata.Validate.CountryCode) }}
                 if !o.{{$colAlias}}.IsNil() && !valid.CountryCode(o.{{$colAlias}}.String()) {
                     errFields.InvalidValue(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}}).WithValue(o.{{$colAlias}}))
                 }
             {{ end }}
 
-            {{- if (columnIsEmailAddress $column) }}
+            {{- if ($columnMetadata.Validate.EmailAddress) }}
                 if !o.{{$colAlias}}.IsNil() && !valid.EmailAddress(o.{{$colAlias}}.String()) {
                     errFields.InvalidValue(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}}).WithValue(o.{{$colAlias}}))
                 }
             {{ end }}
 
-            {{- if (columnIsMunicipalityCode $column) }}
+            {{- if ($columnMetadata.Validate.MunicipalityCode) }}
                 if !o.{{$colAlias}}.IsNil() && !valid.MunicipalityCode(o.{{$colAlias}}.String()) {
                     errFields.InvalidValue(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}}).WithValue(o.{{$colAlias}}))
                 }
             {{ end }}
 
-            {{- if (columnIsPhoneNumber $column) }}
+            {{- if ($columnMetadata.Validate.PhoneNumber) }}
                 if !o.{{$colAlias}}.IsNil() && !valid.PhoneNumber(o.{{$colAlias}}.String()) {
                     errFields.InvalidValue(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}}).WithValue(o.{{$colAlias}}))
                 }
             {{ end }}
 
-            {{- if (columnIsTimeZone $column) }}
+            {{- if ($columnMetadata.Validate.TimeZone) }}
                 if !o.{{$colAlias}}.IsNil() && !valid.TimeZone(o.{{$colAlias}}.String()) {
                     errFields.InvalidValue(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}}).WithValue(o.{{$colAlias}}))
                 }
             {{ end }}
 
-            {{- if (columnIsURL $column) }}
+            {{- if ($columnMetadata.Validate.URL) }}
                 if !o.{{$colAlias}}.IsNil() && !valid.URL(o.{{$colAlias}}.String()) {
                     errFields.InvalidValue(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}}).WithValue(o.{{$colAlias}}))
                 }

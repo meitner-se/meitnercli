@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -118,19 +119,132 @@ func GetConfig(driverName, configFile, serviceName, typesPackage string) (*boili
 			"getLoadRelationTableColumn":    getLoadRelationTableColumn,
 			"getLoadRelationType":           getLoadRelationType,
 			"getLoadRelations_enum_columns": getLoadRelationsEnumColumns,
+			"getColumnMetadata":             getColumnMetadata,
+			"getTableOrderByColumns":        getTableOrderByColumns,
 			"getServiceName":                func() string { return serviceName },
 			"stripPrefix":                   strings.TrimPrefix,
-			"columnIsColor":                 func(c drivers.Column) bool { return strings.Contains(c.Comment, "color") },
-			"columnIsCountryCode":           func(c drivers.Column) bool { return strings.Contains(c.Comment, "country_code") },
-			"columnIsEmailAddress":          func(c drivers.Column) bool { return strings.Contains(c.Comment, "email_address") },
-			"columnIsMunicipalityCode":      func(c drivers.Column) bool { return strings.Contains(c.Comment, "municipality_code") },
-			"columnIsPhoneNumber":           func(c drivers.Column) bool { return strings.Contains(c.Comment, "phone_number") },
-			"columnIsTimeZone":              func(c drivers.Column) bool { return strings.Contains(c.Comment, "time_zone") },
-			"columnIsURL":                   func(c drivers.Column) bool { return strings.Contains(c.Comment, "url") },
 		},
 	}
 
 	return config, nil
+}
+
+type ColumnMetadata struct {
+	Validate ColumnMetadataForValidation
+	Sort     string
+	Order    int
+}
+
+func getColumnMetadata(c drivers.Column) ColumnMetadata {
+	var columnMetadata ColumnMetadata
+
+	for _, comment := range strings.Split(c.Comment, " | ") {
+		if comment == "" {
+			continue
+		}
+
+		if strings.HasPrefix(comment, "validate:") {
+			columnMetadata.Validate = getColumnMetadataForValidation(strings.TrimPrefix(comment, "validate:"))
+			continue
+		}
+
+		if strings.HasPrefix(comment, "sort:") {
+			sortString := strings.TrimPrefix(comment, "sort:")
+
+			switch sortString {
+			case "asc", "desc":
+				// valid sort
+			default:
+				panic("invalid sort")
+			}
+
+			columnMetadata.Sort = sortString
+
+			continue
+		}
+
+		if strings.HasPrefix(comment, "order:") {
+			orderIndex, err := strconv.Atoi(strings.TrimPrefix(comment, "order:"))
+			if err != nil {
+				panic("cannot convert order string to integer: " + err.Error())
+			}
+
+			columnMetadata.Order = orderIndex
+
+			continue
+		}
+
+		if comment == "load" {
+			continue
+		}
+
+		panic("invalid comment for metadata: " + comment)
+	}
+
+	return columnMetadata
+}
+
+func getTableOrderByColumns(t drivers.Table) []string {
+	orderByMap := make(map[int]string)
+	for _, c := range t.Columns {
+		metadata := getColumnMetadata(c)
+
+		if metadata.Sort != "" {
+			orderByMap[metadata.Order] = fmt.Sprintf("%s.%s %s", t.Name, c.Name, metadata.Sort)
+		}
+	}
+
+	orderByColumns := []string{}
+	for i := range t.Columns {
+		orderByColumn, ok := orderByMap[i]
+		if !ok {
+			continue
+		}
+
+		orderByColumns = append(orderByColumns, orderByColumn)
+	}
+
+	// Always order by created_at if it exists
+	for _, c := range t.Columns {
+		if c.Name == "created_at" {
+			orderByColumns = append(orderByColumns, fmt.Sprintf("%s.%s asc", t.Name, c.Name))
+		}
+	}
+
+	return orderByColumns
+}
+
+type ColumnMetadataForValidation struct {
+	Color            bool
+	CountryCode      bool
+	EmailAddress     bool
+	MunicipalityCode bool
+	PhoneNumber      bool
+	TimeZone         bool
+	URL              bool
+}
+
+func getColumnMetadataForValidation(validate string) ColumnMetadataForValidation {
+	var columnMetadataForValidation ColumnMetadataForValidation
+
+	switch validate {
+	case "color":
+		columnMetadataForValidation.Color = true
+	case "country_code":
+		columnMetadataForValidation.CountryCode = true
+	case "email_address":
+		columnMetadataForValidation.EmailAddress = true
+	case "municipality_code":
+		columnMetadataForValidation.MunicipalityCode = true
+	case "phone_number":
+		columnMetadataForValidation.PhoneNumber = true
+	case "time_zone":
+		columnMetadataForValidation.TimeZone = true
+	case "url":
+		columnMetadataForValidation.URL = true
+	}
+
+	return columnMetadataForValidation
 }
 
 func initConfig(configFile string) error {
