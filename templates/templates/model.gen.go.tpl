@@ -673,6 +673,26 @@ type {{$alias.UpSingular}}QueryOrderByField struct {
     Desc bool
 }
 
+func Sort{{$alias.UpPlural}}(o []*{{$alias.UpSingular}}) []*{{$alias.UpSingular}} {
+    sort.Sort({{$alias.DownPlural}}(o))
+    return o
+}
+
+type {{$alias.DownPlural}} []*{{$alias.UpSingular}}
+func (o {{$alias.DownPlural}}) Len() int      { return len(o) }
+func (o {{$alias.DownPlural}}) Swap(i, j int) { o[i], o[j] = o[j], o[i] }
+func (o {{$alias.DownPlural}}) Less(i, j int) bool {
+    {{- range getTableColumnOrder .Table }}
+    {{- $colAlias := $alias.Column .Column.Name -}}
+    {{- $type := stripPrefix .Column.Type "types." }}
+        if sort.{{ $type }}{{ if .Desc }}After{{else}}Before{{end}}(o[i].{{$colAlias}}.{{ $type }}(), o[j].{{$colAlias}}.{{ $type }}()) {
+            return true
+        }
+    {{ end }}
+
+	return false
+}
+
 // Force package dependencies for the valid-package,
 // since it might not be used by the generated code
 var _ = valid.EmailAddress

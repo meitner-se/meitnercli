@@ -120,6 +120,7 @@ func GetConfig(driverName, configFile, serviceName, typesPackage string) (*boili
 			"getLoadRelationType":           getLoadRelationType,
 			"getLoadRelations_enum_columns": getLoadRelationsEnumColumns,
 			"getColumnMetadata":             getColumnMetadata,
+			"getTableColumnOrder":           getTableColumnOrder,
 			"getTableOrderByColumns":        getTableOrderByColumns,
 			"getServiceName":                func() string { return serviceName },
 			"stripPrefix":                   strings.TrimPrefix,
@@ -130,9 +131,13 @@ func GetConfig(driverName, configFile, serviceName, typesPackage string) (*boili
 }
 
 type ColumnMetadata struct {
+	Sort     *ColumnMetadataForSort
 	Validate ColumnMetadataForValidation
-	Sort     string
-	Order    int
+}
+
+type ColumnMetadataForSort struct {
+	Order int
+	Desc  bool
 }
 
 func getColumnMetadata(c drivers.Column) ColumnMetadata {
@@ -158,7 +163,15 @@ func getColumnMetadata(c drivers.Column) ColumnMetadata {
 				panic("invalid sort")
 			}
 
-			columnMetadata.Sort = sortString
+			if columnMetadata.Sort != nil {
+				columnMetadata.Sort.Desc = sortString == "desc"
+				continue
+			}
+
+			columnMetadata.Sort = &ColumnMetadataForSort{
+				Order: 0,
+				Desc:  sortString == "desc",
+			}
 
 			continue
 		}
@@ -169,7 +182,15 @@ func getColumnMetadata(c drivers.Column) ColumnMetadata {
 				panic("cannot convert order string to integer: " + err.Error())
 			}
 
-			columnMetadata.Order = orderIndex
+			if columnMetadata.Sort != nil {
+				columnMetadata.Sort.Order = orderIndex
+				continue
+			}
+
+			columnMetadata.Sort = &ColumnMetadataForSort{
+				Order: orderIndex,
+				Desc:  false,
+			}
 
 			continue
 		}
@@ -184,31 +205,63 @@ func getColumnMetadata(c drivers.Column) ColumnMetadata {
 	return columnMetadata
 }
 
-func getTableOrderByColumns(t drivers.Table) []string {
-	orderByMap := make(map[int]string)
+type ColumnOrder struct {
+	Column drivers.Column
+	Desc   bool
+}
+
+func getTableColumnOrder(t drivers.Table) []ColumnOrder {
+	orderByMap := make(map[int]ColumnOrder)
 	for _, c := range t.Columns {
 		metadata := getColumnMetadata(c)
 
-		if metadata.Sort != "" {
-			orderByMap[metadata.Order] = fmt.Sprintf("%s.%s %s", t.Name, c.Name, metadata.Sort)
+		if metadata.Sort != nil {
+			orderByMap[metadata.Sort.Order] = ColumnOrder{
+				Column: c,
+				Desc:   metadata.Sort.Desc,
+			}
 		}
 	}
 
-	orderByColumns := []string{}
+	columnOrder := []ColumnOrder{}
 	for i := range t.Columns {
 		orderByColumn, ok := orderByMap[i]
 		if !ok {
 			continue
 		}
 
-		orderByColumns = append(orderByColumns, orderByColumn)
+		columnOrder = append(columnOrder, orderByColumn)
 	}
 
 	// Always order by created_at if it exists
 	for _, c := range t.Columns {
 		if c.Name == "created_at" {
-			orderByColumns = append(orderByColumns, fmt.Sprintf("%s.%s asc", t.Name, c.Name))
+			columnOrder = append(columnOrder, ColumnOrder{
+				Column: c,
+				Desc:   false,
+			})
 		}
+	}
+
+	return columnOrder
+}
+
+func getTableOrderByColumns(t drivers.Table) []string {
+	columnOrder := getTableColumnOrder(t)
+
+	orderByColumns := make([]string, len(columnOrder))
+	for i := range columnOrder {
+		sort := "asc"
+
+		if columnOrder[i].Desc {
+			sort = "desc"
+		}
+
+		orderByColumns[i] = fmt.Sprintf("%s.%s %s",
+			t.Name,
+			columnOrder[i].Column.Name,
+			sort,
+		)
 	}
 
 	return orderByColumns
