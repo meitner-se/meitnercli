@@ -12,11 +12,11 @@ func (r *repo) Create{{$alias.UpSingular}}(ctx context.Context, input *model.{{$
 		exec := database.GetBoilExec(ctx, r.db)
 
 		{{ if containsAny $colNames (or $.AutoColumns.Created "created_at") (or $.AutoColumns.Updated "updated_at") -}}
-			currentTime := time.Now().UTC()
+			currentTime := types.NewTimestamp(time.Now().UTC())
 		{{- end }}
 
 		{{- if containsAny $colNames "created_by" "updated_by" }}
-			currentUserID := &uuid.Nil // TODO : Get from context
+			currentUserID := auth.GetCurrentUserID(ctx)
 		{{- end }}
 		
 		// Make sure to set the values of the auto-columns to the service model pointer, since they might be used by the caller.
@@ -37,10 +37,10 @@ func (r *repo) Create{{$alias.UpSingular}}(ctx context.Context, input *model.{{$
 		{{- range $ind, $col := .Table.Columns -}}
 			{{- $colAlias := $alias.Column $col.Name -}}
 			{{- if or (eq $col.Name (or $.AutoColumns.Created "created_at")) (eq $col.Name (or $.AutoColumns.Updated "updated_at")) }}
-				input.{{$colAlias}} = types.NewTimestamp(currentTime)
+				input.{{$colAlias}} = currentTime
 			{{- end -}}
 			{{- if or (eq $col.Name "created_by") (eq $col.Name "updated_by") }}
-				input.{{$colAlias}} = types.NewUUIDFromPtr(currentUserID)
+				input.{{$colAlias}} = currentUserID
 			{{- end -}}
 		{{ end }}
 
@@ -155,4 +155,5 @@ var (
 	_ = strconv.IntSize
     _ = time.Second 	// Force time package dependency for automated UpdatedAt/CreatedAt.
     _ = uuid.Nil 		// Force uuid package dependency for generation UUIDs to entities
+	_ auth.Service
 )

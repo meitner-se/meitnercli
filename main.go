@@ -80,6 +80,7 @@ type config struct {
 		Packages      struct {
 			API      string `conf:"help:name of the api package which should be used in generation, default:meitner/pkg/api"`
 			Audit    string `conf:"help:name of the audit package which should be used in generation, default:meitner/pkg/audit"`
+			Auth     string `conf:"help:name of the auth package which should be used in generation, default:meitner/pkg/auth"`
 			Database string `conf:"help:name of the database package which should be used in generation, default:meitner/pkg/database"`
 			Errors   string `conf:"help:name of the errors package which should be used in generation, default:meitner/pkg/errors"`
 			Logger   string `conf:"help:name of the logger package which should be used in generation, default:meitner/pkg/logger"`
@@ -196,7 +197,7 @@ func generate(cfg config) error {
 
 		generationToConfig := map[string]boilerconfig.Wrapper{
 			"orm":        boilerconfig.ORM(ormDir, pkgServiceModel, cfg.Go.Packages.Audit),
-			"boiler":     boilerconfig.Boiler(repoDir, pkgORM, pkgServiceModel, pkgRepository, cfg.Go.Packages.Errors, cfg.Go.Packages.Audit, cfg.Go.Packages.Database, cfg.Go.Packages.Logger, cfg.Go.Packages.Types, cfg.Stubs, cfg.Layer),
+			"boiler":     boilerconfig.Boiler(repoDir, pkgORM, pkgServiceModel, pkgRepository, cfg.Go.Packages.Errors, cfg.Go.Packages.Audit, cfg.Go.Packages.Auth, cfg.Go.Packages.Database, cfg.Go.Packages.Logger, cfg.Go.Packages.Types, cfg.Stubs, cfg.Layer),
 			"repository": boilerconfig.Repository(repositoryDir, pkgServiceModel, cfg.Go.Packages.Types, cfg.Stubs, cfg.Layer),
 			"model":      boilerconfig.Model(serviceModelDir, cfg.Go.Packages.Types, cfg.Go.Packages.Errors, cfg.Go.Packages.Sort, cfg.Go.Packages.Valid),
 			"definition": boilerconfig.Definition(definitionDir, serviceName, cfg.Stubs, cfg.Layer),
