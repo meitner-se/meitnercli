@@ -548,6 +548,10 @@ func New{{$alias.UpSingular}}Query() {{$alias.UpSingular}}Query {
 }
 
 type {{$alias.UpSingular}}Query struct {
+    // Wrapper is used to add restraints to the query when the query comes from the client,
+    // will primarily be used to add organization_id and school_id to the queries.
+    Wrapper *{{$alias.UpSingular}}QueryNested
+
     // Nested queries, if any. 
     // Use OrCondition-field to define if the nested query should be wrapped in an AND or OR-statement.
     Nested []{{$alias.UpSingular}}QueryNested

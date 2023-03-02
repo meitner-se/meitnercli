@@ -21,8 +21,9 @@ func {{$alias.UpSingular}}FromModel(model *model.{{$alias.UpSingular}}) api.{{$a
     }
 }
 
-func {{$alias.UpSingular}}QueryToModel(toModel api.{{$alias.UpSingular}}QueryRequest) model.{{$alias.UpSingular}}Query {
+func {{$alias.UpSingular}}QueryToModel(toModel api.{{$alias.UpSingular}}QueryRequest, wrapper *model.{{$alias.UpSingular}}QueryNested) model.{{$alias.UpSingular}}Query {
 	return model.{{$alias.UpSingular}}Query{
+		Wrapper: wrapper,
 		Nested: {{$alias.DownSingular}}QueryNestedToModels(toModel.Nested),
 		Params: {{$alias.DownSingular}}QueryParamsToModel(toModel.Params),
 		SelectedFields: (*model.{{$alias.UpSingular}}QuerySelectedFields)(toModel.SelectedFields),
