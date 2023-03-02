@@ -290,14 +290,19 @@ func getQueryModsFrom{{$alias.UpSingular}}Query(q model.{{$alias.UpSingular}}Que
     }
 
     queryForCount := getQueryModsFrom{{$alias.UpSingular}}QueryParams(q.Params, queryWrapperFunc)
-    queryForCount = append(queryForCount, getQueryModsFrom{{$alias.UpSingular}}QueryForJoin(q)...)
-    for i := range q.Nested {
-        queryForCount = append(queryForCount, queryWrapperFunc(getQueryModsFrom{{$alias.UpSingular}}QueryNested(&q.Nested[i])))
-    }
 
     // Wrap the query if we have a wrapper
     if q.Wrapper != nil {
-        queryForCount = append([]qm.QueryMod{getQueryModsFrom{{$alias.UpSingular}}QueryNested(q.Wrapper)}, qm.Expr(queryForCount...))
+        queryWrapped := []qm.QueryMod{getQueryModsFrom{{$alias.UpSingular}}QueryNested(q.Wrapper)}
+        if len(queryForCount) != 0 {
+            queryWrapped = append(queryWrapped, qm.Expr(queryForCount...))
+        }
+        queryForCount = queryWrapped
+    }
+
+    queryForCount = append(queryForCount, getQueryModsFrom{{$alias.UpSingular}}QueryForJoin(q)...)
+    for i := range q.Nested {
+        queryForCount = append(queryForCount, queryWrapperFunc(getQueryModsFrom{{$alias.UpSingular}}QueryNested(&q.Nested[i])))
     }
 
     queryWithPagination := queryForCount
