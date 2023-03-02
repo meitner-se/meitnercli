@@ -271,6 +271,7 @@ type ColumnMetadataForValidation struct {
 	Color            bool
 	CountryCode      bool
 	EmailAddress     bool
+	LanguageCode     bool
 	MunicipalityCode bool
 	PhoneNumber      bool
 	TimeZone         bool
@@ -287,6 +288,8 @@ func getColumnMetadataForValidation(validate string) ColumnMetadataForValidation
 		columnMetadataForValidation.CountryCode = true
 	case "email_address":
 		columnMetadataForValidation.EmailAddress = true
+	case "language_code":
+		columnMetadataForValidation.LanguageCode = true
 	case "municipality_code":
 		columnMetadataForValidation.MunicipalityCode = true
 	case "phone_number":
@@ -295,6 +298,8 @@ func getColumnMetadataForValidation(validate string) ColumnMetadataForValidation
 		columnMetadataForValidation.TimeZone = true
 	case "url":
 		columnMetadataForValidation.URL = true
+	default:
+		panic("invalid validation: " + validate)
 	}
 
 	return columnMetadataForValidation

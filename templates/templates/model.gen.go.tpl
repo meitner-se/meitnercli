@@ -71,6 +71,12 @@ func (o {{$alias.UpSingular}}) Validate(isUpdate bool, validateBusinessFunc {{$a
                 }
             {{ end }}
 
+            {{- if ($columnMetadata.Validate.LanguageCode) }}
+                if !o.{{$colAlias}}.IsNil() && !valid.LanguageCode(o.{{$colAlias}}.String()) {
+                    errFields.InvalidValue(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}}).WithValue(o.{{$colAlias}}))
+                }
+            {{ end }}
+
             {{- if ($columnMetadata.Validate.MunicipalityCode) }}
                 if !o.{{$colAlias}}.IsNil() && !valid.MunicipalityCode(o.{{$colAlias}}.String()) {
                     errFields.InvalidValue(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}}).WithValue(o.{{$colAlias}}))
