@@ -247,6 +247,9 @@ func {{$alias.UpPlural}}ToStrings({{$alias.DownPlural}} []*{{$alias.UpSingular}}
         {{- $colAlias := $alias.Column $column.Name -}}
             {{$alias.UpSingular}}Column{{$colAlias}},
         {{end -}}
+        {{- range $rel := getLoadRelations $.Tables .Table -}}
+            {{$alias.UpSingular}}Column{{ getLoadRelationName $.Aliases $rel }},
+        {{end -}}{{- /* range relationships */ -}}
     }
 
     // create a map to know which fields that are actually used
@@ -258,6 +261,11 @@ func {{$alias.UpPlural}}ToStrings({{$alias.DownPlural}} []*{{$alias.UpSingular}}
                 fieldMap[{{$alias.UpSingular}}Column{{$colAlias}}] = struct{}{}
             }
         {{end -}}
+        {{- range $rel := getLoadRelations $.Tables .Table -}}
+            if o.{{ getLoadRelationName $.Aliases $rel }} != nil {
+                fieldMap[{{$alias.UpSingular}}Column{{ getLoadRelationName $.Aliases $rel }}] = struct{}{}
+            }
+        {{end -}}{{- /* range relationships */ -}}
     }
 
     // remove all of the unused fields
@@ -292,6 +300,24 @@ func {{$alias.UpPlural}}ToStrings({{$alias.DownPlural}} []*{{$alias.UpSingular}}
                 values[index] = o.{{$colAlias}}.{{- if (isEnumDBType .DBType) }}String.{{end}}String()
             }
         {{end -}}
+        {{- range $rel := getLoadRelations $.Tables .Table -}}
+            if o.{{ getLoadRelationName $.Aliases $rel }} != nil {
+                index, ok := extractIndexByField({{$alias.UpSingular}}Column{{ getLoadRelationName $.Aliases $rel }})
+                if !ok {
+                    return nil, nil, errors.New("cannot get index by field, should not happen: "+ {{$alias.UpSingular}}Column{{ getLoadRelationName $.Aliases $rel }})
+                }
+
+                value := ""
+                for i, v := range o.{{ getLoadRelationName $.Aliases $rel }} {
+                    if i != 0 {
+                        value += ","
+                    }
+                    value += v.String()
+                }
+
+                 values[index] = value
+            }
+        {{end -}}{{- /* range relationships */ -}}
 
         rows[i] = values
     }
@@ -334,6 +360,16 @@ func {{$alias.UpPlural}}ToStrings({{$alias.DownPlural}} []*{{$alias.UpSingular}}
                         {{- $enumType = $enumName -}}
                         type {{$enumName}} struct { types.String }
                     {{end}}
+
+                    // All possible values for {{$enumName}}
+                    func {{$enumName}}Values() []string {
+                        return []string{
+                            {{range $val := $vals -}}
+                            {{- $enumValue := titleCase $val -}}
+                                {{printf "%q" $val}},
+                            {{end -}}
+                        }
+                    }
 
                     // Enum values for {{$enumName}}
                     {{range $val := $vals -}}
