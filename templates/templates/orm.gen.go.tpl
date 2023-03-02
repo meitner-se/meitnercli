@@ -599,7 +599,7 @@ func getQueryModsFrom{{$alias.UpSingular}}Like(q *model.{{$alias.UpSingular}}Que
     {{- $colAlias := $alias.Column $column.Name}}
         {{if and (hasSuffix "String" $column.Type) (not (isEnumDBType .DBType)) -}}
             if q.{{$colAlias}}.IsDefined() {
-                query = append(query, queryWrapperFunc(qm.Where("%s LIKE ?", {{$alias.UpSingular}}Where.{{$colAlias}}.field, "%"+q.{{$colAlias}}.String()+"%s")))
+                query = append(query, queryWrapperFunc(qm.Where({{$alias.UpSingular}}Where.{{$colAlias}}.field + " ILIKE ?", "%"+q.{{$colAlias}}.String()+"%")))
             }
         {{- end}}
     {{- end}}
@@ -612,7 +612,7 @@ func getQueryModsFrom{{$alias.UpSingular}}NotLike(q *model.{{$alias.UpSingular}}
     {{- $colAlias := $alias.Column $column.Name}}
         {{if and (hasSuffix "String" $column.Type) (not (isEnumDBType .DBType)) -}}
             if q.{{$colAlias}}.IsDefined() {
-                query = append(query, queryWrapperFunc(qm.Where("%s NOT LIKE ?", {{$alias.UpSingular}}Where.{{$colAlias}}.field, "%"+q.{{$colAlias}}.String()+"%s")))
+                query = append(query, queryWrapperFunc(qm.Where({{$alias.UpSingular}}Where.{{$colAlias}}.field + " NOT ILIKE ?", "%"+q.{{$colAlias}}.String()+"%")))
             }
         {{- end}}
     {{- end}}
