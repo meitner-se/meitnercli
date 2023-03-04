@@ -15,7 +15,7 @@ func (r *repo) Create{{$alias.UpSingular}}(ctx context.Context, input *model.{{$
 			currentTime := types.NewTimestamp(time.Now().UTC())
 		{{- end }}
 
-		{{- if containsAny $colNames "created_by" "updated_by" }}
+		{{- if containsAny $colNames "created_by" }}
 			currentUserID := auth.GetCurrentUserID(ctx)
 		{{- end }}
 		
@@ -36,10 +36,10 @@ func (r *repo) Create{{$alias.UpSingular}}(ctx context.Context, input *model.{{$
 
 		{{- range $ind, $col := .Table.Columns -}}
 			{{- $colAlias := $alias.Column $col.Name -}}
-			{{- if or (eq $col.Name (or $.AutoColumns.Created "created_at")) (eq $col.Name (or $.AutoColumns.Updated "updated_at")) }}
+			{{- if or (eq $col.Name (or $.AutoColumns.Created "created_at")) }}
 				input.{{$colAlias}} = currentTime
 			{{- end -}}
-			{{- if or (eq $col.Name "created_by") (eq $col.Name "updated_by") }}
+			{{- if or (eq $col.Name "created_by") }}
 				input.{{$colAlias}} = currentUserID
 			{{- end -}}
 		{{ end }}

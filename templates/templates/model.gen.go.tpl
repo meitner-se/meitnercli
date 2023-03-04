@@ -103,16 +103,19 @@ func (o {{$alias.UpSingular}}) Validate(isUpdate bool, validateBusinessFunc {{$a
         {{- end}}
     {{end -}}
 
-    err := validateBusinessFunc(o, isUpdate)
-    if mErr := errFields.Merge(err); mErr != nil {
-        return mErr
+    if errFields.NotEmpty() {
+        return errors.NewBadRequest(errors.MessageValidationFailedForEntity("{{$alias.DownSingular}}"), *errFields...)
     }
 
-	if errFields.NotEmpty() {
-		return errors.NewBadRequest(errors.MessageValidationFailedForEntity("{{$alias.DownSingular}}"), *errFields...)
-	}
+    if err := errFields.Merge(validateBusinessFunc(o, isUpdate)); err != nil {
+        return err
+    }
 
-	return nil
+    if errFields.NotEmpty() {
+        return errors.NewBadRequest(errors.MessageValidationFailedForEntity("{{$alias.DownSingular}}"), *errFields...)
+    }
+
+    return nil
 }
 
 const (
