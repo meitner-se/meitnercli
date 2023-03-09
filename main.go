@@ -93,14 +93,15 @@ type config struct {
 	OtoSkipBackend     bool `conf:"help:skip backend oto templates, default:false" yaml:"oto_skip_backend_only"`
 	OtoSkipAfterScript bool `conf:"help:skip after script oto, default:false" yaml:"oto_skip_after_script"`
 	Oto                []struct {
-		Template    string         `conf:""`
-		OutputFile  string         `conf:"" yaml:"output_file"`
-		PackageName string         `conf:"" yaml:"package_name"`
-		Definition  string         `conf:""`
-		Backend     bool           `conf:""`
-		Ignore      []string       `conf:""`
-		Params      map[string]any `conf:""`
-		AfterScript []string       `conf:"" yaml:"after_script"`
+		Template         string         `conf:""`
+		OutputFile       string         `conf:"" yaml:"output_file"`
+		PackageName      string         `conf:"" yaml:"package_name"`
+		Definition       string         `conf:""`
+		Backend          bool           `conf:""`
+		AddReloadMethods bool           `conf:"" yaml:"add_reload_methods"`
+		Ignore           []string       `conf:""`
+		Params           map[string]any `conf:""`
+		AfterScript      []string       `conf:"" yaml:"after_script"`
 	}
 }
 
@@ -242,7 +243,7 @@ func generate(cfg config) error {
 			continue
 		}
 
-		err := runGenerationWithOto(o.Template, o.Definition, o.OutputFile, o.PackageName, o.Ignore, o.Params, o.AfterScript, cfg.OtoSkipAfterScript)
+		err := runGenerationWithOto(o.Template, o.Definition, o.OutputFile, o.PackageName, o.Ignore, o.Params, o.AfterScript, cfg.OtoSkipAfterScript, o.AddReloadMethods)
 		if err != nil {
 			return errors.Wrapf(err, "oto generation failed at index %d for template %s", i, o.Template)
 		}
@@ -364,7 +365,7 @@ func gooseBootstrap(db *sql.DB, serviceNameToMigrationFolder map[string]string) 
 	return nil
 }
 
-func runGenerationWithOto(templatePath, definitionPath, outputPath, packageName string, ignore []string, params map[string]interface{}, afterScript []string, skipAfterScript bool) error {
+func runGenerationWithOto(templatePath, definitionPath, outputPath, packageName string, ignore []string, params map[string]interface{}, afterScript []string, skipAfterScript, addReloadMethods bool) error {
 	definitionFiles, err := filepath.Glob(definitionPath)
 	if err != nil {
 		return errors.Wrap(err, "cannot glob definition path")
@@ -393,6 +394,71 @@ func runGenerationWithOto(templatePath, definitionPath, outputPath, packageName 
 		for y, field := range def.Objects[x].Fields {
 			if field.Name == "Error" && field.Example == "something went wrong" {
 				def.Objects[x].Fields = append(def.Objects[x].Fields[:y], def.Objects[x].Fields[y+1:]...)
+			}
+		}
+	}
+
+	for i, service := range def.Services {
+		for _, method := range service.Methods {
+			reload, ok := method.Metadata["reload"].(string)
+			if !ok {
+				continue
+			}
+
+			methodOutputObject, err := def.Object(method.OutputObject.CleanObjectName)
+			if err != nil {
+				return errors.Wrap(err, "cannot find output object for method")
+			}
+
+			reloadServiceFound := false
+			reloadMethodFound := false
+
+			for _, reloadService := range def.Services {
+				if !strings.HasPrefix(reload, reloadService.Name) {
+					continue
+				}
+
+				reloadServiceFound = true
+
+				for _, reloadMethod := range reloadService.Methods {
+					if reload != fmt.Sprintf("%s.%s", reloadService.Name, reloadMethod.Name) {
+						continue
+					}
+
+					reloadMethodFound = true
+
+					reloadMethodInputObject, err := def.Object(reloadMethod.InputObject.CleanObjectName)
+					if err != nil {
+						return errors.Wrap(err, "cannot find input object for reload method")
+					}
+
+					if len(reloadMethodInputObject.Fields) != len(methodOutputObject.Fields) {
+						return errors.New("invalid output object for method, needs to be same fields as the reload methods input object")
+					}
+
+					inputFieldNameWithType := make(map[string]struct{})
+					for _, field := range reloadMethodInputObject.Fields {
+						inputFieldNameWithType[field.Name+field.Type.CleanObjectName] = struct{}{}
+					}
+
+					for _, field := range methodOutputObject.Fields {
+						_, ok := inputFieldNameWithType[field.Name+field.Type.CleanObjectName]
+						if !ok {
+							return errors.New("invalid output object for method, needs to be same fields as the reload methods input object")
+						}
+					}
+
+					if addReloadMethods {
+						method.Name += "WithReload"
+						method.OutputObject = reloadMethod.OutputObject
+
+						def.Services[i].Methods = append(def.Services[i].Methods, method)
+					}
+				}
+			}
+
+			if !reloadServiceFound || !reloadMethodFound {
+				return errors.New("cannot find method for reload: " + reload)
 			}
 		}
 	}
