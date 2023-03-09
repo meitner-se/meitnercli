@@ -93,15 +93,15 @@ type config struct {
 	OtoSkipBackend     bool `conf:"help:skip backend oto templates, default:false" yaml:"oto_skip_backend_only"`
 	OtoSkipAfterScript bool `conf:"help:skip after script oto, default:false" yaml:"oto_skip_after_script"`
 	Oto                []struct {
-		Template         string         `conf:""`
-		OutputFile       string         `conf:"" yaml:"output_file"`
-		PackageName      string         `conf:"" yaml:"package_name"`
-		Definition       string         `conf:""`
-		Backend          bool           `conf:""`
-		AddReloadMethods bool           `conf:"" yaml:"add_reload_methods"`
-		Ignore           []string       `conf:""`
-		Params           map[string]any `conf:""`
-		AfterScript      []string       `conf:"" yaml:"after_script"`
+		Template               string         `conf:""`
+		OutputFile             string         `conf:"" yaml:"output_file"`
+		PackageName            string         `conf:"" yaml:"package_name"`
+		Definition             string         `conf:""`
+		Backend                bool           `conf:""`
+		AddReturnObjectMethods bool           `conf:"" yaml:"add_return_object_methods"`
+		Ignore                 []string       `conf:""`
+		Params                 map[string]any `conf:""`
+		AfterScript            []string       `conf:"" yaml:"after_script"`
 	}
 }
 
@@ -243,7 +243,7 @@ func generate(cfg config) error {
 			continue
 		}
 
-		err := runGenerationWithOto(o.Template, o.Definition, o.OutputFile, o.PackageName, o.Ignore, o.Params, o.AfterScript, cfg.OtoSkipAfterScript, o.AddReloadMethods)
+		err := runGenerationWithOto(o.Template, o.Definition, o.OutputFile, o.PackageName, o.Ignore, o.Params, o.AfterScript, cfg.OtoSkipAfterScript, o.AddReturnObjectMethods)
 		if err != nil {
 			return errors.Wrapf(err, "oto generation failed at index %d for template %s", i, o.Template)
 		}
@@ -365,7 +365,7 @@ func gooseBootstrap(db *sql.DB, serviceNameToMigrationFolder map[string]string) 
 	return nil
 }
 
-func runGenerationWithOto(templatePath, definitionPath, outputPath, packageName string, ignore []string, params map[string]interface{}, afterScript []string, skipAfterScript, addReloadMethods bool) error {
+func runGenerationWithOto(templatePath, definitionPath, outputPath, packageName string, ignore []string, params map[string]interface{}, afterScript []string, skipAfterScript, addReturnObjectMethods bool) error {
 	definitionFiles, err := filepath.Glob(definitionPath)
 	if err != nil {
 		return errors.Wrap(err, "cannot glob definition path")
@@ -448,8 +448,10 @@ func runGenerationWithOto(templatePath, definitionPath, outputPath, packageName 
 						}
 					}
 
-					if addReloadMethods {
-						method.Name += "WithReload"
+					if addReturnObjectMethods {
+						method.Name += "WithReturnObject"
+						method.NameLowerCamel += "WithReturnObject"
+						method.NameLowerSnake += "with_return_object"
 						method.OutputObject = reloadMethod.OutputObject
 
 						def.Services[i].Methods = append(def.Services[i].Methods, method)
