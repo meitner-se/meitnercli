@@ -407,7 +407,7 @@ func runGenerationWithOto(templatePath, definitionPath, outputPath, packageName 
 
 			methodOutputObject, err := def.Object(method.OutputObject.CleanObjectName)
 			if err != nil {
-				return errors.Wrap(err, "cannot find output object for method")
+				return errors.Wrap(err, "cannot find output object for method ("+reload+")")
 			}
 
 			reloadServiceFound := false
@@ -429,11 +429,11 @@ func runGenerationWithOto(templatePath, definitionPath, outputPath, packageName 
 
 					reloadMethodInputObject, err := def.Object(reloadMethod.InputObject.CleanObjectName)
 					if err != nil {
-						return errors.Wrap(err, "cannot find input object for reload method")
+						return errors.Wrap(err, "cannot find input object for reload method ("+reload+")")
 					}
 
 					if len(reloadMethodInputObject.Fields) != len(methodOutputObject.Fields) {
-						return errors.New("invalid output object for method, needs to be same fields as the reload methods input object")
+						return errors.New("invalid output object for method, needs to be same fields as the reload methods input object (" + reload + ")")
 					}
 
 					inputFieldNameWithType := make(map[string]struct{})
@@ -444,7 +444,7 @@ func runGenerationWithOto(templatePath, definitionPath, outputPath, packageName 
 					for _, field := range methodOutputObject.Fields {
 						_, ok := inputFieldNameWithType[field.Name+field.Type.CleanObjectName]
 						if !ok {
-							return errors.New("invalid output object for method, needs to be same fields as the reload methods input object")
+							return errors.New("invalid output object for method, needs to be same fields as the reload methods input object (" + reload + ")")
 						}
 					}
 
