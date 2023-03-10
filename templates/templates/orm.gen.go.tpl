@@ -438,7 +438,7 @@ func getQueryModsFrom{{$alias.UpSingular}}EQ(q *model.{{$alias.UpSingular}}Query
     {{- range $column := .Table.Columns}}
     {{- $colAlias := $alias.Column $column.Name}}
         {{if not (hasSuffix "JSON" $column.Type) -}}
-            if q.{{$colAlias}}.IsDefined() {
+            if !q.{{$colAlias}}.IsNil() {
                 query = append(query, queryWrapperFunc({{$alias.UpSingular}}Where.{{$colAlias}}.EQ(q.{{$colAlias}}{{ if (isEnumDBType .DBType) }}.String{{ end }})))
             }
         {{- end}}
@@ -448,7 +448,7 @@ func getQueryModsFrom{{$alias.UpSingular}}EQ(q *model.{{$alias.UpSingular}}Query
         {{$loadCol := getLoadRelationColumn $.Aliases $.Tables $rel -}}
         {{$whereHelper := printf "whereHelper%s" (goVarname $loadCol.Type) -}}
 
-        if q.{{ getLoadRelationName $.Aliases $rel | singular }}.IsDefined() {
+        if !q.{{ getLoadRelationName $.Aliases $rel | singular }}.IsNil() {
             query = append(query, queryWrapperFunc({{ $whereHelper }}{"{{ getLoadRelationTableColumn $.Aliases $.Tables $rel }}"}.EQ(q.{{ getLoadRelationName $.Aliases $rel | singular }})))
         }
     {{end -}}{{- /* range relationships */ -}}
@@ -460,7 +460,7 @@ func getQueryModsFrom{{$alias.UpSingular}}NEQ(q *model.{{$alias.UpSingular}}Quer
     {{- range $column := .Table.Columns}}
     {{- $colAlias := $alias.Column $column.Name}}
         {{if not (hasSuffix "JSON" $column.Type) -}}
-            if q.{{$colAlias}}.IsDefined() {
+            if !q.{{$colAlias}}.IsNil() {
                 query = append(query, queryWrapperFunc({{$alias.UpSingular}}Where.{{$colAlias}}.NEQ(q.{{$colAlias}}{{ if (isEnumDBType .DBType) }}.String{{ end }})))
             }
         {{- end}}
@@ -470,7 +470,7 @@ func getQueryModsFrom{{$alias.UpSingular}}NEQ(q *model.{{$alias.UpSingular}}Quer
         {{$loadCol := getLoadRelationColumn $.Aliases $.Tables $rel -}}
         {{$whereHelper := printf "whereHelper%s" (goVarname $loadCol.Type) -}}
 
-        if q.{{ getLoadRelationName $.Aliases $rel | singular }}.IsDefined() {
+        if !q.{{ getLoadRelationName $.Aliases $rel | singular }}.IsNil() {
             query = append(query, queryWrapperFunc({{ $whereHelper }}{"{{ getLoadRelationTableColumn $.Aliases $.Tables $rel }}"}.NEQ(q.{{ getLoadRelationName $.Aliases $rel | singular }})))
         }
     {{end -}}{{- /* range relationships */ -}}
@@ -556,7 +556,7 @@ func getQueryModsFrom{{$alias.UpSingular}}GreaterThan(q *model.{{$alias.UpSingul
     {{- range $column := .Table.Columns}}
     {{- $colAlias := $alias.Column $column.Name}}
         {{if or (hasPrefix "date" $column.DBType) (hasPrefix "int" $column.DBType) (hasPrefix "time" $column.DBType) -}}
-            if q.{{$colAlias}}.IsDefined() {
+            if !q.{{$colAlias}}.IsNil() {
                 query = append(query, queryWrapperFunc({{$alias.UpSingular}}Where.{{$colAlias}}.GT(q.{{$colAlias}})))
             }
         {{- end}}
@@ -569,7 +569,7 @@ func getQueryModsFrom{{$alias.UpSingular}}SmallerThan(q *model.{{$alias.UpSingul
     {{- range $column := .Table.Columns}}
     {{- $colAlias := $alias.Column $column.Name}}
         {{if or (hasPrefix "date" $column.DBType) (hasPrefix "int" $column.DBType) (hasPrefix "time" $column.DBType) -}}
-            if q.{{$colAlias}}.IsDefined() {
+            if !q.{{$colAlias}}.IsNil() {
                 query = append(query, queryWrapperFunc({{$alias.UpSingular}}Where.{{$colAlias}}.LT(q.{{$colAlias}})))
             }
         {{- end}}
@@ -582,7 +582,7 @@ func getQueryModsFrom{{$alias.UpSingular}}GreaterOrEqual(q *model.{{$alias.UpSin
     {{- range $column := .Table.Columns}}
     {{- $colAlias := $alias.Column $column.Name}}
         {{if or (hasPrefix "date" $column.DBType) (hasPrefix "int" $column.DBType) (hasPrefix "time" $column.DBType) -}}
-            if q.{{$colAlias}}.IsDefined() {
+            if !q.{{$colAlias}}.IsNil() {
                 query = append(query, queryWrapperFunc({{$alias.UpSingular}}Where.{{$colAlias}}.GTE(q.{{$colAlias}})))
             }
         {{- end}}
@@ -595,7 +595,7 @@ func getQueryModsFrom{{$alias.UpSingular}}SmallerOrEqual(q *model.{{$alias.UpSin
     {{- range $column := .Table.Columns}}
     {{- $colAlias := $alias.Column $column.Name}}
         {{if or (hasPrefix "date" $column.DBType) (hasPrefix "int" $column.DBType) (hasPrefix "time" $column.DBType) -}}
-            if q.{{$colAlias}}.IsDefined() {
+            if !q.{{$colAlias}}.IsNil() {
                 query = append(query, queryWrapperFunc({{$alias.UpSingular}}Where.{{$colAlias}}.LTE(q.{{$colAlias}})))
             }
         {{- end}}
@@ -608,7 +608,7 @@ func getQueryModsFrom{{$alias.UpSingular}}Like(q *model.{{$alias.UpSingular}}Que
     {{- range $column := .Table.Columns}}
     {{- $colAlias := $alias.Column $column.Name}}
         {{if and (hasSuffix "String" $column.Type) (not (isEnumDBType .DBType)) -}}
-            if q.{{$colAlias}}.IsDefined() {
+            if !q.{{$colAlias}}.IsNil() {
                 query = append(query, queryWrapperFunc(qm.Where({{$alias.UpSingular}}Where.{{$colAlias}}.field + " ILIKE ?", "%"+q.{{$colAlias}}.String()+"%")))
             }
         {{- end}}
@@ -621,7 +621,7 @@ func getQueryModsFrom{{$alias.UpSingular}}NotLike(q *model.{{$alias.UpSingular}}
     {{- range $column := .Table.Columns}}
     {{- $colAlias := $alias.Column $column.Name}}
         {{if and (hasSuffix "String" $column.Type) (not (isEnumDBType .DBType)) -}}
-            if q.{{$colAlias}}.IsDefined() {
+            if !q.{{$colAlias}}.IsNil() {
                 query = append(query, queryWrapperFunc(qm.Where({{$alias.UpSingular}}Where.{{$colAlias}}.field + " NOT ILIKE ?", "%"+q.{{$colAlias}}.String()+"%")))
             }
         {{- end}}
@@ -639,12 +639,12 @@ func getQueryModsFrom{{$alias.UpSingular}}QueryForJoin(q model.{{$alias.UpSingul
     {{ range $rel := getLoadRelations $.Tables .Table -}}
     {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         if p.Equals != nil {
-            if p.Equals.{{ getLoadRelationName $.Aliases $rel | singular }}.IsDefined() {
+            if !p.Equals.{{ getLoadRelationName $.Aliases $rel | singular }}.IsNil() {
                 join{{$relAlias.Local | singular }} = true
             }
         }
         if p.NotEquals != nil {
-            if p.NotEquals.{{ getLoadRelationName $.Aliases $rel | singular }}.IsDefined() {
+            if !p.NotEquals.{{ getLoadRelationName $.Aliases $rel | singular }}.IsNil() {
                 join{{$relAlias.Local | singular }} = true
             }
         }
