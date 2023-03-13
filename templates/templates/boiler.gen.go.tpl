@@ -11,16 +11,18 @@ func (r *repo) Create{{$alias.UpSingular}}(ctx context.Context, input *model.{{$
 	return r.WithinTransaction(ctx, func(ctx context.Context) error {
 		exec := database.GetBoilExec(ctx, r.db)
 
-		{{ if containsAny $colNames (or $.AutoColumns.Created "created_at") (or $.AutoColumns.Updated "updated_at") -}}
-			currentTime := types.NewTimestamp(time.Now().UTC())
-		{{- end }}
-
-		{{- if containsAny $colNames "created_by" }}
-			currentUserID := auth.GetCurrentUserID(ctx)
-		{{- end }}
-		
 		// Make sure to set the values of the auto-columns to the service model pointer, since they might be used by the caller.
 		// The auto-columns for insert are: "ID", "CreatedAt", "UpdatedAt", "CreatedBy", "UpdatedBy"
+		{{- range $ind, $col := .Table.Columns -}}
+			{{- $colAlias := $alias.Column $col.Name -}}
+			{{- if or (eq $col.Name (or $.AutoColumns.Created "created_at")) }}
+				input.{{$colAlias}} = types.NewTimestamp(time.Now().UTC())
+			{{- end -}}
+			{{- if eq $col.Name "created_by" }}
+				input.{{$colAlias}} = auth.GetCurrentUserID(ctx)
+			{{- end -}}
+		{{ end }}
+		
 		{{- $numberOfPKeys := len .Table.PKey.Columns }}
 		{{ if and (containsAny $colNames "id") (eq $numberOfPKeys 1) }}
 			// Generate the ID if it hasn't been set already
@@ -32,16 +34,6 @@ func (r *repo) Create{{$alias.UpSingular}}(ctx context.Context, input *model.{{$
 
 				input.ID = types.NewUUID(id)
 			}
-		{{ end }}
-
-		{{- range $ind, $col := .Table.Columns -}}
-			{{- $colAlias := $alias.Column $col.Name -}}
-			{{- if or (eq $col.Name (or $.AutoColumns.Created "created_at")) }}
-				input.{{$colAlias}} = currentTime
-			{{- end -}}
-			{{- if or (eq $col.Name "created_by") }}
-				input.{{$colAlias}} = currentUserID
-			{{- end -}}
 		{{ end }}
 
 		if err := orm.{{$alias.UpSingular}}FromModel(input).InsertDefined(ctx, exec, r.audit); err != nil {
@@ -73,7 +65,7 @@ func (r *repo) Update{{$alias.UpSingular}}(ctx context.Context, input *model.{{$
 				input.{{$colAlias}} = types.NewTimestamp(time.Now().UTC())
 			{{- end -}}
 			{{- if eq $col.Name "updated_by" }}
-				input.{{$colAlias}} = types.NewUUIDFromPtr(&uuid.Nil) // TODO : Get from context
+				input.{{$colAlias}} = auth.GetCurrentUserID(ctx)
 			{{- end -}}
 		{{ end }}
 
