@@ -1,19 +1,37 @@
 {{- $alias := .Aliases.Table .Table.Name -}}
 
-func {{$alias.UpSingular}}FromModels(models []*model.{{$alias.UpSingular}}) *[]api.{{$alias.UpSingular}} {
+{{ if tableHasFile .Table }}
+	type signFileURLFunc func(types.UUID) *types.String
+{{ end }}
+
+{{ range $fieldName, $structName := getTableRichTextContents .Table -}}
+	type {{$structName | camelCase}}ConversionFunc func(*model.{{$alias.UpSingular}}) *api.{{$structName}}
+{{end}}
+
+func {{$alias.UpSingular}}FromModels(models []*model.{{$alias.UpSingular}} {{ if tableHasFile .Table }}, signFileURL signFileURLFunc {{ end }} {{ range $fieldName, $structName := getTableRichTextContents .Table -}}, convert{{$structName}} {{$structName | camelCase}}ConversionFunc {{end}}) *[]api.{{$alias.UpSingular}} {
 	fromModels := make([]api.{{$alias.UpSingular}}, len(models))
 	for i := range models {
-		fromModels[i] = {{$alias.UpSingular}}FromModel(models[i])
+		fromModels[i] = {{$alias.UpSingular}}FromModel(models[i]{{ if tableHasFile .Table }}, signFileURL {{ end }} {{ range $fieldName, $structName := getTableRichTextContents .Table -}}, convert{{$structName}} {{end}})
 	}
 	return &fromModels
 }
 
-func {{$alias.UpSingular}}FromModel(model *model.{{$alias.UpSingular}}) api.{{$alias.UpSingular}} {
-    return api.{{$alias.UpSingular}}{
-        {{- range $column := .Table.Columns -}}
-        {{- $colAlias := $alias.Column $column.Name}}
-            {{$colAlias}}: model.{{$colAlias}}.Ptr(),
+func {{$alias.UpSingular}}FromModel(model *model.{{$alias.UpSingular}} {{ if tableHasFile .Table }}, signFileURL signFileURLFunc {{ end }} {{ range $fieldName, $structName := getTableRichTextContents .Table -}}, convert{{$structName}} {{$structName | camelCase}}ConversionFunc {{end}}) api.{{$alias.UpSingular}} {
+   return api.{{$alias.UpSingular}}{
+        {{ range $column := .Table.Columns -}}
+		{{- $columnMetadata := getColumnMetadata $column -}}
+        {{- $colAlias := $alias.Column $column.Name -}}
+			{{ if not $columnMetadata.IsRichText -}} 
+				{{$colAlias}}: model.{{$colAlias}}.Ptr(), 
+				{{ if $columnMetadata.IsFile -}} 
+					{{ getColumnNameFileURL $colAlias }}: signFileURL(model.{{$colAlias}}),
+				{{ end -}}
+			{{- end }}
         {{- end}}
+
+		{{ range $fieldName, $structName := getTableRichTextContents .Table -}}
+			{{ $fieldName }}: convert{{$structName}}(model),
+		{{- end }}
         {{range $rel := getLoadRelations $.Tables .Table -}}
             {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
             {{$relAlias.Local | singular}}IDs: slice.Pointer(model.{{$relAlias.Local | singular}}IDs),

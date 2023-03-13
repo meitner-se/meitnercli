@@ -120,19 +120,79 @@ func GetConfig(driverName, configFile, serviceName, typesPackage string) (*boili
 			"getLoadRelationType":           getLoadRelationType,
 			"getLoadRelations_enum_columns": getLoadRelationsEnumColumns,
 			"getColumnMetadata":             getColumnMetadata,
+			"getColumnNameFileURL":          getColumnNameFileURL,
 			"getTableColumnOrder":           getTableColumnOrder,
 			"getTableOrderByColumns":        getTableOrderByColumns,
+			"getTableRichTextContents":      getTableRichTextContents,
 			"getServiceName":                func() string { return serviceName },
 			"stripPrefix":                   strings.TrimPrefix,
+			"tableHasCustomConversion":      tableHasCustomConversion,
+			"tableHasFile":                  tableHasFile,
 		},
 	}
 
 	return config, nil
 }
 
+// getTableRichTextContents reads all columns in the given table and check if there should be any rich text content.
+//
+// If a column should be rich text content, we will create "richTextContentNames", which will be used by the templates to generate structs in the API-layer.
+//
+// The comments should look something like this:
+//
+//	COMMENT ON COLUMN organization.description_content      IS 'rich_text_content:content'
+//	COMMENT ON COLUMN organization.description_content_type IS 'rich_text_content:content_type'
+//	COMMENT ON COLUMN organization.description_converter    IS 'rich_text_content:converter'
+//	COMMENT ON COLUMN organization.description_text         IS 'rich_text_content:text'
+//
+// The naming will be the column name with the table name as prefix and RichTextContent as suffix.
+// Example: OrganizationDescriptionRichTextContent
+//
+// The function also makes sure that all the values for rich text content are correct.
+func getTableRichTextContents(t drivers.Table) map[string]string {
+	richTextContentNames := map[string]string{}
+
+	for _, c := range t.Columns {
+		comments := strings.Split(c.Comment, " | ")
+
+		for _, comment := range comments {
+			if !strings.HasPrefix(comment, "rich_text_content:") {
+				continue
+			}
+
+			richTextContentColumn := strings.TrimPrefix(comment, "rich_text_content:")
+
+			switch richTextContentColumn {
+			case "content", "content_type", "converter", "text":
+				// OK
+			default:
+				panic("invalid rich text content column " + c.Name + " " + comment)
+			}
+
+			fieldName := strmangle.TitleCase(strings.TrimSuffix(c.Name, "_"+richTextContentColumn))
+
+			structName := fmt.Sprintf("%s%sRichTextContent",
+				strmangle.TitleCase(t.Name),
+				fieldName,
+			)
+
+			richTextContentNames[fieldName] = structName
+		}
+	}
+
+	return richTextContentNames
+}
+
 type ColumnMetadata struct {
-	Sort     *ColumnMetadataForSort
-	Validate ColumnMetadataForValidation
+	Comments   []string
+	IsFile     bool
+	IsRichText bool
+	Sort       *ColumnMetadataForSort
+	Validate   ColumnMetadataForValidation
+}
+
+func (c ColumnMetadata) CustomConversion() bool {
+	return c.IsRichText
 }
 
 type ColumnMetadataForSort struct {
@@ -145,6 +205,21 @@ func getColumnMetadata(c drivers.Column) ColumnMetadata {
 
 	for _, comment := range strings.Split(c.Comment, " | ") {
 		if comment == "" {
+			continue
+		}
+
+		if strings.HasPrefix(comment, "comment:") {
+			columnMetadata.Comments = append(columnMetadata.Comments, strings.TrimPrefix(comment, "comment:"))
+			continue
+		}
+
+		if strings.HasPrefix(comment, "rich_text_content:") {
+			columnMetadata.IsRichText = true
+			continue // Other stuff is handled in other functions
+		}
+
+		if comment == "file" {
+			columnMetadata.IsFile = true
 			continue
 		}
 
@@ -202,7 +277,50 @@ func getColumnMetadata(c drivers.Column) ColumnMetadata {
 		panic("invalid comment for metadata: " + comment)
 	}
 
+	if c.Nullable {
+		columnMetadata.Comments = append(columnMetadata.Comments, "nullable: true")
+	}
+
+	if columnMetadata.Validate.Color {
+		columnMetadata.Comments = append(columnMetadata.Comments, "validate: \"color\"")
+	}
+	if columnMetadata.Validate.CountryCode {
+		columnMetadata.Comments = append(columnMetadata.Comments, "validate: \"country_code\"")
+	}
+	if columnMetadata.Validate.EmailAddress {
+		columnMetadata.Comments = append(columnMetadata.Comments, "validate: \"email_address\"")
+	}
+	if columnMetadata.Validate.LanguageCode {
+		columnMetadata.Comments = append(columnMetadata.Comments, "validate: \"language_code\"")
+	}
+	if columnMetadata.Validate.MunicipalityCode {
+		columnMetadata.Comments = append(columnMetadata.Comments, "validate: \"municipality_code\"")
+	}
+	if columnMetadata.Validate.PhoneNumber {
+		columnMetadata.Comments = append(columnMetadata.Comments, "validate: \"phone_number\"")
+	}
+	if columnMetadata.Validate.TimeZone {
+		columnMetadata.Comments = append(columnMetadata.Comments, "validate: \"time_zone\"")
+	}
+	if columnMetadata.Validate.URL {
+		columnMetadata.Comments = append(columnMetadata.Comments, "validate: \"url\"")
+	}
+
+	if drivers.IsEnumDBType(c.DBType) {
+		columnMetadata.Comments = append(columnMetadata.Comments, "type: \"types.String\"")
+	} else {
+		columnMetadata.Comments = append(columnMetadata.Comments, fmt.Sprintf("type: \"%s\"", c.Type))
+	}
+
 	return columnMetadata
+}
+
+// getColumnNameFileURL takes a column alias for a file,
+// the alias should have ID as a suffix which will be replaced with URL.
+//
+// For example, BackgroundLogoFileID will be returned as BackgroundLogoFileURL.
+func getColumnNameFileURL(columnAlias string) string {
+	return strings.TrimSuffix(columnAlias, "ID") + "URL"
 }
 
 type ColumnOrder struct {
@@ -612,4 +730,24 @@ func getLoadRelationsEnumColumns(tables []drivers.Table, fromTable drivers.Table
 	}
 
 	return columns
+}
+
+func tableHasCustomConversion(t drivers.Table) bool {
+	for _, c := range t.Columns {
+		if getColumnMetadata(c).CustomConversion() {
+			return true
+		}
+	}
+
+	return false
+}
+
+func tableHasFile(t drivers.Table) bool {
+	for _, c := range t.Columns {
+		if getColumnMetadata(c).IsFile {
+			return true
+		}
+	}
+
+	return false
 }

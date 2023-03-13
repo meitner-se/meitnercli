@@ -5,18 +5,19 @@ type {{$alias.UpSingular}} struct {
 	{{- range $column := .Table.Columns -}}
 	{{- $colAlias := $alias.Column $column.Name -}}
 	{{- $orig_col_name := $column.Name -}}
-	{{ range $column.Comment | splitLines }} // {{ . }} {{ end }}
-    
-    {{- if $column.Nullable -}}// nullable: true{{- end}}
+    {{ $columnMetadata := getColumnMetadata $column }}
 
-    {{- if (isEnumDBType .DBType) -}}
+    {{if not $columnMetadata.IsRichText}}
+	{{- range $columnMetadata.Comments }}
+    // {{ . }}
+    {{- end }}
+
+    {{- if (isEnumDBType .DBType) }}
         // options: [{{- parseEnumVals $column.DBType | stringMap $.StringFuncs.quoteWrap | join ", " -}}]
-        // type: "types.String"
         {{$colAlias}} *string
     {{ else }}
-    // type: "{{$column.Type}}"
 	{{$colAlias}}
-    
+
     {{- $stringTypes := "types.String, types.UUID, types.Timestamp, types.Time, types.Date" -}}
     {{- if contains $column.Type $stringTypes -}}
         *string
@@ -33,9 +34,20 @@ type {{$alias.UpSingular}} struct {
     {{- if contains "JSON" $column.Type -}}
         *interface{}
 	{{end -}}
-    
+
+    {{- if $columnMetadata.IsFile -}}
+        // type: "types.String"
+        {{ getColumnNameFileURL $colAlias }} *string
+    {{ end }}
+
     {{end}}
     {{end -}}
+    {{end -}}
+
+    {{ range $fieldName, $structName := getTableRichTextContents .Table }}
+        // optional: true
+        {{ $fieldName }} *{{ $structName }}
+    {{end}}
 
     {{- range $rel := getLoadRelations $.Tables .Table -}}
 	{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
@@ -43,6 +55,19 @@ type {{$alias.UpSingular}} struct {
 		{{ $relAlias.Local | singular }}IDs []string
 	{{end -}}{{- /* range relationships */ -}}
 }
+// {{getTableRichTextContents .Table}}
+{{ range getTableRichTextContents .Table }}
+    type {{ . }} struct {
+        // type: "types.String"
+        Content string
+        // type: "types.String"
+        ContentType string
+        // type: "types.String"
+        Converter string
+        // type: "types.String"
+        Text string
+    }
+{{ end }}
 
 type {{$alias.UpSingular}}QueryRequest struct {
     // Nested queries, if any. 
