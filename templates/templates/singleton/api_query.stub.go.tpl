@@ -7,11 +7,16 @@ type Query_{{ titleCase .PkgName }}Service interface {
         //
         // TODO : permissions ?
         Get{{$alias.UpSingular}}({{$alias.UpSingular}}GetRequest) {{$alias.UpSingular}}GetResponse
+        
         // List{{$alias.UpPlural}} lists the {{$alias.UpSingular}}-entities by the given params
         //
         // TODO : permissions ?
         List{{$alias.UpPlural}}({{$alias.UpSingular}}ListRequest) {{$alias.UpSingular}}ListResponse
 
+        // List{{$alias.UpPlural}}ByIDs lists the {{$alias.UpSingular}}-entities by the given IDs
+        //
+        // TODO : permissions ?
+        List{{$alias.UpPlural}}ByIDs({{$alias.UpSingular}}ListByIDsRequest) {{$alias.UpSingular}}ListByIDsResponse
     {{ end }}
 {{ end }}
 }
@@ -44,6 +49,17 @@ type Query_{{ titleCase .PkgName }}Service interface {
         type {{$alias.UpSingular}}ListResponse struct {
             // type: "types.Int64"
             {{$alias.UpPlural}}TotalCount int64
+            {{$alias.UpPlural}} []{{$alias.UpSingular}}
+        }
+
+        // {{$alias.UpSingular}}ListByIDsRequest is the input object for listing {{$alias.UpSingular}}-entities by IDs
+        type {{$alias.UpSingular}}ListByIDsRequest struct {
+            // type: "types.UUID"
+            IDs []string
+        }
+
+        // {{$alias.UpSingular}}ListByIDsResponse is the output object for listing {{$alias.UpSingular}}-entities by IDs
+        type {{$alias.UpSingular}}ListByIDsResponse struct {
             {{$alias.UpPlural}} []{{$alias.UpSingular}}
         }
     {{ end }}

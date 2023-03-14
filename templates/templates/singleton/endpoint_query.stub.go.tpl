@@ -37,20 +37,43 @@ func (q *query) Get{{$alias.UpSingular}}(ctx context.Context, r api.{{$alias.UpS
         return nil, err
     }
 
+    {{ if tableHasFile $table }} // TODO : Implement file url resolver in conversion {{end}}
+
     return &api.{{$alias.UpSingular}}GetResponse{
-        {{$alias.UpSingular}}: conversion.{{$alias.UpSingular}}FromModel({{$alias.DownSingular}}),
+        {{$alias.UpSingular}}: conversion.{{$alias.UpSingular}}FromModel({{$alias.DownSingular}} {{ if tableHasFile $table }}, nil {{end}}),
     }, nil
 }
 
 func (q *query) List{{$alias.UpPlural}}(ctx context.Context, r api.{{$alias.UpSingular}}ListRequest) (*api.{{$alias.UpSingular}}ListResponse, error) {
-    {{$alias.DownPlural}}, {{$alias.DownPlural}}TotalCount, err := q.svc.List{{ $alias.UpPlural }}(ctx, conversion.{{$alias.UpSingular}}QueryToModel(r.Query))
+    {{$alias.DownPlural}}, {{$alias.DownPlural}}TotalCount, err := q.svc.List{{ $alias.UpPlural }}(ctx, conversion.{{$alias.UpSingular}}QueryToModel(r.Query, nil))
     if err != nil {
         return nil, err
     }
 
+    {{ if tableHasFile $table }} // TODO : Implement file url resolver in conversion {{end}}
+
     return &api.{{$alias.UpSingular}}ListResponse{
         {{$alias.UpPlural}}TotalCount: *{{$alias.DownPlural}}TotalCount,
-        {{$alias.UpPlural}}: conversion.{{$alias.UpSingular}}FromModels({{$alias.DownPlural}}),
+        {{$alias.UpPlural}}: conversion.{{$alias.UpSingular}}FromModels({{$alias.DownPlural}} {{ if tableHasFile $table }}, nil {{end}}),
+    }, nil
+}
+
+func (q *query) List{{$alias.UpPlural}}ByIDs(ctx context.Context, r api.{{$alias.UpSingular}}ListByIDsRequest) (*api.{{$alias.UpSingular}}ListByIDsResponse, error) {
+    var {{$alias.DownPlural}} []*model.{{$alias.UpSingular}}
+
+    for _, id := range r.IDs {
+        {{$alias.DownSingular}}, err := q.svc.Get{{$alias.UpSingular}}(ctx, id)
+        if err != nil && !errors.IsNotFound(err) {
+            return nil, errors.Wrap(err, "cannot get user")
+        }
+
+        {{$alias.DownPlural}} = append({{$alias.DownPlural}}, {{$alias.DownSingular}})
+    }
+
+    {{ if tableHasFile $table }} // TODO : Implement file url resolver in conversion {{end}}
+
+    return &api.{{$alias.UpSingular}}ListByIDsResponse{
+        {{$alias.UpPlural}}: conversion.{{$alias.UpSingular}}FromModels(model.Sort{{$alias.UpPlural}}({{$alias.DownPlural}}) {{ if tableHasFile $table }}, nil {{end}}),
     }, nil
 }
 

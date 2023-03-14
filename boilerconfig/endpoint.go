@@ -7,27 +7,30 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/importers"
 )
 
-func Endpoint(outFolder, serviceName, pkgServiceModel, pkgConversion, pkgAPI, pkgTypes string) Wrapper {
+func Endpoint(outFolder, serviceName, pkgServiceModel, pkgConversion, pkgAPI, pkgTypes, pkgErrors string) Wrapper {
 	return func(cfg *boilingcore.Config) {
-		singletonImports := importers.Set{
+		singletonImportsCommand := importers.Set{
 			Standard: importers.List{
 				formatPkgImport("context"),
 			},
 			ThirdParty: importers.List{
 				formatPkgImportWithAlias(pkgServiceModel, "model"),
-				formatPkgImportWithAlias(pkgConversion, "conversion"),
 				formatPkgImportWithAlias(pkgAPI, "api"),
 				formatPkgImportWithAlias(pkgTypes, "types"),
 			},
 		}
+
+		singletonImportsQuery := singletonImportsCommand
+		singletonImportsQuery.ThirdParty = append(singletonImportsQuery.ThirdParty, formatPkgImportWithAlias(pkgErrors, "errors"))
+		singletonImportsQuery.ThirdParty = append(singletonImportsQuery.ThirdParty, formatPkgImportWithAlias(pkgConversion, "conversion"))
 
 		cfg.PkgName = "endpoint"
 		cfg.OutFolder = outFolder
 		cfg.NoDriverTemplates = true
 		cfg.NoTests = true
 		cfg.Imports.Singleton = importers.Map{
-			"endpoint_command": singletonImports,
-			"endpoint_query":   singletonImports,
+			"endpoint_command": singletonImportsCommand,
+			"endpoint_query":   singletonImportsQuery,
 		}
 		cfg.DefaultTemplates = templates.EndpointStub
 	}

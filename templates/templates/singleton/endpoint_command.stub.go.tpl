@@ -61,7 +61,7 @@ func (c *command) Create{{$alias.UpSingular}}(ctx context.Context, r api.{{$alia
     }
 
     return &api.{{$alias.UpSingular}}CreateResponse{
-        Created: conversion.{{$alias.UpSingular}}FromModel(&{{$alias.DownSingular}}),
+        ID: {{$alias.DownSingular}}.ID,
     }, nil
 }
 
@@ -95,7 +95,7 @@ func (c *command) Update{{$alias.UpSingular}}(ctx context.Context, r api.{{$alia
     }
 
     return &api.{{$alias.UpSingular}}UpdateResponse{
-        Updated: conversion.{{$alias.UpSingular}}FromModel(&{{$alias.DownSingular}}),
+        ID: {{$alias.DownSingular}}.ID,
     }, nil
 }
 

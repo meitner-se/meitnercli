@@ -6,12 +6,18 @@ type Command_{{ titleCase .PkgName }}Service interface {
 
         // Create{{$alias.UpSingular}} creates a new {{$alias.UpSingular}}-entity
         //
+        // reload: "Query_{{ titleCase $.PkgName }}Service.Get{{$alias.UpSingular}}"
+        //
         // TODO : permissions ?
         Create{{$alias.UpSingular}}({{$alias.UpSingular}}CreateRequest) {{$alias.UpSingular}}CreateResponse
+
         // Update{{$alias.UpSingular}} updates an existing {{$alias.UpSingular}}-entity
+        //
+        // reload: "Query_{{ titleCase $.PkgName }}Service.Get{{$alias.UpSingular}}"
         //
         // TODO : permissions ?
         Update{{$alias.UpSingular}}({{$alias.UpSingular}}UpdateRequest) {{$alias.UpSingular}}UpdateResponse
+
         // Delete{{$alias.UpSingular}} deletes the given {{$alias.UpSingular}}-entity
         //
         // TODO : permissions ?
@@ -33,19 +39,19 @@ type Command_{{ titleCase .PkgName }}Service interface {
             {{- if not (or (eq $column.Name "created_at") (eq $column.Name "created_by") (eq $column.Name "updated_at") (eq $column.Name "updated_by")) -}}
             {{- $colAlias := $alias.Column $column.Name -}}
             {{- $orig_col_name := $column.Name -}}
-
+            {{ $columnMetadata := getColumnMetadata $column }}
+            
             {{- if not (containsAny $pkNames $colAlias ) -}}
-
-            {{- range $column.Comment | splitLines }} // {{ . }} {{ end -}}
-            {{- if .Nullable -}} // nullable: true {{- end -}}
+            {{if not $columnMetadata.IsRichText}}
+            {{- range $columnMetadata.Comments }}
+            // {{ . }}
+            {{- end }}
 
             {{- if (isEnumDBType .DBType) }}
                 // options: [{{- parseEnumVals $column.DBType | stringMap $.StringFuncs.quoteWrap | join ", " -}}]
-                // type: "types.String"
                 {{$colAlias}} {{ if $column.Nullable }}*{{ end }}string
             {{ else }}
-                // type: "{{$column.Type}}"
-                {{$colAlias}} 
+            {{$colAlias}} 
 
                 {{- $stringTypes := "types.String, types.UUID, types.Timestamp, types.Time, types.Date" -}}
                 {{- if contains $column.Type $stringTypes -}}
@@ -67,7 +73,8 @@ type Command_{{ titleCase .PkgName }}Service interface {
             {{- end }}
             {{- end }}
             {{- end }}
-            {{ end }}
+            {{ end -}}
+            {{ end -}}
 
             {{- range $rel := getLoadRelations $.Tables $table }}
                 {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
@@ -78,7 +85,8 @@ type Command_{{ titleCase .PkgName }}Service interface {
 
         // {{$alias.UpSingular}}CreateResponse is the output object for creating a new {{$alias.UpSingular}}-entity
         type {{$alias.UpSingular}}CreateResponse struct {
-            Created {{$alias.UpSingular}}
+            // type: "types.UUID"
+            ID string
         }
 
         // {{$alias.UpSingular}}UpdateRequest is the input object for updating an existing {{$alias.UpSingular}}-entity
@@ -87,21 +95,19 @@ type Command_{{ titleCase .PkgName }}Service interface {
             {{- if not (or (eq $column.Name "created_at") (eq $column.Name "created_by") (eq $column.Name "updated_at") (eq $column.Name "updated_by")) -}}
             {{- $colAlias := $alias.Column $column.Name -}}
             {{- $orig_col_name := $column.Name -}}
+            {{ $columnMetadata := getColumnMetadata $column }}
             
-            {{ range $column.Comment | splitLines }} // {{ . }} {{ end -}}
-            {{ if .Nullable }} // nullable: true {{ end -}}
+            {{if not $columnMetadata.IsRichText}}
+            {{- range $columnMetadata.Comments }}
+            // {{ . }}
+            {{- end }}
 
-            {{ if containsAny $pkNames $colAlias }}
-                // type: "types.UUID"
+            {{- if containsAny $pkNames $colAlias }}
                 {{$colAlias}} string
-            {{ else if (isEnumDBType .DBType) -}}
-                // optional: true
+            {{ else if (isEnumDBType .DBType) }}
                 // options: [{{- parseEnumVals $column.DBType | stringMap $.StringFuncs.quoteWrap | join ", " -}}]
-                // type: "types.String"
                 {{$colAlias}} *string
             {{ else }}
-                // optional: true
-                // type: "{{$column.Type}}"
                 {{$colAlias}} 
             
                 {{- $stringTypes := "types.String, types.UUID, types.Timestamp, types.Time, types.Date" -}}
@@ -121,9 +127,10 @@ type Command_{{ titleCase .PkgName }}Service interface {
                     {{" "}} *interface{}
                 {{end -}}
             
-            {{- end }}
-            {{- end }}
-            {{ end }}
+            {{end }}
+            {{end -}}
+            {{end -}}
+            {{end -}}
 
             {{- range $rel := getLoadRelations $.Tables $table -}}
                 {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
@@ -134,7 +141,8 @@ type Command_{{ titleCase .PkgName }}Service interface {
 
         // {{$alias.UpSingular}}UpdateResponse is the output object for updating an existing {{$alias.UpSingular}}-entity
         type {{$alias.UpSingular}}UpdateResponse struct{
-            Updated {{$alias.UpSingular}}
+            // type: "types.UUID"
+            ID string
         }
 
         // {{$alias.UpSingular}}DeleteRequest is the input object for deleting an existing {{$alias.UpSingular}}-entity

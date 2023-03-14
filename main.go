@@ -225,7 +225,7 @@ func generate(cfg config) error {
 			}
 
 			if cfg.Layer == "" || cfg.Layer == "endpoint" {
-				err = runGeneration(cfg, configFilePath, serviceName, true, boilerconfig.Endpoint(endpointDir, serviceName, pkgServiceModel, pkgConversion, cfg.Go.Packages.API, cfg.Go.Packages.Types))
+				err = runGeneration(cfg, configFilePath, serviceName, true, boilerconfig.Endpoint(endpointDir, serviceName, pkgServiceModel, pkgConversion, cfg.Go.Packages.API, cfg.Go.Packages.Types, cfg.Go.Packages.Errors))
 				if err != nil {
 					return errors.Wrap(err, "endpoint stubs")
 				}
