@@ -103,10 +103,9 @@ func (r *repo) Get{{$alias.UpSingular}}(ctx context.Context, {{ $pkArgs }}) (*mo
 	return {{$alias.DownSingular}}, nil
 }
 
-func (r *repo) Get{{$alias.UpSingular}}WithQueryParams(ctx context.Context, queryParams model.{{$alias.UpSingular}}QueryParams, orCondition bool) (*model.{{$alias.UpSingular}}, error) {
+func (r *repo) Get{{$alias.UpSingular}}WithQueryParams(ctx context.Context, queryParams model.{{$alias.UpSingular}}QueryParams) (*model.{{$alias.UpSingular}}, error) {
 	query := model.New{{$alias.UpSingular}}Query()
 	query.Params = queryParams
-	query.OrCondition = types.NewBool(orCondition)
 	query.Limit = types.NewInt(1)
 	query.Offset = types.NewInt(0)
 
