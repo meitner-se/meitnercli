@@ -103,6 +103,25 @@ func (r *repo) Get{{$alias.UpSingular}}(ctx context.Context, {{ $pkArgs }}) (*mo
 	return {{$alias.DownSingular}}, nil
 }
 
+func (r *repo) Get{{$alias.UpSingular}}WithQueryParams(ctx context.Context, queryParams model.{{$alias.UpSingular}}QueryParams, orCondition bool) (*model.{{$alias.UpSingular}}, error) {
+	query := model.New{{$alias.UpSingular}}Query()
+	query.Params = queryParams
+	query.OrCondition = types.NewBool(orCondition)
+	query.Limit = types.NewInt(1)
+	query.Offset = types.NewInt(0)
+
+	{{$alias.DownPlural}}, _, err := r.List{{$alias.UpPlural}}(ctx, query)
+	if err != nil {
+		return nil, errors.Wrap(err, errors.MessageCannotFindEntity("{{$alias.DownSingular}}"))
+	}
+
+	if len({{$alias.DownPlural}}) == 0 {
+		return nil, errors.NewNotFoundWrapped(err, errors.MessageCannotFindEntity("{{$alias.DownSingular}}"))
+	}
+	
+	return {{$alias.DownPlural}}[0], nil
+}
+
 {{- range $column := .Table.Columns -}}
 	{{- $colAlias := $alias.Column $column.Name -}}
     {{- if and (not (containsAny $.Table.PKey.Columns $column.Name)) ($column.Unique) }}
