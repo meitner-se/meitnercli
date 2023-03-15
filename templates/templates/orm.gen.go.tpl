@@ -348,7 +348,7 @@ func getQueryModsFrom{{$alias.UpSingular}}QuerySelectedFields(q *model.{{$alias.
     // Always select primary keys as distinct (required when joining on many2many relationships)
     primaryKeys := []string{}
     {{- range $pkName := $pkNames }}
-        primaryKeys = append(primaryKeys, {{$alias.UpSingular}}TableColumns.{{$pkName | titleCase}})
+        primaryKeys = append(primaryKeys, {{$alias.DownSingular}}QueryColumns.{{$pkName | titleCase}})
     {{- end}}
         selectedFields = append(selectedFields, "DISTINCT ("+ strings.Join(primaryKeys, ", ") + ")")
     {{end}}
@@ -356,7 +356,7 @@ func getQueryModsFrom{{$alias.UpSingular}}QuerySelectedFields(q *model.{{$alias.
     // If there are no selected fields, all fields will be selected by default,
     // therefore we to load the relations as well, to get the expected result.
     if q == nil {
-        selectedFields = append(selectedFields, strmangle.PrefixStringSlice(TableNames.{{$alias.UpSingular}} + ".", {{$alias.DownSingular}}AllColumns)...)
+        selectedFields = append(selectedFields, {{$alias.DownSingular}}AllQueryColumns...)
         query = append(query, qm.Select(strings.Join(selectedFields, ", ")))
         {{ range $rel := getLoadRelations $.Tables .Table -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
@@ -369,7 +369,7 @@ func getQueryModsFrom{{$alias.UpSingular}}QuerySelectedFields(q *model.{{$alias.
     {{ range $column := .Table.Columns}}
     {{- $colAlias := $alias.Column $column.Name}}
         if q.{{$colAlias}}.Bool() {
-            selectedFields = append(selectedFields, {{$alias.UpSingular}}TableColumns.{{$colAlias}})
+            selectedFields = append(selectedFields, {{$alias.DownSingular}}QueryColumns.{{$colAlias}})
         }
     {{- end}}
 
@@ -697,7 +697,7 @@ func getQueryModsFrom{{$alias.UpSingular}}QueryOrderBy(q *model.{{$alias.UpSingu
         {{- $colAlias := $alias.Column $column.Name}}
                 if q.{{$colAlias}} != nil {
                     orderByFields = append(orderByFields, orderByField{
-                        field: {{$alias.UpSingular}}TableColumns.{{$colAlias}},
+                        field: {{$alias.DownSingular}}QueryColumns.{{$colAlias}},
                         order: getOrder(q.{{$colAlias}}.Desc),
                         index: q.{{$colAlias}}.Index,
                     })
@@ -716,11 +716,11 @@ func getQueryModsFrom{{$alias.UpSingular}}QueryOrderBy(q *model.{{$alias.UpSingu
 
     // Add the default order by columns defined in the schema to keep consistency
     {{- range getTableOrderByColumns .Table }}
-        orderByStrings = append(orderByStrings, "{{ . }}")
+        orderByStrings = append(orderByStrings, `{{ . }}`)
     {{- end}}
 
     {{- range $pkName := $pkNames }}
-        orderByStrings = append(orderByStrings, {{$alias.UpSingular}}TableColumns.{{$pkName | titleCase}} + " asc")
+        orderByStrings = append(orderByStrings, {{$alias.DownSingular}}QueryColumns.{{$pkName | titleCase}} + " asc")
     {{- end}}
 
 	return []qm.QueryMod{
@@ -734,6 +734,24 @@ func check{{$alias.UpSingular}}QueryParamsRecursive(checkParamsFunc func(model.{
 	if nested.Nested != nil {
 		check{{$alias.UpSingular}}QueryParamsRecursive(checkParamsFunc, *nested.Nested)
 	}
+}
+
+var {{$alias.DownSingular}}QueryColumns = struct {
+	{{range $column := .Table.Columns -}}
+	{{- $colAlias := $alias.Column $column.Name -}}
+	{{$colAlias}} string
+	{{end -}}
+}{
+	{{range $column := .Table.Columns -}}
+	{{- $colAlias := $alias.Column $column.Name -}}
+	{{$colAlias}}: "\"{{$.Table.Name}}\".\"{{$column.Name}}\"",
+	{{end -}}
+}
+
+var {{$alias.DownSingular}}AllQueryColumns = []string{
+	{{range $column := .Table.Columns -}}
+	"\"{{$.Table.Name}}\".\"{{$column.Name}}\"",
+	{{end -}}
 }
 
 {{- range .Table.Columns -}}

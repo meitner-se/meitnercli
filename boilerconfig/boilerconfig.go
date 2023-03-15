@@ -375,7 +375,7 @@ func getTableOrderByColumns(t drivers.Table) []string {
 			sort = "desc"
 		}
 
-		orderByColumns[i] = fmt.Sprintf("%s.%s %s",
+		orderByColumns[i] = fmt.Sprintf("\"%s\".\"%s\" %s",
 			t.Name,
 			columnOrder[i].Column.Name,
 			sort,

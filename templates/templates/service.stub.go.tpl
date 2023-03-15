@@ -46,6 +46,7 @@ func (s *svc) List{{ $alias.UpPlural }}(ctx context.Context, query model.{{ $ali
 	return s.repo.List{{ $alias.UpPlural }}(ctx, query)
 }
 
+// // validate{{ $alias.UpSingular }}Func is used to validate the business logic for the {{ $alias.UpSingular }}-entity
 func (s *svc) validate{{ $alias.UpSingular }}Func(ctx context.Context) model.{{ $alias.UpSingular }}ValidateBusinessFunc {
 	return func({{ $alias.DownSingular }} model.{{ $alias.UpSingular }}, isUpdate bool) error {
 		errFields := errors.NewErrFields()
