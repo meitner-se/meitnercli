@@ -12,7 +12,8 @@ type {{$alias.UpSingular}} interface {
     Update{{$alias.UpSingular}}(ctx context.Context, input *model.{{$alias.UpSingular}}) error
     Delete{{$alias.UpSingular}}(ctx context.Context, input *model.{{$alias.UpSingular}}) error
     Get{{$alias.UpSingular}}(ctx context.Context, {{ $pkArgs }}) (*model.{{$alias.UpSingular}}, error)
-    
+    Get{{$alias.UpSingular}}WithQueryParams(ctx context.Context, queryParams model.{{$alias.UpSingular}}QueryParams) (*model.{{$alias.UpSingular}}, error)
+
     {{- range $column := .Table.Columns -}}
         {{- $colAlias := $alias.Column $column.Name -}}
         {{- if and (not (containsAny $.Table.PKey.Columns $column.Name)) ($column.Unique) }}
