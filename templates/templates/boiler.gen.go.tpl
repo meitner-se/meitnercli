@@ -114,7 +114,7 @@ func (r *repo) Get{{$alias.UpSingular}}WithQueryParams(ctx context.Context, quer
 		return nil, errors.Wrap(err, errors.MessageCannotFindEntity("{{$alias.DownSingular}}"))
 	}
 
-	if totalCount > 1 {
+	if totalCount.Int64() > 1 {
 		return nil, errors.Wrap(err, "got bigger result than expected")
 	}
 
