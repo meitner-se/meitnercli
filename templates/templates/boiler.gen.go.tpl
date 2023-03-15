@@ -109,9 +109,13 @@ func (r *repo) Get{{$alias.UpSingular}}WithQueryParams(ctx context.Context, quer
 	query.Limit = types.NewInt(1)
 	query.Offset = types.NewInt(0)
 
-	{{$alias.DownPlural}}, _, err := r.List{{$alias.UpPlural}}(ctx, query)
+	{{$alias.DownPlural}}, totalCount, err := r.List{{$alias.UpPlural}}(ctx, query)
 	if err != nil {
 		return nil, errors.Wrap(err, errors.MessageCannotFindEntity("{{$alias.DownSingular}}"))
+	}
+
+	if totalCount > 1 {
+		return nil, errors.Wrap(err, "got bigger result than expected")
 	}
 
 	if len({{$alias.DownPlural}}) == 0 {
