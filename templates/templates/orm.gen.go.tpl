@@ -193,7 +193,7 @@ func Get{{$alias.UpSingular}}({{if $.NoContext}}exec boil.Executor{{else}}ctx co
                     return nil, err
                 }
                 
-                return {{$alias.UpSingular}}ToModel({{$alias.DownSingular}}{{- range getLoadRelations $.Tables .Table -}}, true {{ end }}), nil
+                return {{$alias.UpSingular}}ToModel({{$alias.DownSingular}}{{- range getLoadRelations $.Tables $.Table -}}, true {{ end }}), nil
         }
     {{ end }}
 {{end -}}
