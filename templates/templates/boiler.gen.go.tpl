@@ -163,5 +163,5 @@ var (
 	_ = strconv.IntSize
     _ = time.Second 	// Force time package dependency for automated UpdatedAt/CreatedAt.
     _ = uuid.Nil 		// Force uuid package dependency for generation UUIDs to entities
-	_ auth.Service
+	_ auth.Claims
 )
