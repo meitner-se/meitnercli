@@ -460,6 +460,12 @@ func getQueryModsFrom{{$alias.UpSingular}}EQ(q *model.{{$alias.UpSingular}}Query
             query = append(query, queryWrapperFunc({{ $whereHelper }}{"{{ getLoadRelationTableColumn $.Aliases $.Tables $rel }}"}.EQ(q.{{ getLoadRelationName $.Aliases $rel | singular }})))
         }
     {{end -}}{{- /* range relationships */ -}}
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+        if q.{{ $rel.ForeignTable | titleCase }} != nil {
+           query = append(query, getQueryModsFrom{{ $rel.ForeignTable | titleCase }}EQ(q.{{ $rel.ForeignTable | titleCase }}, queryWrapperFunc)...)
+        }
+    {{end -}}{{- /* range relationships */ -}}
+
     return query
 }
 
@@ -482,6 +488,11 @@ func getQueryModsFrom{{$alias.UpSingular}}NEQ(q *model.{{$alias.UpSingular}}Quer
             query = append(query, queryWrapperFunc({{ $whereHelper }}{"{{ getLoadRelationTableColumn $.Aliases $.Tables $rel }}"}.NEQ(q.{{ getLoadRelationName $.Aliases $rel | singular }})))
         }
     {{end -}}{{- /* range relationships */ -}}
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+        if q.{{ $rel.ForeignTable | titleCase }} != nil {
+           query = append(query, getQueryModsFrom{{ $rel.ForeignTable | titleCase }}NEQ(q.{{ $rel.ForeignTable | titleCase }}, queryWrapperFunc)...)
+        }
+    {{end -}}{{- /* range relationships */ -}}
     return query
 }
 
@@ -495,6 +506,11 @@ func getQueryModsFrom{{$alias.UpSingular}}Empty(q *model.{{$alias.UpSingular}}Qu
             }
         {{- end}}
     {{- end}}
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+        if q.{{ $rel.ForeignTable | titleCase }} != nil {
+           query = append(query, getQueryModsFrom{{ $rel.ForeignTable | titleCase }}Empty(q.{{ $rel.ForeignTable | titleCase }}, queryWrapperFunc)...)
+        }
+    {{end -}}{{- /* range relationships */ -}}
     return query
 }
 
@@ -508,6 +524,11 @@ func getQueryModsFrom{{$alias.UpSingular}}NotEmpty(q *model.{{$alias.UpSingular}
             }
         {{- end}}
     {{- end}}
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+        if q.{{ $rel.ForeignTable | titleCase }} != nil {
+           query = append(query, getQueryModsFrom{{ $rel.ForeignTable | titleCase }}NotEmpty(q.{{ $rel.ForeignTable | titleCase }}, queryWrapperFunc)...)
+        }
+    {{end -}}{{- /* range relationships */ -}}
     return query
 }
 
@@ -533,6 +554,11 @@ func getQueryModsFrom{{$alias.UpSingular}}In(q *model.{{$alias.UpSingular}}Query
             query = append(query, queryWrapperFunc({{ $whereHelper }}{"{{ getLoadRelationTableColumn $.Aliases $.Tables $rel }}"}.IN(q.{{ getLoadRelationName $.Aliases $rel | singular }})))
         }
     {{end -}}{{- /* range relationships */ -}}
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+        if q.{{ $rel.ForeignTable | titleCase }} != nil {
+           query = append(query, getQueryModsFrom{{ $rel.ForeignTable | titleCase }}In(q.{{ $rel.ForeignTable | titleCase }}, queryWrapperFunc)...)
+        }
+    {{end -}}{{- /* range relationships */ -}}
     return query
 }
 
@@ -556,6 +582,11 @@ func getQueryModsFrom{{$alias.UpSingular}}NotIn(q *model.{{$alias.UpSingular}}Qu
             query = append(query, queryWrapperFunc({{ $whereHelper }}{"{{ getLoadRelationTableColumn $.Aliases $.Tables $rel }}"}.NIN(q.{{ getLoadRelationName $.Aliases $rel | singular }})))
         }
     {{end -}}{{- /* range relationships */ -}}
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+        if q.{{ $rel.ForeignTable | titleCase }} != nil {
+           query = append(query, getQueryModsFrom{{ $rel.ForeignTable | titleCase }}NotIn(q.{{ $rel.ForeignTable | titleCase }}, queryWrapperFunc)...)
+        }
+    {{end -}}{{- /* range relationships */ -}}
     return query
 }
 
@@ -569,6 +600,11 @@ func getQueryModsFrom{{$alias.UpSingular}}GreaterThan(q *model.{{$alias.UpSingul
             }
         {{- end}}
     {{- end}}
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+        if q.{{ $rel.ForeignTable | titleCase }} != nil {
+           query = append(query, getQueryModsFrom{{ $rel.ForeignTable | titleCase }}GreaterThan(q.{{ $rel.ForeignTable | titleCase }}, queryWrapperFunc)...)
+        }
+    {{end -}}{{- /* range relationships */ -}}
     return query
 }
 
@@ -582,6 +618,11 @@ func getQueryModsFrom{{$alias.UpSingular}}SmallerThan(q *model.{{$alias.UpSingul
             }
         {{- end}}
     {{- end}}
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+        if q.{{ $rel.ForeignTable | titleCase }} != nil {
+           query = append(query, getQueryModsFrom{{ $rel.ForeignTable | titleCase }}SmallerThan(q.{{ $rel.ForeignTable | titleCase }}, queryWrapperFunc)...)
+        }
+    {{end -}}{{- /* range relationships */ -}}
     return query
 }
 
@@ -595,6 +636,11 @@ func getQueryModsFrom{{$alias.UpSingular}}GreaterOrEqual(q *model.{{$alias.UpSin
             }
         {{- end}}
     {{- end}}
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+        if q.{{ $rel.ForeignTable | titleCase }} != nil {
+           query = append(query, getQueryModsFrom{{ $rel.ForeignTable | titleCase }}GreaterOrEqual(q.{{ $rel.ForeignTable | titleCase }}, queryWrapperFunc)...)
+        }
+    {{end -}}{{- /* range relationships */ -}}
     return query
 }
 
@@ -608,6 +654,11 @@ func getQueryModsFrom{{$alias.UpSingular}}SmallerOrEqual(q *model.{{$alias.UpSin
             }
         {{- end}}
     {{- end}}
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+        if q.{{ $rel.ForeignTable | titleCase }} != nil {
+           query = append(query, getQueryModsFrom{{ $rel.ForeignTable | titleCase }}SmallerOrEqual(q.{{ $rel.ForeignTable | titleCase }}, queryWrapperFunc)...)
+        }
+    {{end -}}{{- /* range relationships */ -}}
     return query
 }
 
@@ -621,6 +672,11 @@ func getQueryModsFrom{{$alias.UpSingular}}Like(q *model.{{$alias.UpSingular}}Que
             }
         {{- end}}
     {{- end}}
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+        if q.{{ $rel.ForeignTable | titleCase }} != nil {
+           query = append(query, getQueryModsFrom{{ $rel.ForeignTable | titleCase }}Like(q.{{ $rel.ForeignTable | titleCase }}, queryWrapperFunc)...)
+        }
+    {{end -}}{{- /* range relationships */ -}}
     return query
 }
 
@@ -634,11 +690,20 @@ func getQueryModsFrom{{$alias.UpSingular}}NotLike(q *model.{{$alias.UpSingular}}
             }
         {{- end}}
     {{- end}}
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+        if q.{{ $rel.ForeignTable | titleCase }} != nil {
+           query = append(query, getQueryModsFrom{{ $rel.ForeignTable | titleCase }}NotLike(q.{{ $rel.ForeignTable | titleCase }}, queryWrapperFunc)...)
+        }
+    {{end -}}{{- /* range relationships */ -}}
     return query
 }
 
 func getQueryModsFrom{{$alias.UpSingular}}QueryForJoin(q model.{{$alias.UpSingular}}Query) []qm.QueryMod {
     {{ range $rel := getLoadRelations $.Tables .Table -}}
+    {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+        join{{$relAlias.Local | singular }} := false
+    {{end }}
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
     {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         join{{$relAlias.Local | singular }} := false
     {{end }}
@@ -667,6 +732,29 @@ func getQueryModsFrom{{$alias.UpSingular}}QueryForJoin(q model.{{$alias.UpSingul
             }
         }
     {{end -}}{{- /* range relationships */ -}}
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+    {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+        if p.Equals != nil {
+            if p.Equals.{{ $rel.ForeignTable | titleCase }} != nil {
+                join{{$relAlias.Local | singular }} = true
+            }
+        }
+        if p.NotEquals != nil {
+            if p.NotEquals.{{ $rel.ForeignTable | titleCase }} != nil {
+                join{{$relAlias.Local | singular }} = true
+            }
+        }
+        if p.In != nil {
+            if p.In.{{ $rel.ForeignTable | titleCase }} != nil {
+                join{{$relAlias.Local | singular }} = true
+            }
+        }
+        if p.NotIn != nil {
+            if p.NotIn.{{ $rel.ForeignTable | titleCase }} != nil {
+                join{{$relAlias.Local | singular }} = true
+            }
+        }
+    {{end -}}{{- /* range relationships */ -}}
     }
 
     checkParams(q.Params)
@@ -679,6 +767,12 @@ func getQueryModsFrom{{$alias.UpSingular}}QueryForJoin(q model.{{$alias.UpSingul
     {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         if join{{$relAlias.Local | singular }} {
             query = append(query, qm.InnerJoin("{{ getLoadRelationStatement $.Aliases $.Tables $rel }}"))
+        }
+    {{end }}
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+    {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+        if join{{$relAlias.Local | singular }} {
+            query = append(query, qm.InnerJoin("\"{{ $rel.ForeignTable }}\" ON \"{{ $rel.Table }}\".\"{{ $rel.Column }}\" = \"{{ $rel.ForeignTable }}\".\"{{ $rel.ForeignColumn }}\""))
         }
     {{end }}
 

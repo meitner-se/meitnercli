@@ -666,6 +666,9 @@ type {{$alias.UpSingular}}QueryParamsFields struct {
     {{ range $rel := getLoadRelations $.Tables .Table -}}
         {{ getLoadRelationName $.Aliases $rel | singular }} {{ getLoadRelationType $.Aliases $.Tables $rel "" }}
     {{end -}}{{- /* range relationships */ -}}
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+        {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsFields
+    {{end -}}{{- /* range relationships */ -}}
 }
 
 func New{{$alias.UpSingular}}QueryParamsNullableFields() *{{$alias.UpSingular}}QueryParamsNullableFields {
@@ -679,6 +682,9 @@ type {{$alias.UpSingular}}QueryParamsNullableFields struct {
             {{$colAlias}} types.Bool
         {{- end}}
     {{- end}}
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+        {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsNullableFields
+    {{end -}}{{- /* range relationships */ -}}
 }
 
 func New{{$alias.UpSingular}}QueryParamsInFields() *{{$alias.UpSingular}}QueryParamsInFields {
@@ -698,6 +704,10 @@ type {{$alias.UpSingular}}QueryParamsInFields struct {
     {{ range $rel := getLoadRelations $.Tables .Table -}}
         {{ getLoadRelationName $.Aliases $rel | singular }} []{{ getLoadRelationType $.Aliases $.Tables $rel "" }}
     {{end -}}{{- /* range relationships */ -}}
+
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+        {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsInFields
+    {{end -}}{{- /* range relationships */ -}}
 }
 
 func New{{$alias.UpSingular}}QueryParamsComparableFields() *{{$alias.UpSingular}}QueryParamsComparableFields {
@@ -711,6 +721,9 @@ type {{$alias.UpSingular}}QueryParamsComparableFields struct {
             {{$colAlias}} {{$column.Type}}
         {{- end -}}
     {{- end}}
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+        {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsComparableFields
+    {{end -}}{{- /* range relationships */ -}}
 }
 
 func New{{$alias.UpSingular}}QueryParamsLikeFields() *{{$alias.UpSingular}}QueryParamsLikeFields {
@@ -724,6 +737,9 @@ type {{$alias.UpSingular}}QueryParamsLikeFields struct {
             {{$colAlias}} {{$column.Type}}
         {{- end}}
     {{- end}}
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+        {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsLikeFields
+    {{end -}}{{- /* range relationships */ -}}
 }
 
 type {{$alias.UpSingular}}QueryOrderBy struct {

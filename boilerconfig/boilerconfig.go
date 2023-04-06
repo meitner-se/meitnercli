@@ -112,6 +112,7 @@ func GetConfig(driverName, configFile, serviceName, typesPackage string) (*boili
 		},
 		Version: sqlBoilerVersion,
 		CustomTemplateFuncs: template.FuncMap{
+			"getJoinRelations":              getJoinRelations,
 			"getLoadRelations":              getLoadRelations,
 			"getLoadRelationStatement":      getLoadRelationStatement,
 			"getLoadRelationName":           getLoadRelationName,
@@ -688,6 +689,20 @@ func isLoadTable(table drivers.Table, rel drivers.ToManyRelationship) bool {
 	}
 
 	return false
+}
+
+func getJoinRelations(tables []drivers.Table, fromTable drivers.Table) []drivers.ToManyRelationship {
+	var toManyRelationships []drivers.ToManyRelationship
+
+	for _, toManyRelationship := range fromTable.ToManyRelationships {
+		if toManyRelationship.ToJoinTable {
+			continue
+		}
+
+		toManyRelationships = append(toManyRelationships, toManyRelationship)
+	}
+
+	return toManyRelationships
 }
 
 func getLoadRelations(tables []drivers.Table, fromTable drivers.Table) []drivers.ToManyRelationship {

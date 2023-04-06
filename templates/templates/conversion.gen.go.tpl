@@ -78,16 +78,16 @@ func {{$alias.DownSingular}}QueryParamsToModel(toModel *api.{{$alias.UpSingular}
 	return model.{{$alias.UpSingular}}QueryParams{
 		Equals:    {{$alias.DownSingular}}QueryParamsFieldsToModel(toModel.Equals),
 		NotEquals: {{$alias.DownSingular}}QueryParamsFieldsToModel(toModel.NotEquals),
-		Empty:    (*model.{{$alias.UpSingular}}QueryParamsNullableFields)(toModel.Empty),
-		NotEmpty: (*model.{{$alias.UpSingular}}QueryParamsNullableFields)(toModel.NotEmpty),
-		In:    (*model.{{$alias.UpSingular}}QueryParamsInFields)(toModel.In),
-		NotIn: (*model.{{$alias.UpSingular}}QueryParamsInFields)(toModel.NotIn),
-		GreaterThan: (*model.{{$alias.UpSingular}}QueryParamsComparableFields)(toModel.GreaterThan),
-		SmallerThan: (*model.{{$alias.UpSingular}}QueryParamsComparableFields)(toModel.SmallerThan),
-		SmallerOrEqual: (*model.{{$alias.UpSingular}}QueryParamsComparableFields)(toModel.SmallerOrEqual),
-		GreaterOrEqual: (*model.{{$alias.UpSingular}}QueryParamsComparableFields)(toModel.GreaterOrEqual),
-		Like:    (*model.{{$alias.UpSingular}}QueryParamsLikeFields)(toModel.Like),
-		NotLike: (*model.{{$alias.UpSingular}}QueryParamsLikeFields)(toModel.NotLike),
+		Empty:    {{$alias.DownSingular}}QueryParamsNullableFieldsToModel(toModel.Empty),
+		NotEmpty: {{$alias.DownSingular}}QueryParamsNullableFieldsToModel(toModel.NotEmpty),
+		In:    {{$alias.DownSingular}}QueryParamsInFieldsToModel(toModel.In),
+		NotIn: {{$alias.DownSingular}}QueryParamsInFieldsToModel(toModel.NotIn),
+		GreaterThan: {{$alias.DownSingular}}QueryParamsComparableFieldsToModel(toModel.GreaterThan),
+		SmallerThan: {{$alias.DownSingular}}QueryParamsComparableFieldsToModel(toModel.SmallerThan),
+		SmallerOrEqual: {{$alias.DownSingular}}QueryParamsComparableFieldsToModel(toModel.SmallerOrEqual),
+		GreaterOrEqual: {{$alias.DownSingular}}QueryParamsComparableFieldsToModel(toModel.GreaterOrEqual),
+		Like:    {{$alias.DownSingular}}QueryParamsLikeFieldsToModel(toModel.Like),
+		NotLike: {{$alias.DownSingular}}QueryParamsLikeFieldsToModel(toModel.NotLike),
 	}
 }
 
@@ -98,13 +98,112 @@ func {{$alias.DownSingular}}QueryParamsFieldsToModel(toModel *api.{{$alias.UpSin
 
 	return &model.{{$alias.UpSingular}}QueryParamsFields{
 	    {{- range $column := .Table.Columns}}
-		{{- $colAlias := $alias.Column $column.Name}}
-				{{$colAlias}}: {{ if (isEnumDBType .DBType) }}{{- $enumName := parseEnumName .DBType -}} model.{{ titleCase $enumName }}FromString(toModel.{{$colAlias}}) {{ else }} toModel.{{$colAlias}} {{ end }},
+		    {{- $colAlias := $alias.Column $column.Name}}
+			{{$colAlias}}: {{ if (isEnumDBType .DBType) }}{{- $enumName := parseEnumName .DBType -}} model.{{ titleCase $enumName }}FromString(toModel.{{$colAlias}}) {{ else }} toModel.{{$colAlias}} {{ end }},
 		{{- end}}
-		{{ range $rel := getLoadRelations $.Tables .Table -}}
+
+		{{- range $rel := getLoadRelations $.Tables .Table }}
         	{{ getLoadRelationName $.Aliases $rel | singular }}: toModel.{{ getLoadRelationName $.Aliases $rel | singular }},
-    	{{end -}}{{- /* range relationships */ -}}
+    	{{- end }}
+
+        {{- range $rel := getJoinRelations $.Tables .Table }}
+            {{ $rel.ForeignTable | titleCase }}: {{ $rel.ForeignTable | camelCase }}QueryParamsFieldsToModel(toModel.{{ $rel.ForeignTable | titleCase }}),
+        {{- end -}}
 	}
+}
+
+func {{$alias.DownSingular}}QueryParamsNullableFieldsToModel(toModel *api.{{$alias.UpSingular}}QueryParamsNullableFieldsRequest) *model.{{$alias.UpSingular}}QueryParamsNullableFields {
+    if nil == toModel {
+        return nil
+    }
+
+    return &model.{{$alias.UpSingular}}QueryParamsNullableFields{
+        {{- range $column := .Table.Columns }}
+            {{- $colAlias := $alias.Column $column.Name -}}
+            {{- if $column.Nullable }}
+                {{$colAlias}}: toModel.{{ $colAlias }},
+            {{- end -}}
+        {{- end }}
+
+        {{- range $rel := getJoinRelations $.Tables .Table }}
+            {{ $rel.ForeignTable | titleCase }}: {{ $rel.ForeignTable | camelCase }}QueryParamsNullableFieldsToModel(toModel.{{ $rel.ForeignTable | titleCase }}),
+        {{- end }}
+    }
+}
+
+func {{$alias.DownSingular}}QueryParamsInFieldsToModel(toModel *api.{{$alias.UpSingular}}QueryParamsInFieldsRequest) *model.{{$alias.UpSingular}}QueryParamsInFields {
+    if nil == toModel {
+        return nil
+    }
+
+    return &model.{{$alias.UpSingular}}QueryParamsInFields{
+        {{- range $column := .Table.Columns }}
+            {{- $colAlias := $alias.Column $column.Name -}}
+            {{- $stringTypes := "types.String, types.UUID, types.Time, types.Date" -}}
+
+            {{- if or (contains $column.Type $stringTypes) }}
+                {{$colAlias}}: toModel.{{$colAlias}},
+            {{- end -}}
+
+            {{- if contains "types.Int" $column.Type }}
+                {{$colAlias}}: toModel.{{$colAlias}},
+            {{- end -}}
+        {{- end }}
+
+        {{- range $rel := getLoadRelations $.Tables .Table }}
+            {{ getLoadRelationName $.Aliases $rel | singular }}: toModel.{{ getLoadRelationName $.Aliases $rel | singular }},
+        {{- end }}
+
+        {{- range $rel := getJoinRelations $.Tables .Table }}
+            {{ $rel.ForeignTable | titleCase }}: {{ $rel.ForeignTable | camelCase }}QueryParamsInFieldsToModel(toModel.{{ $rel.ForeignTable | titleCase }}),
+        {{- end }}
+    }
+}
+
+func {{$alias.DownSingular}}QueryParamsComparableFieldsToModel(toModel *api.{{$alias.UpSingular}}QueryParamsComparableFieldsRequest) *model.{{$alias.UpSingular}}QueryParamsComparableFields {
+    if nil == toModel {
+        return nil
+    }
+
+    return &model.{{$alias.UpSingular}}QueryParamsComparableFields{
+        {{- range $column := .Table.Columns}}
+            {{- $colAlias := $alias.Column $column.Name -}}
+
+            {{- if hasSuffix "Int" $column.Type }}
+                {{$colAlias}}: toModel.{{$colAlias}},
+            {{- end -}}
+
+            {{- if or (hasPrefix "date" $column.DBType) (hasPrefix "time" $column.DBType) }}
+                {{$colAlias}}: toModel.{{$colAlias}},
+            {{- end -}}
+
+        {{- end }}
+
+        {{- range $rel := getJoinRelations $.Tables .Table }}
+            {{ $rel.ForeignTable | titleCase }}: {{ $rel.ForeignTable | camelCase }}QueryParamsComparableFieldsToModel(toModel.{{ $rel.ForeignTable | titleCase }}),
+        {{- end }}
+    }
+}
+
+func {{$alias.DownSingular}}QueryParamsLikeFieldsToModel(toModel *api.{{$alias.UpSingular}}QueryParamsLikeFieldsRequest) *model.{{$alias.UpSingular}}QueryParamsLikeFields {
+    if nil == toModel {
+        return nil
+    }
+
+    return &model.{{$alias.UpSingular}}QueryParamsLikeFields{
+        {{- range $column := .Table.Columns}}
+            {{- $colAlias := $alias.Column $column.Name}}
+
+            {{- if hasSuffix "String" $column.Type }}
+                {{$colAlias}}: toModel.{{$colAlias}},
+            {{- end -}}
+
+        {{- end }}
+
+        {{- range $rel := getJoinRelations $.Tables .Table }}
+            {{ $rel.ForeignTable | titleCase }}: {{ $rel.ForeignTable | camelCase }}QueryParamsLikeFieldsToModel(toModel.{{ $rel.ForeignTable | titleCase }}),
+        {{- end }}
+    }
 }
 
 func {{$alias.DownSingular}}QueryOrderByToModel(toModel *api.{{$alias.UpSingular}}QueryOrderByRequest) *model.{{$alias.UpSingular}}QueryOrderBy {
