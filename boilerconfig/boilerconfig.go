@@ -271,7 +271,8 @@ func getColumnMetadata(c drivers.Column) ColumnMetadata {
 			continue
 		}
 
-		if comment == "load" {
+		switch comment {
+		case "load", "join":
 			continue
 		}
 
@@ -673,6 +674,30 @@ func getLoadRelationStatement(aliases boilingcore.Aliases, tables []drivers.Tabl
 	panic("load relation column not found")
 }
 
+func isJoinTable(table drivers.Table, rel drivers.ToManyRelationship) bool {
+	if table.Name != rel.ForeignTable {
+		return false
+	}
+
+	return strings.Contains(table.GetColumn(rel.ForeignColumn).Comment, "join")
+}
+
+func getJoinRelations(tables []drivers.Table, fromTable drivers.Table) []drivers.ToManyRelationship {
+	var toManyRelationships []drivers.ToManyRelationship
+
+	for _, toManyRelationship := range fromTable.ToManyRelationships {
+		for _, t := range tables {
+			if !isJoinTable(t, toManyRelationship) {
+				continue
+			}
+
+			toManyRelationships = append(toManyRelationships, toManyRelationship)
+		}
+	}
+
+	return toManyRelationships
+}
+
 func isLoadTable(table drivers.Table, rel drivers.ToManyRelationship) bool {
 	if table.Name == rel.JoinTable {
 		return strings.Contains(table.GetColumn(rel.JoinForeignColumn).Comment, "load")
@@ -689,20 +714,6 @@ func isLoadTable(table drivers.Table, rel drivers.ToManyRelationship) bool {
 	}
 
 	return false
-}
-
-func getJoinRelations(tables []drivers.Table, fromTable drivers.Table) []drivers.ToManyRelationship {
-	var toManyRelationships []drivers.ToManyRelationship
-
-	for _, toManyRelationship := range fromTable.ToManyRelationships {
-		if toManyRelationship.ToJoinTable {
-			continue
-		}
-
-		toManyRelationships = append(toManyRelationships, toManyRelationship)
-	}
-
-	return toManyRelationships
 }
 
 func getLoadRelations(tables []drivers.Table, fromTable drivers.Table) []drivers.ToManyRelationship {
