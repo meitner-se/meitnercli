@@ -596,6 +596,22 @@ type {{$alias.UpSingular}}QuerySelectedFields struct {
     {{end -}}{{- /* range relationships */ -}}
 }
 
+func (hide {{$alias.UpSingular}}QuerySelectedFields) HideFields(o *{{$alias.UpSingular}}) {
+        {{- range $column := .Table.Columns}}
+        {{- $colAlias := $alias.Column $column.Name}}
+                if hide.{{$colAlias}}.Bool() {
+                    o.{{$colAlias}} = {{ if and (isEnumDBType .DBType) (.Nullable) }} {{ stripPrefix $column.Type "Null" }} {{ else }} {{$column.Type}} {{ end }}{}
+                }
+        {{- end}}
+
+        {{ range $rel := getLoadRelations $.Tables .Table -}}
+            {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+            if hide.{{ $relAlias.Local | singular }}IDs.Bool() {
+                o.{{ $relAlias.Local | singular }}IDs = nil
+            }
+        {{end -}}{{- /* range relationships */ -}}
+}
+
 func New{{$alias.UpSingular}}QueryNested() {{$alias.UpSingular}}QueryNested {
     return {{$alias.UpSingular}}QueryNested{}
 }
