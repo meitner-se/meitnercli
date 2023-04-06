@@ -337,6 +337,14 @@ func getQueryModsFrom{{$alias.UpSingular}}QueryNested(q *model.{{$alias.UpSingul
         query = append(query, queryWrapperFunc(getQueryModsFrom{{$alias.UpSingular}}QueryNested(q.Nested)))
     }
 
+    // We had an issue when the client sends an empty nested query: {"nested": {}}
+    // which resulted in an SQL-statement like this: WHERE (id = $1 AND ()),
+    // to solve this we will return a where statement which just says "true",
+    // the SQL-statement will instead result in: WHERE (id = $1 AND (true))
+	if len(query) == 0 {
+		return qm.Where("true")
+	}
+
 	return qm.Expr(query...)
 }
 
