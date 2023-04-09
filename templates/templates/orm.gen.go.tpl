@@ -585,7 +585,7 @@ func getQueryModsFrom{{$alias.UpSingular}}In(q *model.{{$alias.UpSingular}}Query
     {{- $colAlias := $alias.Column $column.Name}}
         {{- if not (isEnumDBType .DBType) }}
         {{- if or (contains $column.Type $stringTypes) (hasPrefix "types.Int" $column.Type) }}
-            if len(q.{{$colAlias}}) != 0 {
+            if q.{{$colAlias}} != nil {
                 query = append(query, queryWrapperFunc({{$alias.UpSingular}}Where.{{$colAlias}}.IN(q.{{$colAlias}})))
             }
         {{- end}}
@@ -597,7 +597,7 @@ func getQueryModsFrom{{$alias.UpSingular}}In(q *model.{{$alias.UpSingular}}Query
         {{$loadCol := getLoadRelationColumn $.Aliases $.Tables $rel -}}
         {{$whereHelper := printf "whereHelper%s" (goVarname $loadCol.Type) -}}
 
-        if len(q.{{ getLoadRelationName $.Aliases $rel | singular }}) != 0 {
+        if q.{{ getLoadRelationName $.Aliases $rel | singular }} != nil {
             query = append(query, queryWrapperFunc({{ $whereHelper }}{"{{ getLoadRelationTableColumn $.Aliases $.Tables $rel }}"}.IN(q.{{ getLoadRelationName $.Aliases $rel | singular }})))
         }
     {{end -}}{{- /* range relationships */ -}}
@@ -619,7 +619,7 @@ func getQueryModsFrom{{$alias.UpSingular}}NotIn(q *model.{{$alias.UpSingular}}Qu
     {{- range $column := .Table.Columns}}
     {{- $colAlias := $alias.Column $column.Name}}
         {{- if and (not (isEnumDBType .DBType)) (or (eq "types.String" $column.Type) (eq "types.UUID" $column.Type)) }}
-            if len(q.{{$colAlias}}) != 0 {
+            if q.{{$colAlias}} != nil {
                 query = append(query, queryWrapperFunc({{$alias.UpSingular}}Where.{{$colAlias}}.NIN(q.{{$colAlias}})))
             }
         {{- end}}
@@ -630,7 +630,7 @@ func getQueryModsFrom{{$alias.UpSingular}}NotIn(q *model.{{$alias.UpSingular}}Qu
         {{$loadCol := getLoadRelationColumn $.Aliases $.Tables $rel -}}
         {{$whereHelper := printf "whereHelper%s" (goVarname $loadCol.Type) -}}
 
-        if len(q.{{ getLoadRelationName $.Aliases $rel | singular }}) != 0 {
+        if q.{{ getLoadRelationName $.Aliases $rel | singular }} != nil {
             query = append(query, queryWrapperFunc({{ $whereHelper }}{"{{ getLoadRelationTableColumn $.Aliases $.Tables $rel }}"}.NIN(q.{{ getLoadRelationName $.Aliases $rel | singular }})))
         }
     {{end -}}{{- /* range relationships */ -}}
