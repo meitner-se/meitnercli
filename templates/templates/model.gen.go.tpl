@@ -619,7 +619,7 @@ func New{{$alias.UpSingular}}QueryNested() {{$alias.UpSingular}}QueryNested {
 type {{$alias.UpSingular}}QueryNested struct {
     // Nested queries, if any. 
     // Use OrCondition-field to define if the nested query should be wrapped in an AND or OR-statement.
-    Nested *{{$alias.UpSingular}}QueryNested
+    Nested []{{$alias.UpSingular}}QueryNested
 
     // Params for the query
     Params {{$alias.UpSingular}}QueryParams
@@ -669,6 +669,9 @@ type {{$alias.UpSingular}}QueryParamsFields struct {
     {{ range $rel := getJoinRelations $.Tables .Table -}}
         {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsFields
     {{end -}}{{- /* range relationships */ -}}
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+        LeftJoin{{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsFields
+    {{end -}}{{- /* range relationships */ -}}
 }
 
 func New{{$alias.UpSingular}}QueryParamsNullableFields() *{{$alias.UpSingular}}QueryParamsNullableFields {
@@ -678,12 +681,18 @@ func New{{$alias.UpSingular}}QueryParamsNullableFields() *{{$alias.UpSingular}}Q
 type {{$alias.UpSingular}}QueryParamsNullableFields struct {
     {{- range $column := .Table.Columns}}
     {{- $colAlias := $alias.Column $column.Name}}
+        {{- if containsAny $.Table.PKey.Columns $column.Name }}
+            {{$colAlias}} types.Bool // Primary key is nullable on left joins
+        {{- end}}
         {{if $column.Nullable -}}
             {{$colAlias}} types.Bool
         {{- end}}
     {{- end}}
     {{ range $rel := getJoinRelations $.Tables .Table -}}
         {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsNullableFields
+    {{end -}}{{- /* range relationships */ -}}
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+        LeftJoin{{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsNullableFields
     {{end -}}{{- /* range relationships */ -}}
 }
 
@@ -708,6 +717,10 @@ type {{$alias.UpSingular}}QueryParamsInFields struct {
     {{ range $rel := getJoinRelations $.Tables .Table -}}
         {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsInFields
     {{end -}}{{- /* range relationships */ -}}
+
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+        LeftJoin{{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsInFields
+    {{end -}}{{- /* range relationships */ -}}
 }
 
 func New{{$alias.UpSingular}}QueryParamsComparableFields() *{{$alias.UpSingular}}QueryParamsComparableFields {
@@ -724,6 +737,10 @@ type {{$alias.UpSingular}}QueryParamsComparableFields struct {
     {{ range $rel := getJoinRelations $.Tables .Table -}}
         {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsComparableFields
     {{end -}}{{- /* range relationships */ -}}
+
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+        LeftJoin{{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsComparableFields
+    {{end -}}{{- /* range relationships */ -}}
 }
 
 func New{{$alias.UpSingular}}QueryParamsLikeFields() *{{$alias.UpSingular}}QueryParamsLikeFields {
@@ -739,6 +756,9 @@ type {{$alias.UpSingular}}QueryParamsLikeFields struct {
     {{- end}}
     {{ range $rel := getJoinRelations $.Tables .Table -}}
         {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsLikeFields
+    {{end -}}{{- /* range relationships */ -}}
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+        LeftJoin{{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsLikeFields
     {{end -}}{{- /* range relationships */ -}}
 }
 

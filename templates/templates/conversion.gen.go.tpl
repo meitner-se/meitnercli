@@ -65,7 +65,7 @@ func {{$alias.DownSingular}}QueryNestedToModel(toModel *api.{{$alias.UpSingular}
 		return nil
 	}
 	return &model.{{$alias.UpSingular}}QueryNested{
-		Nested: {{$alias.DownSingular}}QueryNestedToModel(toModel.Nested),
+		Nested: {{$alias.DownSingular}}QueryNestedToModels(toModel.Nested),
 		Params: {{$alias.DownSingular}}QueryParamsToModel(toModel.Params),
 		OrCondition: toModel.OrCondition,
 	}

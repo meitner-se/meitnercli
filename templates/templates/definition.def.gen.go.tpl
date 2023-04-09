@@ -133,7 +133,7 @@ type {{$alias.UpSingular}}QueryNestedRequest struct {
     // Use OrCondition-field to define if the nested query should be wrapped in an AND or OR-statement.
     //
     // optional: true
-    Nested *{{$alias.UpSingular}}QueryNestedRequest
+    Nested []*{{$alias.UpSingular}}QueryNestedRequest
 
     // Params for the query
     //
