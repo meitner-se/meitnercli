@@ -1051,8 +1051,7 @@ func getQueryModsFrom{{$alias.UpSingular}}QueryForJoin(q model.{{$alias.UpSingul
     {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         if join{{$relAlias.Local | singular }} {
             query = append(query, qm.InnerJoin("\"{{ $rel.ForeignTable }}\" ON \"{{ $rel.Table }}\".\"{{ $rel.Column }}\" = \"{{ $rel.ForeignTable }}\".\"{{ $rel.ForeignColumn }}\""))
-        }
-        if joinLeft{{$relAlias.Local | singular }} {
+        } else if joinLeft{{$relAlias.Local | singular }} {
             query = append(query, qm.LeftOuterJoin("\"{{ $rel.ForeignTable }}\" ON \"{{ $rel.Table }}\".\"{{ $rel.Column }}\" = \"{{ $rel.ForeignTable }}\".\"{{ $rel.ForeignColumn }}\""))
         }
     {{end }}
