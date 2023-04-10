@@ -6,13 +6,15 @@ type repo struct {
     db *sql.DB
     audit audit.Log
     logger logger.Log
+    tracer trace.Tracer
 }
 
-func New(db *sql.DB, audit audit.Log, logger logger.Log) *repo {
+func New(db *sql.DB, audit audit.Log, logger logger.Log, tracer trace.Tracer) *repo {
     return &repo{
         db: db,
         audit: audit,
         logger: logger,
+        tracer: tracer,
     }
 }
 

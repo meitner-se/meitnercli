@@ -42,6 +42,7 @@ func Boiler(outFolder, pkgORM, pkgServiceModel, pkgRepository, pkgErrors, pkgAud
 						formatPkgImportWithAlias(pkgLogger, "logger"),
 						formatPkgImportWithAlias(pkgTypes, "types"),
 						formatPkgImport("github.com/pressly/goose/v3"),
+						formatPkgImport("go.opentelemetry.io/otel/trace"),
 					},
 				},
 			}

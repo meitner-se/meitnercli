@@ -3,12 +3,33 @@
 {{- $alias := .Aliases.Table .Table.Name -}}
 {{- $colDefs := sqlColDefinitions .Table.Columns .Table.PKey.Columns -}}
 {{- $pkNames := $colDefs.Names | stringMap (aliasCols $alias) | stringMap .StringFuncs.camelCase | stringMap .StringFuncs.replaceReserved -}}
+{{- $pkNamesFromStruct := prefixStringSlice "o." ($colDefs.Names | stringMap (aliasCols $alias) | stringMap .StringFuncs.titleCase | stringMap .StringFuncs.replaceReserved) -}}
 {{- $pkArgs := joinSlices " " $pkNames $colDefs.Types | join ", " -}}
 {{- $schemaTable := .Table.Name | .SchemaTable}}
  {{- $stringTypes := "types.String, types.UUID, types.Time, types.Date" -}}
 
+// MarshalBinary returns the JSON encoding of {{$alias.UpSingular}}, implements cache.Value
+func (o *{{$alias.UpSingular}}) MarshalBinary() ([]byte, error) {
+    return json.Marshal(o)
+}
+
+// UnmarshalBinary parse JSON encoded data and converts it to {{$alias.UpSingular}}, implements cache.Value
+func (o *{{$alias.UpSingular}}) UnmarshalBinary(data []byte) (error) {
+    return json.Unmarshal(data, o)
+}
+
+// MarshalBinary returns the JSON encoding of {{$alias.UpSingular}}Slice, implements cache.Value
+func (o *{{$alias.UpSingular}}Slice) MarshalBinary() ([]byte, error) {
+    return json.Marshal(o)
+}
+
+// UnmarshalBinary parse JSON encoded data and converts it to {{$alias.UpSingular}}Slice, implements cache.Value
+func (o *{{$alias.UpSingular}}Slice) UnmarshalBinary(data []byte) (error) {
+    return json.Unmarshal(data, o)
+}
+
 // InsertDefined inserts {{$alias.UpSingular}} with the defined values only.
-func (o *{{$alias.UpSingular}}) InsertDefined({{if .NoContext}}exec boil.Executor{{else}}ctx context.Context, exec boil.ContextExecutor{{end}}, auditLog audit.Log) error {
+func (o *{{$alias.UpSingular}}) InsertDefined({{if .NoContext}}exec boil.Executor{{else}}ctx context.Context, exec boil.ContextExecutor{{end}}, auditLog audit.Log, cacheClient cache.Client) error {
     auditLogValues := []audit.LogValue{}
     whitelist := boil.Whitelist() // whitelist each column that has a defined value
 
@@ -48,11 +69,18 @@ func (o *{{$alias.UpSingular}}) InsertDefined({{if .NoContext}}exec boil.Executo
         return err
     }
 
+    {{ range $fKey := .Table.FKeys }}
+        err = cacheClient.Delete(ctx, cache.DefaultKey("{{$alias.UpPlural}}", "{{ titleCase $fKey.Column }}", o.{{ titleCase $fKey.Column }}.String()))
+        if err != nil {
+            return errors.Wrap(err, "cannot delete from cache")
+        }
+    {{ end }}
+
     return nil
 }
 
 // UpdateDefined updates {{$alias.UpSingular}} with the defined values only.
-func (o *{{$alias.UpSingular}}) UpdateDefined({{if .NoContext}}exec boil.Executor{{else}}ctx context.Context, exec boil.ContextExecutor{{end}}, auditLog audit.Log, newValues *{{$alias.UpSingular}}) error {
+func (o *{{$alias.UpSingular}}) UpdateDefined({{if .NoContext}}exec boil.Executor{{else}}ctx context.Context, exec boil.ContextExecutor{{end}}, auditLog audit.Log, cacheClient cache.Client, newValues *{{$alias.UpSingular}}) error {
     auditLogValues := []audit.LogValue{} // Collect all values that have been changed
     whitelist := boil.Whitelist() // whitelist each column that has a defined value and should be updated
 
@@ -109,11 +137,29 @@ func (o *{{$alias.UpSingular}}) UpdateDefined({{if .NoContext}}exec boil.Executo
         return err
     }
 
+    cacheKeys := []cache.Key{
+        cache.DefaultKey("{{$alias.UpSingular}}", {{- $pkNamesFromStruct | join ".String(), " -}}.String()),
+        {{- range $column := .Table.Columns }}
+        	{{- $colAlias := $alias.Column $column.Name -}}
+            {{- if and (not (containsAny $.Table.PKey.Columns $column.Name)) ($column.Unique) }}
+                cache.DefaultKey("{{$alias.UpSingular}}", "{{$colAlias}}", o.{{ $colAlias }}.String()),
+            {{- end -}}
+        {{- end -}}
+        {{- range $fKey := .Table.FKeys }}
+            cache.DefaultKey("{{$alias.UpPlural}}", "{{ titleCase $fKey.Column }}", o.{{ titleCase $fKey.Column }}.String()),
+        {{ end }}
+    }
+
+    err = cacheClient.Delete(ctx, cacheKeys...)
+    if err != nil {
+        return errors.Wrap(err, "cannot delete from cache")
+    }
+
     return nil
 }
 
 // DeleteDefined deletes {{$alias.UpSingular}} with the defined values only.
-func (o *{{$alias.UpSingular}}) DeleteDefined({{if .NoContext}}exec boil.Executor{{else}}ctx context.Context, exec boil.ContextExecutor{{end}}, auditLog audit.Log) error {
+func (o *{{$alias.UpSingular}}) DeleteDefined({{if .NoContext}}exec boil.Executor{{else}}ctx context.Context, exec boil.ContextExecutor{{end}}, auditLog audit.Log, cacheClient cache.Client) error {
     {{if not .NoRowsAffected}}_,{{end -}}err := o.Delete(ctx, exec)
 	if err != nil {
 		return err
@@ -122,6 +168,24 @@ func (o *{{$alias.UpSingular}}) DeleteDefined({{if .NoContext}}exec boil.Executo
     err = auditLog.Add(ctx, audit.OperationDelete, TableNames.{{titleCase .Table.Name}}, o.ID.String())
     if err != nil {
         return err
+    }
+
+    cacheKeys := []cache.Key{
+        cache.DefaultKey("{{$alias.UpSingular}}", {{- $pkNamesFromStruct | join ".String(), " -}}.String()),
+        {{- range $column := .Table.Columns }}
+        	{{- $colAlias := $alias.Column $column.Name -}}
+            {{- if and (not (containsAny $.Table.PKey.Columns $column.Name)) ($column.Unique) }}
+                cache.DefaultKey("{{$alias.UpSingular}}", "{{$colAlias}}", o.{{ $colAlias }}.String()),
+            {{- end -}}
+        {{- end -}}
+        {{- range $fKey := .Table.FKeys }}
+            cache.DefaultKey("{{$alias.UpPlural}}", "{{ titleCase $fKey.Column }}", o.{{ titleCase $fKey.Column }}.String()),
+        {{ end }}
+    }
+
+    err = cacheClient.Delete(ctx, cacheKeys...)
+    if err != nil {
+        return errors.Wrap(err, "cannot delete from cache")
     }
 
     return nil
@@ -166,7 +230,17 @@ func (o *{{$alias.UpSingular}}) Set{{ getLoadRelationName $.Aliases $rel }}({{ $
 }
 {{end}}
 
-func Get{{$alias.UpSingular}}({{if $.NoContext}}exec boil.Executor{{else}}ctx context.Context, exec boil.ContextExecutor{{end}}, {{ $pkArgs }}) (*model.{{$alias.UpSingular}}, error) {
+func Get{{$alias.UpSingular}}({{if $.NoContext}}exec boil.Executor{{else}}ctx context.Context, exec boil.ContextExecutor{{end}}, cacheClient cache.Client, {{ $pkArgs }}) (*model.{{$alias.UpSingular}}, error) {
+    var fromCache {{$alias.UpSingular}}
+    err := cacheClient.Scan(ctx, cache.DefaultKey("{{$alias.UpSingular}}", {{- $pkNames | join ".String(), " -}}.String()), &fromCache)
+    if err != nil && err != cache.ErrNotFound {
+        return nil, errors.Wrap(err, "cannot scan from cache")
+    }
+
+    if nil == err {
+        return {{$alias.UpSingular}}ToModel(&fromCache{{- range getLoadRelations $.Tables .Table -}}, true {{ end }}), nil
+    }
+
     // Create queryMods from SelectedFields as nil, which will load all relations by default,
     // which is expected when using the Get-method
     queryMods := getQueryModsFrom{{$alias.UpSingular}}QuerySelectedFields(nil)
@@ -180,6 +254,11 @@ func Get{{$alias.UpSingular}}({{if $.NoContext}}exec boil.Executor{{else}}ctx co
     if err != nil {
         return nil, err
     }
+
+    err = cacheClient.Set(ctx, cache.DefaultKey("{{$alias.UpSingular}}", {{- $pkNames | join ".String(), " -}}.String()), {{$alias.DownSingular}})
+    if err != nil {
+        return nil, errors.Wrap(err, "cannot set to cache")
+    }
     
     return {{$alias.UpSingular}}ToModel({{$alias.DownSingular}}{{- range getLoadRelations $.Tables .Table -}}, true {{ end }}), nil
 }
@@ -187,13 +266,28 @@ func Get{{$alias.UpSingular}}({{if $.NoContext}}exec boil.Executor{{else}}ctx co
 {{- range $column := .Table.Columns -}}
 	{{- $colAlias := $alias.Column $column.Name -}}
     {{- if and (not (containsAny $.Table.PKey.Columns $column.Name)) ($column.Unique) }}
-	    func Get{{$alias.UpSingular}}By{{$colAlias}}({{if $.NoContext}}exec boil.Executor{{else}}ctx context.Context, exec boil.ContextExecutor{{end}}, {{ camelCase $colAlias }} {{ $column.Type }}) (*model.{{$alias.UpSingular}}, error) {
-                {{$alias.DownSingular}}, err := {{$alias.UpPlural}}({{$alias.UpSingular}}Where.{{ $colAlias }}.EQ({{ camelCase $colAlias }})).One({{if not $.NoContext}}ctx,{{end}} exec)
-                if err != nil {
-                    return nil, err
-                }
+	    func Get{{$alias.UpSingular}}By{{$colAlias}}({{if $.NoContext}}exec boil.Executor{{else}}ctx context.Context, exec boil.ContextExecutor{{end}}, cacheClient cache.Client, {{ camelCase $colAlias }} {{ $column.Type }}) (*model.{{$alias.UpSingular}}, error) {
+            var fromCache {{$alias.UpSingular}}
+            err := cacheClient.Scan(ctx, cache.DefaultKey("{{$alias.UpSingular}}", "{{$colAlias}}", {{ camelCase $colAlias }}.String()), &fromCache)
+            if err != nil && err != cache.ErrNotFound {
+                return nil, errors.Wrap(err, "cannot scan from cache")
+            }
+
+            if nil == err {
+                return {{$alias.UpSingular}}ToModel(&fromCache{{- range getLoadRelations $.Tables $.Table -}}, true {{ end }}), nil
+            }
+
+            {{$alias.DownSingular}}, err := {{$alias.UpPlural}}({{$alias.UpSingular}}Where.{{ $colAlias }}.EQ({{ camelCase $colAlias }})).One({{if not $.NoContext}}ctx,{{end}} exec)
+            if err != nil {
+                return nil, err
+            }
+
+            err = cacheClient.Set(ctx, cache.DefaultKey("{{$alias.UpSingular}}", "{{$colAlias}}", {{ camelCase $colAlias }}.String()), {{$alias.DownSingular}})
+            if err != nil {
+                return nil, errors.Wrap(err, "cannot set to cache")
+            }
                 
-                return {{$alias.UpSingular}}ToModel({{$alias.DownSingular}}{{- range getLoadRelations $.Tables $.Table -}}, true {{ end }}), nil
+            return {{$alias.UpSingular}}ToModel({{$alias.DownSingular}}{{- range getLoadRelations $.Tables $.Table -}}, true {{ end }}), nil
         }
     {{ end }}
 {{end -}}
@@ -242,12 +336,25 @@ func List{{$alias.UpPlural}}({{if .NoContext}}exec boil.Executor{{else}}ctx cont
 }
 
 {{ range $fKey := .Table.FKeys -}}
-func List{{$alias.UpPlural}}By{{ titleCase $fKey.Column }}({{if $.NoContext}}exec boil.Executor{{else}}ctx context.Context, exec boil.ContextExecutor{{end}}, {{ camelCase $fKey.Column }} types.UUID) ([]*model.{{$alias.UpSingular}}, error) {
-    {{$alias.DownPlural}}, err := {{$alias.UpPlural}}({{$alias.UpSingular}}Where.{{ titleCase $fKey.Column }}.EQ({{ camelCase $fKey.Column }})).All({{if not $.NoContext}}ctx,{{end}} exec)
-	if err != nil {
-		return nil, err
-	}
-    
+func List{{$alias.UpPlural}}By{{ titleCase $fKey.Column }}({{if $.NoContext}}exec boil.Executor{{else}}ctx context.Context, exec boil.ContextExecutor{{end}}, cacheClient cache.Client, {{ camelCase $fKey.Column }} types.UUID) ([]*model.{{$alias.UpSingular}}, error) {
+    var {{$alias.DownPlural}} {{$alias.UpSingular}}Slice
+    err := cacheClient.Scan(ctx, cache.DefaultKey("{{$alias.UpPlural}}", "{{ titleCase $fKey.Column }}", {{ camelCase $fKey.Column }}.String()), &{{$alias.DownPlural}})
+    if err != nil && err != cache.ErrNotFound {
+        return nil, errors.Wrap(err, "cannot scan from cache")
+    }
+
+    if {{$alias.DownPlural}} == nil {
+        {{$alias.DownPlural}}, err = {{$alias.UpPlural}}({{$alias.UpSingular}}Where.{{ titleCase $fKey.Column }}.EQ({{ camelCase $fKey.Column }})).All({{if not $.NoContext}}ctx,{{end}} exec)
+        if err != nil {
+            return nil, err
+        }
+
+        err = cacheClient.Set(ctx, cache.DefaultKey("{{$alias.UpPlural}}", "{{ titleCase $fKey.Column }}", {{ camelCase $fKey.Column }}.String()), &{{$alias.DownPlural}})
+        if err != nil {
+            return nil, errors.Wrap(err, "cannot set to cache")
+        }
+    }
+
     return {{$alias.UpSingular}}ToModels({{$alias.DownPlural}}{{- range getLoadRelations $.Tables $.Table -}}, true {{ end }}), nil
 }
 {{ end }}

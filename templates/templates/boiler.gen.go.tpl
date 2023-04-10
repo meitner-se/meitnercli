@@ -8,6 +8,9 @@
 {{- $schemaTable := .Table.Name | .SchemaTable}}
 
 func (r *repo) Create{{$alias.UpSingular}}(ctx context.Context, input *model.{{$alias.UpSingular}}) error {
+    ctx, span := r.tracer.Start(ctx, "{{ getServiceName }}.Create{{$alias.UpSingular}}")
+    defer span.End()
+
     exec := database.GetBoilExec(ctx, r.db)
 
     // Make sure to set the values of the auto-columns to the service model pointer, since they might be used by the caller.
@@ -35,7 +38,7 @@ func (r *repo) Create{{$alias.UpSingular}}(ctx context.Context, input *model.{{$
         }
     {{ end }}
 
-    if err := orm.{{$alias.UpSingular}}FromModel(input).InsertDefined(ctx, exec, r.audit); err != nil {
+    if err := orm.{{$alias.UpSingular}}FromModel(input).InsertDefined(ctx, exec, r.audit, r.cache); err != nil {
         return errors.Wrap(err, errors.MessageCannotCreateEntity("{{$alias.DownSingular}}"))
     }
 
@@ -43,6 +46,9 @@ func (r *repo) Create{{$alias.UpSingular}}(ctx context.Context, input *model.{{$
 }
 
 func (r *repo) Update{{$alias.UpSingular}}(ctx context.Context, input *model.{{$alias.UpSingular}}) error {
+    ctx, span := r.tracer.Start(ctx, "{{ getServiceName }}.Update{{$alias.UpSingular}}")
+    defer span.End()
+
     exec := database.GetBoilExec(ctx, r.db)
 
     {{$alias.DownSingular}}, err := orm.Find{{$alias.UpSingular}}(ctx, exec, {{ prefixStringSlice "input." ($colDefs.Names | stringMap (aliasCols $alias) | stringMap .StringFuncs.titleCase) | join ", " }})
@@ -66,7 +72,7 @@ func (r *repo) Update{{$alias.UpSingular}}(ctx context.Context, input *model.{{$
         {{- end -}}
     {{ end }}
 
-    err = {{$alias.DownSingular}}.UpdateDefined(ctx, exec, r.audit, orm.{{$alias.UpSingular}}FromModel(input))
+    err = {{$alias.DownSingular}}.UpdateDefined(ctx, exec, r.audit, r.cache, orm.{{$alias.UpSingular}}FromModel(input))
     if err != nil {
         return errors.Wrap(err, errors.MessageCannotUpdateEntity("{{$alias.DownSingular}}"))
     }
@@ -75,9 +81,12 @@ func (r *repo) Update{{$alias.UpSingular}}(ctx context.Context, input *model.{{$
 }
 
 func (r *repo) Delete{{$alias.UpSingular}}(ctx context.Context, input *model.{{$alias.UpSingular}}) error {
+    ctx, span := r.tracer.Start(ctx, "{{ getServiceName }}.Delete{{$alias.UpSingular}}")
+    defer span.End()
+
     exec := database.GetBoilExec(ctx, r.db)
 
-    err := orm.{{$alias.UpSingular}}FromModel(input).DeleteDefined(ctx, exec, r.audit)
+    err := orm.{{$alias.UpSingular}}FromModel(input).DeleteDefined(ctx, exec, r.audit, r.cache)
     if err != nil {
         return errors.Wrap(err, errors.MessageCannotDeleteEntity("{{$alias.DownSingular}}"))
     }
@@ -86,7 +95,10 @@ func (r *repo) Delete{{$alias.UpSingular}}(ctx context.Context, input *model.{{$
 }
 
 func (r *repo) Get{{$alias.UpSingular}}(ctx context.Context, {{ $pkArgs }}) (*model.{{$alias.UpSingular}}, error) {
-	{{$alias.DownSingular}}, err := orm.Get{{$alias.UpSingular}}(ctx, r.db, {{ $pkNames | join ", " }})
+    ctx, span := r.tracer.Start(ctx, "{{ getServiceName }}.Get{{$alias.UpSingular}}")
+    defer span.End()
+
+	{{$alias.DownSingular}}, err := orm.Get{{$alias.UpSingular}}(ctx, r.db, r.cache, {{ $pkNames | join ", " }})
 	if err == sql.ErrNoRows {
 		return nil, errors.NewNotFoundWrapped(err, errors.MessageCannotFindEntity("{{$alias.DownSingular}}"))
 	}
@@ -98,6 +110,9 @@ func (r *repo) Get{{$alias.UpSingular}}(ctx context.Context, {{ $pkArgs }}) (*mo
 }
 
 func (r *repo) Get{{$alias.UpSingular}}WithQueryParams(ctx context.Context, queryParams model.{{$alias.UpSingular}}QueryParams) (*model.{{$alias.UpSingular}}, error) {
+    ctx, span := r.tracer.Start(ctx, "{{ getServiceName }}.Get{{$alias.UpSingular}}WithQueryParams")
+    defer span.End()
+
 	query := model.New{{$alias.UpSingular}}Query()
 	query.Params = queryParams
 	query.Limit = types.NewInt(1)
@@ -123,7 +138,10 @@ func (r *repo) Get{{$alias.UpSingular}}WithQueryParams(ctx context.Context, quer
 	{{- $colAlias := $alias.Column $column.Name -}}
     {{- if and (not (containsAny $.Table.PKey.Columns $column.Name)) ($column.Unique) }}
 	    func (r *repo) Get{{$alias.UpSingular}}By{{$colAlias}}({{if $.NoContext}}{{else}}ctx context.Context,{{end}}{{ camelCase $colAlias }} {{ $column.Type }}) (*model.{{$alias.UpSingular}}, error) {
-                {{$alias.DownSingular}}, err := orm.Get{{$alias.UpSingular}}By{{ titleCase $colAlias}}({{if $.NoContext}}{{else}}ctx,{{end}} r.db, {{ camelCase $colAlias }})
+	            ctx, span := r.tracer.Start(ctx, "{{ getServiceName }}.Get{{$alias.UpSingular}}By{{$colAlias}}")
+                defer span.End()
+
+                {{$alias.DownSingular}}, err := orm.Get{{$alias.UpSingular}}By{{ titleCase $colAlias}}({{if $.NoContext}}{{else}}ctx,{{end}} r.db, r.cache, {{ camelCase $colAlias }})
                 if err == sql.ErrNoRows {
 					return nil, errors.NewNotFoundWrapped(err, errors.MessageCannotFindEntityByKey("{{$alias.DownSingular}}", "{{ camelCase $colAlias }}"))
 				}
@@ -137,6 +155,9 @@ func (r *repo) Get{{$alias.UpSingular}}WithQueryParams(ctx context.Context, quer
 {{end -}}
 
 func (r *repo) List{{$alias.UpPlural}}(ctx context.Context, query model.{{$alias.UpSingular}}Query) ([]*model.{{$alias.UpSingular}}, *types.Int64, error) {
+    ctx, span := r.tracer.Start(ctx, "{{ getServiceName }}.List{{$alias.UpPlural}}")
+    defer span.End()
+
     {{$alias.DownPlural}}, totalCount, err := orm.List{{$alias.UpPlural}}(ctx, r.db, query)
     if err != nil {
 		return nil, nil, errors.Wrap(err, errors.MessageCannotFindEntity("{{$alias.DownSingular}}"))
@@ -147,7 +168,10 @@ func (r *repo) List{{$alias.UpPlural}}(ctx context.Context, query model.{{$alias
 
 {{ range $fKey := .Table.FKeys -}}
 func (r *repo) List{{$alias.UpPlural}}By{{ titleCase $fKey.Column }}({{if $.NoContext}}{{else}}ctx context.Context{{end}}, {{ camelCase $fKey.Column }} types.UUID) ([]*model.{{$alias.UpSingular}}, error) {
-    {{$alias.DownPlural}}, err := orm.List{{$alias.UpPlural}}By{{ titleCase $fKey.Column }}(ctx, r.db, {{ camelCase $fKey.Column }})
+    ctx, span := r.tracer.Start(ctx, "{{ getServiceName }}.List{{$alias.UpPlural}}By{{ titleCase $fKey.Column }}")
+    defer span.End()
+
+    {{$alias.DownPlural}}, err := orm.List{{$alias.UpPlural}}By{{ titleCase $fKey.Column }}(ctx, r.db, r.cache, {{ camelCase $fKey.Column }})
 	if err != nil {
 		return nil, errors.Wrap(err, errors.MessageCannotFindEntityFromEntity("{{$alias.DownSingular}}", "{{ $fKey.ForeignTable }}"))
 	}
