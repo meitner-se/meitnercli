@@ -66,7 +66,7 @@ func (o *{{$alias.UpSingular}}) UpdateDefined({{if .NoContext}}exec boil.Executo
 
     {{range $column := .Table.Columns}}
     {{$colAlias := $alias.Column $column.Name}}
-        if newValues.{{$colAlias}}.IsDefined() {{ if ne $column.Type "types.JSON" }}&& newValues.{{$colAlias}} != o.{{$colAlias}} {{end}} {
+        if newValues.{{$colAlias}}.IsDefined() {{ if ne $column.Type "types.JSON" }}&& newValues.{{$colAlias}}.String() != o.{{$colAlias}}.String() {{end}} {
             {{- if not $column.Nullable -}}
                 if newValues.{{$colAlias}}.IsNil() {
                     return errors.New("{{$column.Name}} cannot be null")
