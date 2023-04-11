@@ -14,7 +14,6 @@ func ORM(outFolder, pkgServiceModel, pkgAudit, pkgCache string) Wrapper {
 		cfg.NoDriverTemplates = true
 		cfg.NoTests = true
 		cfg.Imports.All.Standard = importers.List{
-			formatPkgImport("encoding/json"),
 			formatPkgImport("sort"),
 			formatPkgImport("strings"),
 			formatPkgImport("time"),

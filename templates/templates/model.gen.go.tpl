@@ -775,14 +775,14 @@ type {{$alias.UpSingular}}QueryOrderByField struct {
 }
 
 func Sort{{$alias.UpPlural}}(o []*{{$alias.UpSingular}}) []*{{$alias.UpSingular}} {
-    sort.Sort({{$alias.DownPlural}}(o))
+    sort.Sort({{$alias.UpPlural}}(o))
     return o
 }
 
-type {{$alias.DownPlural}} []*{{$alias.UpSingular}}
-func (o {{$alias.DownPlural}}) Len() int      { return len(o) }
-func (o {{$alias.DownPlural}}) Swap(i, j int) { o[i], o[j] = o[j], o[i] }
-func (o {{$alias.DownPlural}}) Less(i, j int) bool {
+type {{$alias.UpPlural}} []*{{$alias.UpSingular}}
+func (o {{$alias.UpPlural}}) Len() int      { return len(o) }
+func (o {{$alias.UpPlural}}) Swap(i, j int) { o[i], o[j] = o[j], o[i] }
+func (o {{$alias.UpPlural}}) Less(i, j int) bool {
     {{- range getTableColumnOrder .Table }}
     {{- $colAlias := $alias.Column .Column.Name -}}
     {{- $type := stripPrefix .Column.Type "types." }}
@@ -794,6 +794,20 @@ func (o {{$alias.DownPlural}}) Less(i, j int) bool {
 	return false
 }
 
+
+// MarshalBinary returns the JSON encoding of {{$alias.UpSingular}}, implements cache.Value
+func (o *{{$alias.UpSingular}}) MarshalBinary() ([]byte, error) { return json.Marshal(o) }
+
+// UnmarshalBinary parse JSON encoded data and converts it to {{$alias.UpSingular}}, implements cache.Value
+func (o *{{$alias.UpSingular}}) UnmarshalBinary(data []byte) (error) { return json.Unmarshal(data, o) }
+
+// MarshalBinary returns the JSON encoding of {{$alias.UpSingular}}Slice, implements cache.Value
+func (o *{{$alias.UpPlural}}) MarshalBinary() ([]byte, error) { return json.Marshal(o) }
+
+// UnmarshalBinary parse JSON encoded data and converts it to {{$alias.UpPlural}}, implements cache.Value
+func (o *{{$alias.UpPlural}}) UnmarshalBinary(data []byte) (error) { return json.Unmarshal(data, o) }
+
 // Force package dependencies for the valid-package,
 // since it might not be used by the generated code
 var _ = valid.EmailAddress
+var _ = strconv.AppendInt
