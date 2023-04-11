@@ -97,6 +97,8 @@ func (o *{{$alias.UpSingular}}) UpdateDefined({{if .NoContext}}exec boil.Executo
                     o.R.{{$relAlias.Local}} = {{$relAlias.Local | singular | camelCase }}Slice
                 }
 
+                // TODO : Compare slices
+
                 auditLogValues = append(auditLogValues, audit.NewLogValue(model.{{$alias.UpSingular}}Column{{$relAlias.Local | singular}}IDs, "UUID", newValues.Get{{$relAlias.Local | singular}}IDs(true), o.Get{{$relAlias.Local | singular}}IDs(true)))
                 err := o.Set{{$relAlias.Local | plural}}(ctx, exec, false, newValues.R.{{$relAlias.Local | plural }}...)
                 if err != nil {
