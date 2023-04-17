@@ -119,23 +119,27 @@ func (o *{{$alias.UpSingular}}) UpdateDefined({{if .NoContext}}exec boil.Executo
         return err
     }
 
-    cacheKeys := []cache.Key{
-        cache.DefaultKey("{{$alias.UpSingular}}", {{- $pkNamesFromStruct | join ".String(), " -}}.String()),
-        {{- range $column := .Table.Columns }}
-        	{{- $colAlias := $alias.Column $column.Name -}}
-            {{- if and (not (containsAny $.Table.PKey.Columns $column.Name)) ($column.Unique) }}
-                cache.DefaultKey("{{$alias.UpSingular}}", "{{$colAlias}}", o.{{ $colAlias }}.String()),
-            {{- end -}}
-        {{- end -}}
-        {{- range $fKey := .Table.FKeys }}
-            cache.DefaultKey("{{$alias.UpPlural}}", "{{ titleCase $fKey.Column }}", o.{{ titleCase $fKey.Column }}.String()),
-        {{ end }}
+    err = cacheClient.Delete(ctx, cache.DefaultKey("{{$alias.UpSingular}}", {{- $pkNamesFromStruct | join ".String(), " -}}.String()))
+    if err != nil {
+        return err
     }
 
-    err = cacheClient.Delete(ctx, cacheKeys...)
-    if err != nil {
-        return errors.Wrap(err, "cannot delete from cache")
-    }
+    {{- range $column := .Table.Columns }}
+        {{- $colAlias := $alias.Column $column.Name -}}
+        {{- if and (not (containsAny $.Table.PKey.Columns $column.Name)) ($column.Unique) }}
+            err = cacheClient.Delete(ctx, cache.DefaultKey("{{$alias.UpSingular}}", "{{$colAlias}}", o.{{ $colAlias }}.String()))
+            if err != nil {
+                return err
+            }
+        {{- end -}}
+    {{- end -}}
+
+    {{- range $fKey := .Table.FKeys }}
+        err = cacheClient.Delete(ctx, cache.DefaultKey("{{$alias.UpPlural}}", "{{ titleCase $fKey.Column }}", o.{{ titleCase $fKey.Column }}.String()))
+        if err != nil {
+            return err
+        }
+    {{ end }}
 
     return nil
 }
@@ -152,23 +156,27 @@ func (o *{{$alias.UpSingular}}) DeleteDefined({{if .NoContext}}exec boil.Executo
         return err
     }
 
-    cacheKeys := []cache.Key{
-        cache.DefaultKey("{{$alias.UpSingular}}", {{- $pkNamesFromStruct | join ".String(), " -}}.String()),
-        {{- range $column := .Table.Columns }}
-        	{{- $colAlias := $alias.Column $column.Name -}}
-            {{- if and (not (containsAny $.Table.PKey.Columns $column.Name)) ($column.Unique) }}
-                cache.DefaultKey("{{$alias.UpSingular}}", "{{$colAlias}}", o.{{ $colAlias }}.String()),
-            {{- end -}}
-        {{- end -}}
-        {{- range $fKey := .Table.FKeys }}
-            cache.DefaultKey("{{$alias.UpPlural}}", "{{ titleCase $fKey.Column }}", o.{{ titleCase $fKey.Column }}.String()),
-        {{ end }}
+    err = cacheClient.Delete(ctx, cache.DefaultKey("{{$alias.UpSingular}}", {{- $pkNamesFromStruct | join ".String(), " -}}.String()))
+    if err != nil {
+        return err
     }
 
-    err = cacheClient.Delete(ctx, cacheKeys...)
-    if err != nil {
-        return errors.Wrap(err, "cannot delete from cache")
-    }
+    {{- range $column := .Table.Columns }}
+        {{- $colAlias := $alias.Column $column.Name -}}
+        {{- if and (not (containsAny $.Table.PKey.Columns $column.Name)) ($column.Unique) }}
+            err = cacheClient.Delete(ctx, cache.DefaultKey("{{$alias.UpSingular}}", "{{$colAlias}}", o.{{ $colAlias }}.String()))
+            if err != nil {
+                return err
+            }
+        {{- end -}}
+    {{- end -}}
+
+    {{- range $fKey := .Table.FKeys }}
+        err = cacheClient.Delete(ctx, cache.DefaultKey("{{$alias.UpPlural}}", "{{ titleCase $fKey.Column }}", o.{{ titleCase $fKey.Column }}.String()))
+        if err != nil {
+            return err
+        }
+    {{ end }}
 
     return nil
 }
