@@ -1179,5 +1179,5 @@ var (
 	_ = strconv.IntSize
     _ = time.Now // For setting timestamps to entities
     _ = uuid.Nil // For generation UUIDs to entities
-    _ = slices.Match // For comparing slices when updating m2m relations
+    _ = slices.Match[string] // For comparing slices when updating m2m relations
 )
