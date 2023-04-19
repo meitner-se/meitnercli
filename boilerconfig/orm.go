@@ -7,7 +7,7 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/importers"
 )
 
-func ORM(outFolder, pkgServiceModel, pkgAudit, pkgCache string) Wrapper {
+func ORM(outFolder, pkgServiceModel, pkgAudit, pkgCache, pkgSlices string) Wrapper {
 	return func(cfg *boilingcore.Config) {
 		cfg.PkgName = "orm"
 		cfg.OutFolder = outFolder
@@ -22,6 +22,7 @@ func ORM(outFolder, pkgServiceModel, pkgAudit, pkgCache string) Wrapper {
 			formatPkgImportWithAlias(pkgServiceModel, "model"),
 			formatPkgImportWithAlias(pkgAudit, "audit"),
 			formatPkgImportWithAlias(pkgCache, "cache"),
+			formatPkgImportWithAlias(pkgSlices, "slices"),
 			formatPkgImport("github.com/google/uuid"),
 			formatPkgImport("github.com/friendsofgo/errors"),
 			formatPkgImport("github.com/volatiletech/sqlboiler/v4/boil"),

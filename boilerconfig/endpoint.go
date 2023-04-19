@@ -7,7 +7,7 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/importers"
 )
 
-func Endpoint(outFolder, serviceName, pkgServiceModel, pkgConversion, pkgAPI, pkgTypes, pkgErrors string) Wrapper {
+func Endpoint(outFolder, pkgServiceModel, pkgConversion, pkgAPI, pkgTypes, pkgErrors string) Wrapper {
 	return func(cfg *boilingcore.Config) {
 		singletonImportsCommand := importers.Set{
 			Standard: importers.List{

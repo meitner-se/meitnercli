@@ -198,7 +198,7 @@ func generate(cfg config) error {
 		pkgRepository := fmt.Sprintf("%s/%s/repository", cfg.Go.ModuleName, serviceDir)
 
 		generationToConfig := map[string]boilerconfig.Wrapper{
-			"orm":        boilerconfig.ORM(ormDir, pkgServiceModel, cfg.Go.Packages.Audit, cfg.Go.Packages.Cache),
+			"orm":        boilerconfig.ORM(ormDir, pkgServiceModel, cfg.Go.Packages.Audit, cfg.Go.Packages.Cache, cfg.Go.Packages.Slice),
 			"boiler":     boilerconfig.Boiler(repoDir, pkgORM, pkgServiceModel, pkgRepository, cfg.Go.Packages.Errors, cfg.Go.Packages.Audit, cfg.Go.Packages.Auth, cfg.Go.Packages.Database, cfg.Go.Packages.Logger, cfg.Go.Packages.Types, cfg.Stubs, cfg.Layer),
 			"repository": boilerconfig.Repository(repositoryDir, pkgServiceModel, cfg.Go.Packages.Types, cfg.Stubs, cfg.Layer),
 			"model":      boilerconfig.Model(serviceModelDir, cfg.Go.Packages.Types, cfg.Go.Packages.Errors, cfg.Go.Packages.Sort, cfg.Go.Packages.Valid),
@@ -226,7 +226,7 @@ func generate(cfg config) error {
 			}
 
 			if cfg.Layer == "" || cfg.Layer == "endpoint" {
-				err = runGeneration(cfg, configFilePath, serviceName, true, boilerconfig.Endpoint(endpointDir, serviceName, pkgServiceModel, pkgConversion, cfg.Go.Packages.API, cfg.Go.Packages.Types, cfg.Go.Packages.Errors))
+				err = runGeneration(cfg, configFilePath, serviceName, true, boilerconfig.Endpoint(endpointDir, pkgServiceModel, pkgConversion, cfg.Go.Packages.API, cfg.Go.Packages.Types, cfg.Go.Packages.Errors))
 				if err != nil {
 					return errors.Wrap(err, "endpoint stubs")
 				}

@@ -55,7 +55,7 @@ type {{$alias.UpSingular}} struct {
 		{{ $relAlias.Local | singular }}IDs []string
 	{{end -}}{{- /* range relationships */ -}}
 }
-// {{getTableRichTextContents .Table}}
+
 {{ range getTableRichTextContents .Table }}
     type {{ . }} struct {
         // type: "types.String"

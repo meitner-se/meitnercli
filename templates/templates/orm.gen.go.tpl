@@ -10,18 +10,16 @@
 
 // InsertDefined inserts {{$alias.UpSingular}} with the defined values only.
 func (o *{{$alias.UpSingular}}) InsertDefined({{if .NoContext}}exec boil.Executor{{else}}ctx context.Context, exec boil.ContextExecutor{{end}}, auditLog audit.Log, cacheClient cache.Client) error {
-    auditLogValues := []audit.LogValue{}
     whitelist := boil.Whitelist() // whitelist each column that has a defined value
 
     {{range $column := .Table.Columns}}
-    {{$colAlias := $alias.Column $column.Name}}
+        {{$colAlias := $alias.Column $column.Name}}
         {{- if not $column.Nullable -}}
             if o.{{$colAlias}}.IsNil() {
                 return errors.New("{{$column.Name}} cannot be null")
             }
         {{- end}}
         if o.{{$colAlias}}.IsDefined() {
-            auditLogValues = append(auditLogValues, audit.NewLogValue({{$alias.UpSingular}}Columns.{{$colAlias}}, "{{ stripPrefix $column.Type "types." }}", o.{{$colAlias}}, nil))
             whitelist.Cols = append(whitelist.Cols, {{$alias.UpSingular}}Columns.{{$colAlias}})
         }
     {{- end}}
@@ -35,7 +33,6 @@ func (o *{{$alias.UpSingular}}) InsertDefined({{if .NoContext}}exec boil.Executo
     {{- range $rel := getLoadRelations $.Tables .Table -}}
     {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         if o.R.{{$relAlias.Local | plural }} != nil {
-            auditLogValues = append(auditLogValues, audit.NewLogValue(model.{{$alias.UpSingular}}Column{{$relAlias.Local | singular}}IDs, "UUID", o.Get{{ getLoadRelationName $.Aliases $rel }}(true), nil))
             err := o.Add{{$relAlias.Local | plural}}(ctx, exec, false, o.R.{{$relAlias.Local | plural }}...)
             if err != nil {
                 return err
@@ -44,7 +41,7 @@ func (o *{{$alias.UpSingular}}) InsertDefined({{if .NoContext}}exec boil.Executo
     {{end -}}{{- /* range relationships */ -}}
     }
 
-    err = auditLog.Add(ctx, audit.OperationCreate, TableNames.{{titleCase .Table.Name}}, o.ID.String(), auditLogValues...)
+    err = auditLog.Add(ctx, audit.OperationCreate, TableNames.{{titleCase .Table.Name}}, o.ID.String())
     if err != nil {
         return err
     }
@@ -72,7 +69,7 @@ func (o *{{$alias.UpSingular}}) UpdateDefined({{if .NoContext}}exec boil.Executo
                     return errors.New("{{$column.Name}} cannot be null")
                 }
             {{- end}}
-            auditLogValues = append(auditLogValues, audit.NewLogValue({{$alias.UpSingular}}Columns.{{$colAlias}}, "{{ stripPrefix $column.Type "types." }}", newValues.{{$colAlias}}, o.{{$colAlias}}))
+            auditLogValues = append(auditLogValues, audit.NewLogValue({{$alias.UpSingular}}Columns.{{$colAlias}}, "{{ stripPrefix $column.Type "types." }}", newValues.{{$colAlias}}, o.{{$colAlias}}, false))
             whitelist.Cols = append(whitelist.Cols, {{$alias.UpSingular}}Columns.{{$colAlias}})
             o.{{$colAlias}} = newValues.{{$colAlias}}
         }
@@ -97,12 +94,15 @@ func (o *{{$alias.UpSingular}}) UpdateDefined({{if .NoContext}}exec boil.Executo
                     o.R.{{$relAlias.Local}} = {{$relAlias.Local | singular | camelCase }}Slice
                 }
 
-                // TODO : Compare slices
+                new{{$relAlias.Local | singular}}IDs := newValues.Get{{$relAlias.Local | singular}}IDs(true)
+                old{{$relAlias.Local | singular}}IDs := o.Get{{$relAlias.Local | singular}}IDs(true)
 
-                auditLogValues = append(auditLogValues, audit.NewLogValue(model.{{$alias.UpSingular}}Column{{$relAlias.Local | singular}}IDs, "UUID", newValues.Get{{$relAlias.Local | singular}}IDs(true), o.Get{{$relAlias.Local | singular}}IDs(true)))
-                err := o.Set{{$relAlias.Local | plural}}(ctx, exec, false, newValues.R.{{$relAlias.Local | plural }}...)
-                if err != nil {
-                    return err
+                if !slices.Match(new{{$relAlias.Local | singular}}IDs, old{{$relAlias.Local | singular}}IDs) {
+                    auditLogValues = append(auditLogValues, audit.NewLogValue(model.{{$alias.UpSingular}}Column{{$relAlias.Local | singular}}IDs, "UUID", new{{$relAlias.Local | singular}}IDs, old{{$relAlias.Local | singular}}IDs, true))
+                    err := o.Set{{$relAlias.Local | plural}}(ctx, exec, false, newValues.R.{{$relAlias.Local | plural }}...)
+                    if err != nil {
+                        return err
+                    }
                 }
             }
         {{end -}}
@@ -146,12 +146,23 @@ func (o *{{$alias.UpSingular}}) UpdateDefined({{if .NoContext}}exec boil.Executo
 
 // DeleteDefined deletes {{$alias.UpSingular}} with the defined values only.
 func (o *{{$alias.UpSingular}}) DeleteDefined({{if .NoContext}}exec boil.Executor{{else}}ctx context.Context, exec boil.ContextExecutor{{end}}, auditLog audit.Log, cacheClient cache.Client) error {
+     auditLogValues := []audit.LogValue{
+    {{- range $column := .Table.Columns -}}
+        {{ $colAlias := $alias.Column $column.Name }}
+        audit.NewLogValue({{$alias.UpSingular}}Columns.{{$colAlias}}, "{{ stripPrefix $column.Type "types." }}", nil, o.{{$colAlias}}, false),
+    {{- end }}
+    {{ range $rel := getLoadRelations $.Tables .Table -}}{{- if $rel.ToJoinTable -}}
+        {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+        audit.NewLogValue(model.{{$alias.UpSingular}}Column{{$relAlias.Local | singular}}IDs, "UUID", nil, o.Get{{$relAlias.Local | singular}}IDs(true), true),
+    {{end -}}{{end -}}
+    }
+
     {{if not .NoRowsAffected}}_,{{end -}}err := o.Delete(ctx, exec)
 	if err != nil {
 		return err
 	}
 
-    err = auditLog.Add(ctx, audit.OperationDelete, TableNames.{{titleCase .Table.Name}}, o.ID.String())
+    err = auditLog.Add(ctx, audit.OperationDelete, TableNames.{{titleCase .Table.Name}}, o.ID.String(), auditLogValues...)
     if err != nil {
         return err
     }
