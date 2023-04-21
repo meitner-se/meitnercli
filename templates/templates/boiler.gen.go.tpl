@@ -98,7 +98,9 @@ func (r *repo) Get{{$alias.UpSingular}}(ctx context.Context, {{ $pkArgs }}) (*mo
     ctx, span := r.tracer.Start(ctx, "{{ getServiceName }}.Get{{$alias.UpSingular}}")
     defer span.End()
 
-	{{$alias.DownSingular}}, err := orm.Get{{$alias.UpSingular}}(ctx, r.db, r.cache, {{ $pkNames | join ", " }})
+    exec := database.GetBoilExec(ctx, r.db)
+
+	{{$alias.DownSingular}}, err := orm.Get{{$alias.UpSingular}}(ctx, exec, r.cache, {{ $pkNames | join ", " }})
 	if err == sql.ErrNoRows {
 		return nil, errors.NewNotFoundWrapped(err, errors.MessageCannotFindEntity("{{$alias.DownSingular}}"))
 	}
@@ -141,7 +143,9 @@ func (r *repo) Get{{$alias.UpSingular}}WithQueryParams(ctx context.Context, quer
 	            ctx, span := r.tracer.Start(ctx, "{{ getServiceName }}.Get{{$alias.UpSingular}}By{{$colAlias}}")
                 defer span.End()
 
-                {{$alias.DownSingular}}, err := orm.Get{{$alias.UpSingular}}By{{ titleCase $colAlias}}({{if $.NoContext}}{{else}}ctx,{{end}} r.db, r.cache, {{ camelCase $colAlias }})
+                exec := database.GetBoilExec(ctx, r.db)
+
+                {{$alias.DownSingular}}, err := orm.Get{{$alias.UpSingular}}By{{ titleCase $colAlias}}({{if $.NoContext}}{{else}}ctx,{{end}} exec, r.cache, {{ camelCase $colAlias }})
                 if err == sql.ErrNoRows {
 					return nil, errors.NewNotFoundWrapped(err, errors.MessageCannotFindEntityByKey("{{$alias.DownSingular}}", "{{ camelCase $colAlias }}"))
 				}
@@ -158,7 +162,9 @@ func (r *repo) List{{$alias.UpPlural}}(ctx context.Context, query model.{{$alias
     ctx, span := r.tracer.Start(ctx, "{{ getServiceName }}.List{{$alias.UpPlural}}")
     defer span.End()
 
-    {{$alias.DownPlural}}, totalCount, err := orm.List{{$alias.UpPlural}}(ctx, r.db, query)
+    exec := database.GetBoilExec(ctx, r.db)
+
+    {{$alias.DownPlural}}, totalCount, err := orm.List{{$alias.UpPlural}}(ctx, exec, query)
     if err != nil {
 		return nil, nil, errors.Wrap(err, errors.MessageCannotFindEntity("{{$alias.DownSingular}}"))
 	}
@@ -171,7 +177,9 @@ func (r *repo) List{{$alias.UpPlural}}By{{ titleCase $fKey.Column }}({{if $.NoCo
     ctx, span := r.tracer.Start(ctx, "{{ getServiceName }}.List{{$alias.UpPlural}}By{{ titleCase $fKey.Column }}")
     defer span.End()
 
-    {{$alias.DownPlural}}, err := orm.List{{$alias.UpPlural}}By{{ titleCase $fKey.Column }}(ctx, r.db, r.cache, {{ camelCase $fKey.Column }})
+    exec := database.GetBoilExec(ctx, r.db)
+
+    {{$alias.DownPlural}}, err := orm.List{{$alias.UpPlural}}By{{ titleCase $fKey.Column }}(ctx, exec, r.cache, {{ camelCase $fKey.Column }})
 	if err != nil {
 		return nil, errors.Wrap(err, errors.MessageCannotFindEntityFromEntity("{{$alias.DownSingular}}", "{{ $fKey.ForeignTable }}"))
 	}
