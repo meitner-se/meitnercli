@@ -109,12 +109,14 @@ func (o *{{$alias.UpSingular}}) UpdateDefined({{if .NoContext}}exec boil.Executo
         {{end -}}{{- /* range relationships */ -}}
     }
 
-    {{if not .NoRowsAffected}}_,{{end -}} err := o.Update(ctx, exec, whitelist)
-	if err != nil {
-		return err
+    if len(whitelist.Cols) > 0 {
+        {{if not .NoRowsAffected}}_,{{end -}} err := o.Update(ctx, exec, whitelist)
+        if err != nil {
+            return err
+        }
 	}
 
-    err = auditLog.Add(ctx, audit.OperationUpdate, TableNames.{{titleCase .Table.Name}}, o.ID.String(), auditLogValues...)
+    err := auditLog.Add(ctx, audit.OperationUpdate, TableNames.{{titleCase .Table.Name}}, o.ID.String(), auditLogValues...)
     if err != nil {
         return err
     }
