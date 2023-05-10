@@ -498,9 +498,27 @@ func runGenerationWithOto(templatePath, definitionPath, outputPath, packageName 
 		return nil
 	}
 
-	err = exec.Command(afterScript[0], afterScript[1:]...).Run()
+	cmd := exec.Command(afterScript[0], afterScript[1:]...)
+
+	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		return errors.Wrap(err, "cannot exec after script")
+		return err
+	}
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	errString, _ := io.ReadAll(stderr)
+	outString, _ := io.ReadAll(stdout)
+
+	if err := cmd.Wait(); err != nil {
+		return errors.New(fmt.Sprintf("cannot exec after script: %s\n(%s)\n(%s)", err.Error(), errString, outString))
 	}
 
 	return nil

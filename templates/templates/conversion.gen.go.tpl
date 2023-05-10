@@ -109,6 +109,7 @@ func {{$alias.DownSingular}}QueryParamsFieldsToModel(toModel *api.{{$alias.UpSin
         {{- range $rel := getJoinRelations $.Tables .Table }}
             {{ $rel.ForeignTable | titleCase }}: {{ $rel.ForeignTable | camelCase }}QueryParamsFieldsToModel(toModel.{{ $rel.ForeignTable | titleCase }}),
         {{- end -}}
+        CaseInsensitive: toModel.CaseInsensitive,
 	}
 }
 

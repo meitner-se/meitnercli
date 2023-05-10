@@ -234,6 +234,12 @@ type {{$alias.UpSingular}}QueryParamsFieldsRequest struct {
         // optional: true
         {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsFieldsRequest
     {{end -}}{{- /* range relationships */ -}}
+
+    // Set to true to use case insensitive query for strings
+    //
+    // optional: true
+    // type: "types.Bool"
+    CaseInsensitive *bool
 }
 
 type {{$alias.UpSingular}}QueryParamsNullableFieldsRequest struct {

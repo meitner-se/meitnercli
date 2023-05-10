@@ -81,18 +81,16 @@ func (o *{{$alias.UpSingular}}) UpdateDefined({{if .NoContext}}exec boil.Executo
         {{- if $rel.ToJoinTable -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
             if newValues.R.{{$relAlias.Local | plural }} != nil {
-                if !audit.IsNoop(auditLog) {
-                    {{$relAlias.Local | singular | camelCase }}Slice, err := o.{{$relAlias.Local | plural }}(qm.Select({{$rel.ForeignTable | titleCase }}Columns.ID)).All(ctx, exec)
-                    if err != nil {
-                        return err
-                    }
-
-                    if o.R == nil {
-                        o.R = o.R.NewStruct()
-                    }
-                    
-                    o.R.{{$relAlias.Local}} = {{$relAlias.Local | singular | camelCase }}Slice
+                {{$relAlias.Local | singular | camelCase }}Slice, err := o.{{$relAlias.Local | plural }}(qm.Select({{$rel.ForeignTable | titleCase }}Columns.ID)).All(ctx, exec)
+                if err != nil {
+                    return err
                 }
+
+                if o.R == nil {
+                    o.R = o.R.NewStruct()
+                }
+
+                o.R.{{$relAlias.Local}} = {{$relAlias.Local | singular | camelCase }}Slice
 
                 new{{$relAlias.Local | singular}}IDs := newValues.Get{{$relAlias.Local | singular}}IDs(true)
                 old{{$relAlias.Local | singular}}IDs := o.Get{{$relAlias.Local | singular}}IDs(true)
@@ -569,11 +567,19 @@ func getQueryModsFrom{{$alias.UpSingular}}EQ(q *model.{{$alias.UpSingular}}Query
     query := []qm.QueryMod{}
     {{- range $column := .Table.Columns}}
     {{- $colAlias := $alias.Column $column.Name}}
-        {{if not (hasSuffix "JSON" $column.Type) -}}
+        {{ if not (hasSuffix "JSON" $column.Type) -}}
             if !q.{{$colAlias}}.IsNil() {
-                query = append(query, queryWrapperFunc({{$alias.UpSingular}}Where.{{$colAlias}}.EQ(q.{{$colAlias}}{{ if (isEnumDBType .DBType) }}.String{{ end }})))
+                {{- if or (eq $column.Type "types.String") (isEnumDBType .DBType) -}}
+                    if q.CaseInsensitive.Bool() {
+                        query = append(query, queryWrapperFunc(whereHelpertypes_String{field: fmt.Sprintf("LOWER(%s)", {{$alias.UpSingular}}Where.{{$colAlias}}.field)}.EQ(types.NewString(strings.ToLower(q.{{$colAlias}}{{ if (isEnumDBType .DBType) }}.String{{ end }}.String())))))
+                    } else {
+                        query = append(query, queryWrapperFunc({{$alias.UpSingular}}Where.{{$colAlias}}.EQ(q.{{$colAlias}}{{ if (isEnumDBType .DBType) }}.String{{ end }})))
+                    }
+                {{- else }}
+                    query = append(query, queryWrapperFunc({{$alias.UpSingular}}Where.{{$colAlias}}.EQ(q.{{$colAlias}}{{ if (isEnumDBType .DBType) }}.String{{ end }})))
+                {{- end }}
             }
-        {{- end}}
+        {{- end -}}
     {{- end}}
     {{ range $rel := getLoadRelations $.Tables .Table -}}
         {{$schemaJoinTable := $rel.JoinTable | $.SchemaTable -}}
@@ -601,11 +607,19 @@ func getQueryModsFrom{{$alias.UpSingular}}NEQ(q *model.{{$alias.UpSingular}}Quer
     query := []qm.QueryMod{}
     {{- range $column := .Table.Columns}}
     {{- $colAlias := $alias.Column $column.Name}}
-        {{if not (hasSuffix "JSON" $column.Type) -}}
+        {{ if not (hasSuffix "JSON" $column.Type) -}}
             if !q.{{$colAlias}}.IsNil() {
-                query = append(query, queryWrapperFunc({{$alias.UpSingular}}Where.{{$colAlias}}.NEQ(q.{{$colAlias}}{{ if (isEnumDBType .DBType) }}.String{{ end }})))
+                {{- if or (eq $column.Type "types.String") (isEnumDBType .DBType) -}}
+                    if q.CaseInsensitive.Bool() {
+                        query = append(query, queryWrapperFunc(whereHelpertypes_String{field: fmt.Sprintf("LOWER(%s)", {{$alias.UpSingular}}Where.{{$colAlias}}.field)}.NEQ(types.NewString(strings.ToLower(q.{{$colAlias}}{{ if (isEnumDBType .DBType) }}.String{{ end }}.String())))))
+                    } else {
+                        query = append(query, queryWrapperFunc({{$alias.UpSingular}}Where.{{$colAlias}}.NEQ(q.{{$colAlias}}{{ if (isEnumDBType .DBType) }}.String{{ end }})))
+                    }
+                {{- else }}
+                    query = append(query, queryWrapperFunc({{$alias.UpSingular}}Where.{{$colAlias}}.NEQ(q.{{$colAlias}}{{ if (isEnumDBType .DBType) }}.String{{ end }})))
+                {{- end }}
             }
-        {{- end}}
+        {{- end -}}
     {{- end}}
     {{ range $rel := getLoadRelations $.Tables .Table -}}
         {{$schemaJoinTable := $rel.JoinTable | $.SchemaTable -}}
@@ -1178,6 +1192,7 @@ func (w {{$name}}) NIN(slice []{{.Type}}) qm.QueryMod {
 
 // Init blank variables since these packages might not be needed
 var (
+    _ = fmt.Sprintf
 	_ = strconv.IntSize
     _ = time.Now // For setting timestamps to entities
     _ = uuid.Nil // For generation UUIDs to entities

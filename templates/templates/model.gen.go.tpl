@@ -672,6 +672,7 @@ type {{$alias.UpSingular}}QueryParamsFields struct {
     {{ range $rel := getJoinRelations $.Tables .Table -}}
         LeftJoin{{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsFields
     {{end -}}{{- /* range relationships */ -}}
+    CaseInsensitive types.Bool
 }
 
 func New{{$alias.UpSingular}}QueryParamsNullableFields() *{{$alias.UpSingular}}QueryParamsNullableFields {

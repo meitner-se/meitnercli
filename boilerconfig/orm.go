@@ -14,6 +14,7 @@ func ORM(outFolder, pkgServiceModel, pkgAudit, pkgCache, pkgSlices string) Wrapp
 		cfg.NoDriverTemplates = true
 		cfg.NoTests = true
 		cfg.Imports.All.Standard = importers.List{
+			formatPkgImport("fmt"),
 			formatPkgImport("sort"),
 			formatPkgImport("strings"),
 			formatPkgImport("time"),
