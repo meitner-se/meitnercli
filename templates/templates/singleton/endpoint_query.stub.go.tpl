@@ -59,7 +59,7 @@ func (q *query) List{{$alias.UpPlural}}(ctx context.Context, r api.{{$alias.UpSi
 }
 
 func (q *query) List{{$alias.UpPlural}}ByIDs(ctx context.Context, r api.{{$alias.UpSingular}}ListByIDsRequest) (*api.{{$alias.UpSingular}}ListByIDsResponse, error) {
-    var {{$alias.DownPlural}} []*model.{{$alias.UpSingular}}
+    {{$alias.DownPlural}} := make([]*model.{{$alias.UpSingular}}, 0, len(r.IDs))
 
     for _, id := range r.IDs {
         {{$alias.DownSingular}}, err := q.svc.Get{{$alias.UpSingular}}(ctx, id)
