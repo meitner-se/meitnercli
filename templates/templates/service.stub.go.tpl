@@ -46,18 +46,24 @@ func (s *svc) List{{ $alias.UpPlural }}(ctx context.Context, query model.{{ $ali
 	return s.repo.List{{ $alias.UpPlural }}(ctx, query)
 }
 
-// // validate{{ $alias.UpSingular }}Func is used to validate the business logic for the {{ $alias.UpSingular }}-entity
+// validate{{ $alias.UpSingular }}Func is used to validate the business logic for the {{ $alias.UpSingular }}-entity
 func (s *svc) validate{{ $alias.UpSingular }}Func(ctx context.Context) model.{{ $alias.UpSingular }}ValidateBusinessFunc {
+    {{ $alias.DownSingular }}Validator := model.{{ $alias.UpSingular }}Validator{
+    	// GetFunc is only used on update to get the {{ $alias.UpSingular }} and merge all the undefined values for convenience on validation
+        GetFunc: s.Get{{ $alias.UpSingular }},
+        {{ range $column := .Table.Columns -}}
+        {{- $colAlias := $alias.Column $column.Name -}}
+        {{- if not (or (eq $column.Name "id") (eq $column.Name "created_at") (eq $column.Name "created_by") (eq $column.Name "updated_at") (eq $column.Name "updated_by")) -}}
+            {{$colAlias}}: nil,
+        {{end -}}
+        {{end -}}
+        {{- range $rel := getLoadRelations $.Tables .Table -}}
+            {{ getLoadRelationName $.Aliases $rel }}: nil,
+        {{end -}}
+    }
+
 	return func({{ $alias.DownSingular }} model.{{ $alias.UpSingular }}, isUpdate bool) error {
-		errFields := errors.NewErrFields()
-
-		// TODO : Add validations
-
-		if errFields.NotEmpty() {
-			return errFields
-		}
-		
-		return nil
+		return {{ $alias.DownSingular }}Validator.Validate(ctx, {{ $alias.DownSingular }})
 	}
 }
 

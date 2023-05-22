@@ -76,6 +76,11 @@ type Command_{{ titleCase .PkgName }}Service interface {
             {{ end -}}
             {{ end -}}
 
+            {{ range $fieldName, $structName := getTableRichTextContents $table }}
+                // optional: true
+                {{ $fieldName }} *{{ $structName }}
+            {{end}}
+
             {{- range $rel := getLoadRelations $.Tables $table }}
                 {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
                 // type: "types.UUID"
@@ -104,14 +109,15 @@ type Command_{{ titleCase .PkgName }}Service interface {
 
             {{- if containsAny $pkNames $colAlias }}
                 {{$colAlias}} string
-            {{ else if (isEnumDBType .DBType) }}
-                // options: [{{- parseEnumVals $column.DBType | stringMap $.StringFuncs.quoteWrap | join ", " -}}]
-                {{$colAlias}} *string
             {{ else }}
+                {{ if (isEnumDBType .DBType) -}}
+                    // options: [{{- parseEnumVals $column.DBType | stringMap $.StringFuncs.quoteWrap | join ", " -}}]
+                {{ end -}}
+                // optional: true
                 {{$colAlias}} 
             
                 {{- $stringTypes := "types.String, types.UUID, types.Timestamp, types.Time, types.Date" -}}
-                {{- if contains $column.Type $stringTypes -}}
+                {{- if or (contains $column.Type $stringTypes) (isEnumDBType .DBType) -}}
                     {{" "}}{{ if not (containsAny $pkNames $colAlias) }}*{{ end }}string
                 {{end -}}
 
@@ -132,10 +138,16 @@ type Command_{{ titleCase .PkgName }}Service interface {
             {{end -}}
             {{end -}}
 
+            {{ range $fieldName, $structName := getTableRichTextContents $table }}
+                // optional: true
+                {{ $fieldName }} *{{ $structName }}
+            {{end}}
+
             {{- range $rel := getLoadRelations $.Tables $table -}}
                 {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
                 // type: "types.UUID"
-                {{ $relAlias.Local | singular }}IDs []string
+                // optional: true
+                {{ $relAlias.Local | singular }}IDs []*string
             {{end -}}{{- /* range relationships */ -}}
         }
 

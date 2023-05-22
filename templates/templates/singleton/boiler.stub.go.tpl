@@ -5,14 +5,16 @@ var _ repository.Repository = (*repo)(nil)
 type repo struct {
     db *sql.DB
     audit audit.Log
+    cache cache.Client
     logger logger.Log
     tracer trace.Tracer
 }
 
-func New(db *sql.DB, audit audit.Log, logger logger.Log, tracer trace.Tracer) *repo {
+func New(db *sql.DB, audit audit.Log, cache cache.Client, logger logger.Log, tracer trace.Tracer) *repo {
     return &repo{
         db: db,
         audit: audit,
+        cache: cache,
         logger: logger,
         tracer: tracer,
     }

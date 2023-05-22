@@ -7,7 +7,7 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/importers"
 )
 
-func Boiler(outFolder, pkgORM, pkgServiceModel, pkgRepository, pkgErrors, pkgAudit, pkgAuth, pkgDatabase, pkgLogger, pkgTypes string, withStub bool, stubLayer string) Wrapper {
+func Boiler(outFolder, pkgORM, pkgServiceModel, pkgRepository, pkgErrors, pkgAudit, pkgAuth, pkgCache, pkgDatabase, pkgLogger, pkgTypes string, withStub bool, stubLayer string) Wrapper {
 	return func(cfg *boilingcore.Config) {
 		cfg.PkgName = "boiler"
 		cfg.OutFolder = outFolder
@@ -38,6 +38,7 @@ func Boiler(outFolder, pkgORM, pkgServiceModel, pkgRepository, pkgErrors, pkgAud
 					ThirdParty: importers.List{
 						formatPkgImportWithAlias(pkgRepository, "repository"),
 						formatPkgImportWithAlias(pkgAudit, "audit"),
+						formatPkgImportWithAlias(pkgCache, "cache"),
 						formatPkgImportWithAlias(pkgDatabase, "database"),
 						formatPkgImportWithAlias(pkgLogger, "logger"),
 						formatPkgImportWithAlias(pkgTypes, "types"),

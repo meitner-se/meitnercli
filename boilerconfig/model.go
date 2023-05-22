@@ -16,6 +16,7 @@ func Model(outFolder, pkgTypes, pkgErrors, pkgSort string, pkgValid string) Wrap
 		cfg.NoDriverTemplates = true
 		cfg.NoTests = true
 		cfg.Imports.All.Standard = importers.List{
+			formatPkgImport("context"),
 			formatPkgImport("encoding/json"),
 		}
 		cfg.Imports.All.ThirdParty = importers.List{

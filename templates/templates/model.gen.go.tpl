@@ -1,4 +1,6 @@
 {{- $alias := .Aliases.Table .Table.Name -}}
+{{- $colDefs := sqlColDefinitions .Table.Columns .Table.PKey.Columns -}}
+{{- $pkNames := $colDefs.Names | stringMap (aliasCols $alias) | stringMap $.StringFuncs.titleCase | stringMap $.StringFuncs.replaceReserved -}}
 
 // {{$alias.UpSingular}} is the service model representation of the {{ .Table.Name }}-table
 type {{$alias.UpSingular}} struct {
@@ -13,6 +15,83 @@ type {{$alias.UpSingular}} struct {
     {{- range $rel := getLoadRelations $.Tables .Table -}}
         {{ getLoadRelationName $.Aliases $rel }} []{{ getLoadRelationType $.Aliases $.Tables $rel "" }}
     {{end -}}{{- /* range relationships */ -}}
+}
+
+func (o {{$alias.UpSingular}}) IsUpdate() bool { return !o.ID.IsNil() }
+
+func (o *{{$alias.UpSingular}}) mergeUndefinedFields(from *{{$alias.UpSingular}}) {
+    {{- range $column := .Table.Columns -}}
+        {{- $colAlias := $alias.Column $column.Name -}}
+        if !o.{{ $colAlias }}.IsDefined() {
+            o.{{ $colAlias }} = from.{{ $colAlias }}
+        }
+    {{end -}}
+    {{- range $rel := getLoadRelations $.Tables .Table -}}
+        if o.{{ getLoadRelationName $.Aliases $rel }} == nil {
+            o.{{ getLoadRelationName $.Aliases $rel }} = from.{{ getLoadRelationName $.Aliases $rel }}
+        }
+    {{end -}}{{- /* range relationships */ -}}
+}
+
+// {{$alias.UpSingular}}Validator is used to validate the fields of {{$alias.UpSingular}}
+type {{$alias.UpSingular}}Validator struct {
+    // GetFunc is only used on update to get the {{$alias.UpSingular}} and merge all the undefined values for convenience on validation
+    GetFunc func(ctx context.Context, id types.UUID) (*{{$alias.UpSingular}}, error)
+
+    {{ range $column := .Table.Columns -}}
+    {{- $colAlias := $alias.Column $column.Name -}}
+    {{- if not (or (containsAny $pkNames $colAlias) (eq $column.Name "created_at") (eq $column.Name "created_by") (eq $column.Name "updated_at") (eq $column.Name "updated_by")) -}}
+        {{$colAlias}} func(ctx context.Context, o {{$alias.UpSingular}}, {{$colAlias }} {{ if and (isEnumDBType .DBType) (.Nullable) }} {{ stripPrefix $column.Type "Null" }} {{ else }} {{$column.Type}} {{ end }})  (errors.FieldFunc, error)
+    {{end -}}
+    {{end -}}
+
+    {{- range $rel := getLoadRelations $.Tables .Table -}}
+        {{ getLoadRelationName $.Aliases $rel }} func(ctx context.Context, o {{$alias.UpSingular}}, {{ getLoadRelationName $.Aliases $rel | singular  }} types.UUID) (errors.FieldFunc, error)
+    {{end -}}{{- /* range relationships */ -}}
+}
+
+func (v {{$alias.UpSingular}}Validator) Validate(ctx context.Context, o {{$alias.UpSingular}}) error {
+    if o.IsUpdate() {
+        from, err := v.GetFunc(ctx, o.ID)
+        if err != nil {
+            return err
+        }
+
+        o.mergeUndefinedFields(from)
+    }
+
+    errFields := errors.NewErrFields()
+
+    {{ range $column := .Table.Columns -}}
+    {{- $colAlias := $alias.Column $column.Name -}}
+    {{- if not (or (containsAny $pkNames $colAlias) (eq $column.Name "created_at") (eq $column.Name "created_by") (eq $column.Name "updated_at") (eq $column.Name "updated_by")) -}}
+        if v.{{$colAlias}} != nil {
+            errFunc, err := v.{{$colAlias}}(ctx, o, o.{{$colAlias}})
+            if err != nil {
+            	return err
+            }
+            if errFunc != nil {
+                errFields.Add(errFunc(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}}).WithValue(o.{{$colAlias}})))
+            }
+        }
+    {{end -}}
+    {{end -}}
+
+    {{- range $rel := getLoadRelations $.Tables .Table -}}
+        if v.{{ getLoadRelationName $.Aliases $rel }} != nil {
+            for _, id := range o.{{ getLoadRelationName $.Aliases $rel }} {
+                errFunc, err := v.{{ getLoadRelationName $.Aliases $rel }}(ctx, o, id)
+                if err != nil {
+                	return err
+                }
+                if errFunc != nil {
+                    errFields.Add(errFunc(errors.FieldName({{$alias.UpSingular}}Column{{ getLoadRelationName $.Aliases $rel }}).WithValue(id)))
+                }
+            }
+        }
+    {{end -}}{{- /* range relationships */ -}}
+
+    return errFields
 }
 
 // {{$alias.UpSingular}}ValidateBusinessFunc should be used to run business logic for the {{$alias.UpSingular}}-entity,
