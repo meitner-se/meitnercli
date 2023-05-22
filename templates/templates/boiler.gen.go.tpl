@@ -28,7 +28,7 @@ func (r *repo) Create{{$alias.UpSingular}}(ctx context.Context, input *model.{{$
     {{- $numberOfPKeys := len .Table.PKey.Columns }}
     {{ if and (containsAny $colNames "id") (eq $numberOfPKeys 1) }}
         // Generate the ID if it hasn't been set already
-        if !input.ID.IsDefined() {
+        if input.ID.IsNil() {
             id, err := uuid.NewRandom()
             if err != nil {
                 return errors.Wrap(err, "cannot generate uuid")

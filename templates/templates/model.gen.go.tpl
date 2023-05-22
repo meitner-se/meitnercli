@@ -109,19 +109,24 @@ func (o {{$alias.UpSingular}}) Validate(isUpdate bool, validateBusinessFunc {{$a
                     errFields.Unknown(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}}).WithValue(o.{{$colAlias}})) // {{$colAlias}} should not be defined by a user, will be set by repository
                 }
             {{- else }}
-            {{- if not $column.Nullable}}
-                {{- if not (containsAny $.Table.PKey.Columns $column.Name) }}
+                {{- if containsAny $.Table.PKey.Columns $column.Name }}
+                    if isUpdate && o.{{$colAlias}}.IsNil() {
+                        errFields.CannotBeNull(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}})) // ID is needed on update
+                    }
+                    if !isUpdate && !o.{{$colAlias}}.IsNil() {
+                        errFields.Unknown(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}}).WithValue(o.{{$colAlias}})) // {{$colAlias}} should not be defined by a user, will be set programmatic by service or repository
+                    }
+                {{- else if not $column.Nullable}}
                     // Non-nullable columns must be defined on Create
                     if !isUpdate && !o.{{$colAlias}}.IsDefined() {
                         errFields.CannotBeUndefined(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}}))
                     }
-                {{ end }}
 
-                // If the column is defined, make sure it isn't nil
-                if o.{{$colAlias}}.IsDefined() && o.{{$colAlias}}.IsNil() {
-                    errFields.CannotBeNull(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}}))
-                }
-            {{end}}
+                    // If the column is defined, make sure it isn't nil
+                    if o.{{$colAlias}}.IsDefined() && o.{{$colAlias}}.IsNil() {
+                        errFields.CannotBeNull(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}}))
+                    }
+                {{end}}
 
             {{- if (isEnumDBType .DBType) }}
                 if !o.{{$colAlias}}.IsNil() && !o.{{$colAlias}}.IsValid() {
