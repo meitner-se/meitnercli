@@ -195,7 +195,7 @@ func (o *{{$alias.UpSingular}}) DeleteDefined({{if .NoContext}}exec boil.Executo
 {{ range $rel := getLoadRelations $.Tables .Table -}}
 {{- $ftable := $.Aliases.Table .ForeignTable -}}
 {{ $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-{{ $loadCol := getLoadRelationColumn $.Aliases $.Tables $rel }}
+{{ $loadCol := getLoadRelationColumn $.Tables $rel }}
 {{ $loadType := getLoadRelationType $.Aliases $.Tables $rel "model." }}
 func (o *{{$alias.UpSingular}}) Get{{ getLoadRelationName $.Aliases $rel }}(load bool) []{{ $loadType }} {
     if o.R == nil || o.R.{{ $relAlias.Local | plural }} == nil {
@@ -207,7 +207,7 @@ func (o *{{$alias.UpSingular}}) Get{{ getLoadRelationName $.Aliases $rel }}(load
 
 	{{ $relAlias.Local | plural | camelCase }} := make([]{{ $loadType }}, len(o.R.{{ $relAlias.Local | plural }}))
 	for i := range o.R.{{ $relAlias.Local | plural }} {
-		{{ $relAlias.Local | plural | camelCase }}[i] = o.R.{{ $relAlias.Local | plural }}[i].{{ $rel.ForeignColumn | titleCase }}
+		{{ $relAlias.Local | plural | camelCase }}[i] = o.R.{{ $relAlias.Local | plural }}[i].{{ $loadCol.Name | titleCase }}
 	}
 
 	return {{ $relAlias.Local | plural | camelCase }}
@@ -225,7 +225,7 @@ func (o *{{$alias.UpSingular}}) Set{{ getLoadRelationName $.Aliases $rel }}({{ $
 	o.R.{{ $relAlias.Local | plural }} =  make({{$ftable.UpSingular}}Slice, len({{ $relAlias.Local | plural | camelCase }}))
 	for i := range {{ $relAlias.Local | plural | camelCase }} {
         o.R.{{ $relAlias.Local | plural }}[i] = &{{$ftable.UpSingular}}{
-            {{ $rel.ForeignColumn | titleCase }}: {{ $relAlias.Local | plural | camelCase }}[i],
+            {{ $loadCol.Name | titleCase }}: {{ $relAlias.Local | plural | camelCase }}[i],
         }
 	}
 }
@@ -583,11 +583,11 @@ func getQueryModsFrom{{$alias.UpSingular}}EQ(q *model.{{$alias.UpSingular}}Query
     {{- end}}
     {{ range $rel := getLoadRelations $.Tables .Table -}}
         {{$schemaJoinTable := $rel.JoinTable | $.SchemaTable -}}
-        {{$loadCol := getLoadRelationColumn $.Aliases $.Tables $rel -}}
+        {{$loadCol := getLoadRelationColumn $.Tables $rel -}}
         {{$whereHelper := printf "whereHelper%s" (goVarname $loadCol.Type) -}}
 
         if !q.{{ getLoadRelationName $.Aliases $rel | singular }}.IsNil() {
-            query = append(query, queryWrapperFunc({{ $whereHelper }}{"{{ getLoadRelationTableColumn $.Aliases $.Tables $rel }}"}.EQ(q.{{ getLoadRelationName $.Aliases $rel | singular }})))
+            query = append(query, queryWrapperFunc({{ $whereHelper }}{"{{ getLoadRelationTableColumn $.Tables $rel }}"}.EQ(q.{{ getLoadRelationName $.Aliases $rel | singular }})))
         }
     {{end -}}{{- /* range relationships */ -}}
     {{ range $rel := getJoinRelations $.Tables .Table -}}
@@ -623,11 +623,11 @@ func getQueryModsFrom{{$alias.UpSingular}}NEQ(q *model.{{$alias.UpSingular}}Quer
     {{- end}}
     {{ range $rel := getLoadRelations $.Tables .Table -}}
         {{$schemaJoinTable := $rel.JoinTable | $.SchemaTable -}}
-        {{$loadCol := getLoadRelationColumn $.Aliases $.Tables $rel -}}
+        {{$loadCol := getLoadRelationColumn $.Tables $rel -}}
         {{$whereHelper := printf "whereHelper%s" (goVarname $loadCol.Type) -}}
 
         if !q.{{ getLoadRelationName $.Aliases $rel | singular }}.IsNil() {
-            query = append(query, queryWrapperFunc({{ $whereHelper }}{"{{ getLoadRelationTableColumn $.Aliases $.Tables $rel }}"}.NEQ(q.{{ getLoadRelationName $.Aliases $rel | singular }})))
+            query = append(query, queryWrapperFunc({{ $whereHelper }}{"{{ getLoadRelationTableColumn $.Tables $rel }}"}.NEQ(q.{{ getLoadRelationName $.Aliases $rel | singular }})))
         }
     {{end -}}{{- /* range relationships */ -}}
     {{ range $rel := getJoinRelations $.Tables .Table -}}
@@ -726,11 +726,11 @@ func getQueryModsFrom{{$alias.UpSingular}}In(q *model.{{$alias.UpSingular}}Query
 
     {{ range $rel := getLoadRelations $.Tables .Table -}}
         {{$schemaJoinTable := $rel.JoinTable | $.SchemaTable -}}
-        {{$loadCol := getLoadRelationColumn $.Aliases $.Tables $rel -}}
+        {{$loadCol := getLoadRelationColumn $.Tables $rel -}}
         {{$whereHelper := printf "whereHelper%s" (goVarname $loadCol.Type) -}}
 
         if q.{{ getLoadRelationName $.Aliases $rel | singular }} != nil {
-            query = append(query, queryWrapperFunc({{ $whereHelper }}{"{{ getLoadRelationTableColumn $.Aliases $.Tables $rel }}"}.IN(q.{{ getLoadRelationName $.Aliases $rel | singular }})))
+            query = append(query, queryWrapperFunc({{ $whereHelper }}{"{{ getLoadRelationTableColumn $.Tables $rel }}"}.IN(q.{{ getLoadRelationName $.Aliases $rel | singular }})))
         }
     {{end -}}{{- /* range relationships */ -}}
     {{ range $rel := getJoinRelations $.Tables .Table -}}
@@ -759,11 +759,11 @@ func getQueryModsFrom{{$alias.UpSingular}}NotIn(q *model.{{$alias.UpSingular}}Qu
 
     {{ range $rel := getLoadRelations $.Tables .Table -}}
         {{$schemaJoinTable := $rel.JoinTable | $.SchemaTable -}}
-        {{$loadCol := getLoadRelationColumn $.Aliases $.Tables $rel -}}
+        {{$loadCol := getLoadRelationColumn $.Tables $rel -}}
         {{$whereHelper := printf "whereHelper%s" (goVarname $loadCol.Type) -}}
 
         if q.{{ getLoadRelationName $.Aliases $rel | singular }} != nil {
-            query = append(query, queryWrapperFunc({{ $whereHelper }}{"{{ getLoadRelationTableColumn $.Aliases $.Tables $rel }}"}.NIN(q.{{ getLoadRelationName $.Aliases $rel | singular }})))
+            query = append(query, queryWrapperFunc({{ $whereHelper }}{"{{ getLoadRelationTableColumn $.Tables $rel }}"}.NIN(q.{{ getLoadRelationName $.Aliases $rel | singular }})))
         }
     {{end -}}{{- /* range relationships */ -}}
     {{ range $rel := getJoinRelations $.Tables .Table -}}

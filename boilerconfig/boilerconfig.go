@@ -586,7 +586,7 @@ func getLoadRelationType(aliases boilingcore.Aliases, tables []drivers.Table, re
 	panic("relation table not found")
 }
 
-func getLoadRelationColumn(aliases boilingcore.Aliases, tables []drivers.Table, rel drivers.ToManyRelationship) drivers.Column {
+func getLoadRelationColumn(tables []drivers.Table, rel drivers.ToManyRelationship) drivers.Column {
 	for _, t := range tables {
 		if t.Name != rel.ForeignTable {
 			continue
@@ -608,7 +608,7 @@ func getLoadRelationColumn(aliases boilingcore.Aliases, tables []drivers.Table, 
 	panic("load relation column not found")
 }
 
-func getLoadRelationTableColumn(aliases boilingcore.Aliases, tables []drivers.Table, rel drivers.ToManyRelationship) string {
+func getLoadRelationTableColumn(tables []drivers.Table, rel drivers.ToManyRelationship) string {
 	quoteFunc := func(s string) string { return fmt.Sprintf(`\"%s\"`, s) }
 
 	for _, t := range tables {
