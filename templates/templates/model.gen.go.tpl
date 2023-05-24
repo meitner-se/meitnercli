@@ -113,9 +113,6 @@ func (o {{$alias.UpSingular}}) Validate(isUpdate bool, validateBusinessFunc {{$a
                     if isUpdate && o.{{$colAlias}}.IsNil() {
                         errFields.CannotBeNull(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}})) // ID is needed on update
                     }
-                    if !isUpdate && !o.{{$colAlias}}.IsNil() {
-                        errFields.Unknown(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}}).WithValue(o.{{$colAlias}})) // {{$colAlias}} should not be defined by a user, will be set programmatic by service or repository
-                    }
                 {{- else if not $column.Nullable}}
                     // Non-nullable columns must be defined on Create
                     if !isUpdate && !o.{{$colAlias}}.IsDefined() {
