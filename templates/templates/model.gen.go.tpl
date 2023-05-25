@@ -2,6 +2,18 @@
 {{- $colDefs := sqlColDefinitions .Table.Columns .Table.PKey.Columns -}}
 {{- $pkNames := $colDefs.Names | stringMap (aliasCols $alias) | stringMap $.StringFuncs.titleCase | stringMap $.StringFuncs.replaceReserved -}}
 
+type {{$alias.UpSingular}}ValidationContext interface {
+    // Values returns the values of the {{$alias.UpSingular}} which is being validated
+    Values() {{$alias.UpSingular}}
+
+    // PreviousValues returns the previous values of the {{$alias.UpSingular}} object which is being updated,
+    // IsUpdate needs to return true for the PreviousValues to return any actual values.
+    PreviousValues() {{$alias.UpSingular}}
+
+    // IsUpdate should return true if the validation is made for an update, when false it is validation for insert.
+    IsUpdate() bool
+}
+
 // {{$alias.UpSingular}} is the service model representation of the {{ .Table.Name }}-table
 type {{$alias.UpSingular}} struct {
     {{- range $column := .Table.Columns -}}
@@ -16,8 +28,6 @@ type {{$alias.UpSingular}} struct {
         {{ getLoadRelationName $.Aliases $rel }} []{{ getLoadRelationType $.Aliases $.Tables $rel "" }}
     {{end -}}{{- /* range relationships */ -}}
 }
-
-func (o {{$alias.UpSingular}}) IsUpdate() bool { return !o.ID.IsNil() }
 
 func (o *{{$alias.UpSingular}}) mergeUndefinedFields(from *{{$alias.UpSingular}}) {
     {{- range $column := .Table.Columns -}}
@@ -41,23 +51,39 @@ type {{$alias.UpSingular}}Validator struct {
     {{ range $column := .Table.Columns -}}
     {{- $colAlias := $alias.Column $column.Name -}}
     {{- if not (or (containsAny $pkNames $colAlias) (eq $column.Name "created_at") (eq $column.Name "created_by") (eq $column.Name "updated_at") (eq $column.Name "updated_by")) -}}
-        {{$colAlias}} func(ctx context.Context, o {{$alias.UpSingular}}, {{$colAlias }} {{ if and (isEnumDBType .DBType) (.Nullable) }} {{ stripPrefix $column.Type "Null" }} {{ else }} {{$column.Type}} {{ end }})  (errors.FieldFunc, error)
+        {{$colAlias}} func(ctx context.Context, v {{$alias.UpSingular}}ValidationContext, {{$colAlias }} {{ if and (isEnumDBType .DBType) (.Nullable) }} {{ stripPrefix $column.Type "Null" }} {{ else }} {{$column.Type}} {{ end }})  (errors.FieldFunc, error)
     {{end -}}
     {{end -}}
 
     {{- range $rel := getLoadRelations $.Tables .Table -}}
-        {{ getLoadRelationName $.Aliases $rel }} func(ctx context.Context, o {{$alias.UpSingular}}, {{ getLoadRelationName $.Aliases $rel | singular  }} types.UUID) (errors.FieldFunc, error)
-    {{end -}}{{- /* range relationships */ -}}
+        {{ getLoadRelationName $.Aliases $rel }} func(ctx context.Context, v {{$alias.UpSingular}}ValidationContext, {{ getLoadRelationName $.Aliases $rel | singular  }} types.UUID) (errors.FieldFunc, error)
+    {{end }}
+
+    // values of the {{$alias.UpSingular}} which is being validated
+    values {{$alias.UpSingular}}
+
+    // previousValues are set when IsUpdate is set true and GetFunc is implemented.
+    previousValues {{$alias.UpSingular}}
+
+    // isUpdate is set to true the validation is performed for an update, but false when it is insert.
+    isUpdate bool
 }
 
-func (v {{$alias.UpSingular}}Validator) Validate(ctx context.Context, o {{$alias.UpSingular}}) error {
-    if o.IsUpdate() {
-        from, err := v.GetFunc(ctx, o.ID)
+func (v *{{$alias.UpSingular}}Validator) {{$alias.UpSingular}}() {{$alias.UpSingular}} { return v.{{$alias.DownSingular}} }
+func (v *{{$alias.UpSingular}}Validator) IsUpdate() bool { return v.isUpdate }
+func (v *{{$alias.UpSingular}}Validator) PreviousValues() {{$alias.UpSingular}} { return v.previousValues }
+
+func (v {{$alias.UpSingular}}Validator) Validate(ctx context.Context, o {{$alias.UpSingular}}, isUpdate bool) error {
+    if isUpdate {
+        previousValues, err := v.GetFunc(ctx, o.ID)
         if err != nil {
             return err
         }
 
-        o.mergeUndefinedFields(from)
+        o.mergeUndefinedFields(previousValues)
+
+        v.previousValues = *previousValues
+        v.isUpdate = isUpdate
     }
 
     errFields := errors.NewErrFields()
@@ -66,7 +92,7 @@ func (v {{$alias.UpSingular}}Validator) Validate(ctx context.Context, o {{$alias
     {{- $colAlias := $alias.Column $column.Name -}}
     {{- if not (or (containsAny $pkNames $colAlias) (eq $column.Name "created_at") (eq $column.Name "created_by") (eq $column.Name "updated_at") (eq $column.Name "updated_by")) -}}
         if v.{{$colAlias}} != nil {
-            errFunc, err := v.{{$colAlias}}(ctx, o, o.{{$colAlias}})
+            errFunc, err := v.{{$colAlias}}(ctx, &v, o.{{$colAlias}})
             if err != nil {
             	return err
             }
@@ -80,7 +106,7 @@ func (v {{$alias.UpSingular}}Validator) Validate(ctx context.Context, o {{$alias
     {{- range $rel := getLoadRelations $.Tables .Table -}}
         if v.{{ getLoadRelationName $.Aliases $rel }} != nil {
             for _, id := range o.{{ getLoadRelationName $.Aliases $rel }} {
-                errFunc, err := v.{{ getLoadRelationName $.Aliases $rel }}(ctx, o, id)
+                errFunc, err := v.{{ getLoadRelationName $.Aliases $rel }}(ctx, &v, id)
                 if err != nil {
                 	return err
                 }
