@@ -69,7 +69,7 @@ type {{$alias.UpSingular}}Validator struct {
     isUpdate bool
 }
 
-func (v *{{$alias.UpSingular}}Validator) Values() {{$alias.UpSingular}} { return v.{{$alias.DownSingular}} }
+func (v *{{$alias.UpSingular}}Validator) Values() {{$alias.UpSingular}} { return v.values }
 func (v *{{$alias.UpSingular}}Validator) PreviousValues() {{$alias.UpSingular}} { return v.previousValues }
 func (v *{{$alias.UpSingular}}Validator) IsUpdate() bool { return v.isUpdate }
 
