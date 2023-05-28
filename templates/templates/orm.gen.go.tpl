@@ -33,7 +33,7 @@ func (o *{{$alias.UpSingular}}) InsertDefined({{if .NoContext}}exec boil.Executo
     {{- range $rel := getLoadRelations $.Tables .Table -}}
     {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         if o.R.{{$relAlias.Local | plural }} != nil {
-            err := o.Add{{$relAlias.Local | plural}}(ctx, exec, true, o.R.{{$relAlias.Local | plural }}...)
+            err := o.Add{{$relAlias.Local | plural}}(ctx, exec, {{ not $rel.ToJoinTable }}, o.R.{{$relAlias.Local | plural }}...)
             if err != nil {
                 return err
             }
