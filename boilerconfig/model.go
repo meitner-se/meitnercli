@@ -7,7 +7,7 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/importers"
 )
 
-func Model(outFolder, pkgTypes, pkgErrors, pkgSort string, pkgValid string) Wrapper {
+func Model(outFolder, pkgTypes, pkgErrors, pkgSort, pkgSlices string, pkgValid string) Wrapper {
 	return func(cfg *boilingcore.Config) {
 		cfg.PkgName = "model"
 		cfg.OutFolder = outFolder
@@ -24,6 +24,7 @@ func Model(outFolder, pkgTypes, pkgErrors, pkgSort string, pkgValid string) Wrap
 			formatPkgImportWithAlias(pkgErrors, "errors"),
 			formatPkgImportWithAlias(pkgSort, "sort"),
 			formatPkgImportWithAlias(pkgValid, "valid"),
+			formatPkgImportWithAlias(pkgSlices, "slices"),
 		}
 		cfg.DefaultTemplates = templates.Model
 	}

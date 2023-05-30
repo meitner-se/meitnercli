@@ -10,6 +10,24 @@ type {{$alias.UpSingular}}ValidationContext interface {
     // IsUpdate needs to return true for the PreviousValues to return any actual values.
     PreviousValues() {{$alias.UpSingular}}
 
+{{ range $column := .Table.Columns -}}
+{{- $colAlias := $alias.Column $column.Name -}}
+{{- if not (or (containsAny $pkNames $colAlias) (eq $column.Name "created_at") (eq $column.Name "created_by") (eq $column.Name "updated_at") (eq $column.Name "updated_by")) -}}
+
+    // {{$colAlias}}HasChangedNotNil returns true if the current value is not nil and has changed from previous value on isUpdate == true
+    // or is not nil on isUpdate.
+    // should be used to decide if you need to validate a method
+    {{$colAlias}}HasChangedNotNil() bool
+{{end -}}
+{{end -}}
+{{- range $rel := getLoadRelations $.Tables .Table -}}
+
+    // {{ getLoadRelationName $.Aliases $rel }}HasChangedNotNil returns true if the current value is not nil and has changed from previous value on isUpdate == true
+    // or is not nil on isUpdate.
+    // should be used to decide if you need to validate a method
+    {{ getLoadRelationName $.Aliases $rel }}HasChangedNotNil() bool
+{{end -}}
+
     // IsUpdate should return true if the validation is made for an update, when false it is validation for insert.
     IsUpdate() bool
 }
@@ -51,12 +69,12 @@ type {{$alias.UpSingular}}Validator struct {
     {{ range $column := .Table.Columns -}}
     {{- $colAlias := $alias.Column $column.Name -}}
     {{- if not (or (containsAny $pkNames $colAlias) (eq $column.Name "created_at") (eq $column.Name "created_by") (eq $column.Name "updated_at") (eq $column.Name "updated_by")) -}}
-        {{$colAlias}} func(ctx context.Context, v {{$alias.UpSingular}}ValidationContext, {{$colAlias }} {{ if and (isEnumDBType .DBType) (.Nullable) }} {{ stripPrefix $column.Type "Null" }} {{ else }} {{$column.Type}} {{ end }})  (errors.FieldFunc, error)
+        {{$colAlias}} func(ctx context.Context, v {{$alias.UpSingular}}ValidationContext, {{$colAlias }} {{ if and (isEnumDBType .DBType) (.Nullable) }} {{ stripPrefix $column.Type "Null" }} {{ else }} {{$column.Type}} {{ end }}) error
     {{end -}}
     {{end -}}
 
     {{- range $rel := getLoadRelations $.Tables .Table -}}
-        {{ getLoadRelationName $.Aliases $rel }} func(ctx context.Context, v {{$alias.UpSingular}}ValidationContext, {{ getLoadRelationName $.Aliases $rel | singular  }} types.UUID) (errors.FieldFunc, error)
+        {{ getLoadRelationName $.Aliases $rel }} func(ctx context.Context, v {{$alias.UpSingular}}ValidationContext, {{ getLoadRelationName $.Aliases $rel | singular  }} types.UUID) error
     {{end }}
 
     // values of the {{$alias.UpSingular}} which is being validated
@@ -72,8 +90,33 @@ type {{$alias.UpSingular}}Validator struct {
 func (v *{{$alias.UpSingular}}Validator) Values() {{$alias.UpSingular}} { return v.values }
 func (v *{{$alias.UpSingular}}Validator) PreviousValues() {{$alias.UpSingular}} { return v.previousValues }
 func (v *{{$alias.UpSingular}}Validator) IsUpdate() bool { return v.isUpdate }
+{{ range $column := .Table.Columns -}}
+{{- $colAlias := $alias.Column $column.Name -}}
+{{- if not (or (containsAny $pkNames $colAlias) (eq $column.Name "created_at") (eq $column.Name "created_by") (eq $column.Name "updated_at") (eq $column.Name "updated_by")) -}}
+func (v *{{$alias.UpSingular}}Validator) {{$colAlias}}HasChangedNotNil() bool {
+    if v.values.{{$colAlias}}.IsDefined() && !v.values.{{$colAlias}}.IsNil() {
+        return (v.isUpdate && v.previousValues.{{$colAlias}} != v.values.{{$colAlias}}) || !v.isUpdate
+    }
+    return false
+ }
+{{end -}}
+{{end -}}
+{{- range $rel := getLoadRelations $.Tables .Table -}}
+func (v *{{$alias.UpSingular}}Validator) {{ getLoadRelationName $.Aliases $rel }}HasChangedNotNil() bool {
+    if len(v.values.{{ getLoadRelationName $.Aliases $rel }}) > 0 {
+        return (v.isUpdate && !slices.Match(v.previousValues.{{ getLoadRelationName $.Aliases $rel }}, v.values.{{ getLoadRelationName $.Aliases $rel }})) || (!v.isUpdate && len(v.values.{{ getLoadRelationName $.Aliases $rel }}) > 0)
+    }
+    return false
+}
+{{end -}}
 
-func (v {{$alias.UpSingular}}Validator) Validate(ctx context.Context, o {{$alias.UpSingular}}, isUpdate bool) error {
+func (v *{{$alias.UpSingular}}Validator) Validate(ctx context.Context, o {{$alias.UpSingular}}, isUpdate bool) error {
+    // reset validator values to make unit tests a bit easier
+    // otherwise if validator is reused old values might be reused
+    v.values = {{$alias.UpSingular}}{}
+    v.previousValues = {{$alias.UpSingular}}{}
+    v.isUpdate = false
+
     if isUpdate {
         previousValues, err := v.GetFunc(ctx, o.ID)
         if err != nil {
@@ -85,6 +128,7 @@ func (v {{$alias.UpSingular}}Validator) Validate(ctx context.Context, o {{$alias
         v.previousValues = *previousValues
         v.isUpdate = isUpdate
     }
+    v.values = o
 
     errFields := errors.NewErrFields()
 
@@ -92,12 +136,26 @@ func (v {{$alias.UpSingular}}Validator) Validate(ctx context.Context, o {{$alias
     {{- $colAlias := $alias.Column $column.Name -}}
     {{- if not (or (containsAny $pkNames $colAlias) (eq $column.Name "created_at") (eq $column.Name "created_by") (eq $column.Name "updated_at") (eq $column.Name "updated_by")) -}}
         if v.{{$colAlias}} != nil {
-            errFunc, err := v.{{$colAlias}}(ctx, &v, o.{{$colAlias}})
+            err := v.{{$colAlias}}(ctx, v, o.{{$colAlias}})
             if err != nil {
-            	return err
-            }
-            if errFunc != nil {
-                errFields.Add(errFunc(errors.FieldName({{$alias.UpSingular}}Column{{$colAlias}}).WithValue(o.{{$colAlias}})))
+                switch v := err.(type){
+                case errors.FieldValidationError:
+                    if v.Name == ""{
+                        v = v.WithName({{$alias.UpSingular}}Column{{$colAlias}})
+                    }
+                    if v.Value == nil{
+                        v = v.WithValue(o.{{$colAlias}})
+                    }
+                    errFields.Add(v.FieldError())
+                case *errors.ErrFields:
+                    if v != nil {
+                        for _, errField := range *v {
+                            errFields.Add(errField)
+                        }
+                    }
+                default:
+                    return err
+                }
             }
         }
     {{end -}}
@@ -106,18 +164,36 @@ func (v {{$alias.UpSingular}}Validator) Validate(ctx context.Context, o {{$alias
     {{- range $rel := getLoadRelations $.Tables .Table -}}
         if v.{{ getLoadRelationName $.Aliases $rel }} != nil {
             for _, id := range o.{{ getLoadRelationName $.Aliases $rel }} {
-                errFunc, err := v.{{ getLoadRelationName $.Aliases $rel }}(ctx, &v, id)
+                err := v.{{ getLoadRelationName $.Aliases $rel }}(ctx, v, id)
                 if err != nil {
-                	return err
-                }
-                if errFunc != nil {
-                    errFields.Add(errFunc(errors.FieldName({{$alias.UpSingular}}Column{{ getLoadRelationName $.Aliases $rel }}).WithValue(id)))
+                    switch v := err.(type) {
+                    case errors.FieldValidationError:
+                        if v.Name == ""{
+                            v = v.WithName({{$alias.UpSingular}}Column{{ getLoadRelationName $.Aliases $rel }})
+                        }
+                        if v.Value == nil{
+                            v = v.WithValue(id)
+                        }
+                        errFields.Add(v.FieldError())
+                    case *errors.ErrFields:
+                        if v != nil {
+                            for _, errField := range *v {
+                                errFields.Add(errField)
+                            }
+                        }
+                    default:
+                        return err
+                    }
                 }
             }
         }
     {{end -}}{{- /* range relationships */ -}}
 
-    return errFields
+    // return nil if no errors so it would not be concrete type under error interface.
+	if !errFields.NotEmpty(){
+		return nil
+	}
+	return errFields
 }
 
 // {{$alias.UpSingular}}ValidateBusinessFunc should be used to run business logic for the {{$alias.UpSingular}}-entity,
@@ -919,3 +995,4 @@ func (o *{{$alias.UpPlural}}) UnmarshalBinary(data []byte) (error) { return json
 // since it might not be used by the generated code
 var _ = valid.EmailAddress
 var _ = strconv.AppendInt
+var _ = slices.UUIDsToStringSlice

@@ -201,7 +201,7 @@ func generate(cfg config) error {
 			"orm":        boilerconfig.ORM(ormDir, pkgServiceModel, cfg.Go.Packages.Audit, cfg.Go.Packages.Cache, cfg.Go.Packages.Slice),
 			"boiler":     boilerconfig.Boiler(repoDir, pkgORM, pkgServiceModel, pkgRepository, cfg.Go.Packages.Errors, cfg.Go.Packages.Audit, cfg.Go.Packages.Auth, cfg.Go.Packages.Cache, cfg.Go.Packages.Database, cfg.Go.Packages.Logger, cfg.Go.Packages.Types, cfg.Stubs, cfg.Layer),
 			"repository": boilerconfig.Repository(repositoryDir, pkgServiceModel, cfg.Go.Packages.Types, cfg.Stubs, cfg.Layer),
-			"model":      boilerconfig.Model(serviceModelDir, cfg.Go.Packages.Types, cfg.Go.Packages.Errors, cfg.Go.Packages.Sort, cfg.Go.Packages.Valid),
+			"model":      boilerconfig.Model(serviceModelDir, cfg.Go.Packages.Types, cfg.Go.Packages.Errors, cfg.Go.Packages.Sort, cfg.Go.Packages.Slice, cfg.Go.Packages.Valid),
 			"definition": boilerconfig.Definition(definitionDir, serviceName, cfg.Stubs, cfg.Layer),
 			"conversion": boilerconfig.Conversion(conversionDir, pkgServiceModel, cfg.Go.Packages.API, cfg.Go.Packages.Slice),
 		}
