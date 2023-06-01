@@ -3,7 +3,18 @@
 {{- $pkNames := $colDefs.Names | stringMap (aliasCols $alias) | stringMap $.StringFuncs.titleCase | stringMap $.StringFuncs.replaceReserved -}}
 
 type {{$alias.UpSingular}}ValidationContext interface {
-    // Values returns the values of the {{$alias.UpSingular}} which is being validated
+    {{ range $column := .Table.Columns -}}
+    {{- $colAlias := $alias.Column $column.Name -}}
+    {{- if not (or (containsAny $pkNames $colAlias) (eq $column.Name "created_at") (eq $column.Name "created_by") (eq $column.Name "updated_at") (eq $column.Name "updated_by")) -}}
+        Get{{$colAlias}}() {{ if and (isEnumDBType .DBType) (.Nullable) }} {{ stripPrefix $column.Type "Null" }} {{ else }} {{$column.Type}} {{ end }}
+    {{end -}}
+    {{end -}}
+
+    {{- range $rel := getLoadRelations $.Tables .Table -}}
+        Get{{ getLoadRelationName $.Aliases $rel }}() []types.UUID
+    {{end }}
+
+    // Values returns the current values of the {{$alias.UpSingular}} object which is being validated
     Values() {{$alias.UpSingular}}
 
     // PreviousValues returns the previous values of the {{$alias.UpSingular}} object which is being updated,
@@ -87,6 +98,16 @@ type {{$alias.UpSingular}}Validator struct {
     isUpdate bool
 }
 
+{{ range $column := .Table.Columns -}}
+{{- $colAlias := $alias.Column $column.Name -}}
+{{- if not (or (containsAny $pkNames $colAlias) (eq $column.Name "created_at") (eq $column.Name "created_by") (eq $column.Name "updated_at") (eq $column.Name "updated_by")) -}}
+    func (v *{{$alias.UpSingular}}Validator) Get{{$colAlias}}() {{ if and (isEnumDBType .DBType) (.Nullable) }} {{ stripPrefix $column.Type "Null" }} {{ else }} {{$column.Type}} {{ end }} { return v.values.{{$colAlias}} }
+{{end -}}
+{{end -}}
+
+{{- range $rel := getLoadRelations $.Tables .Table -}}
+    func (v *{{$alias.UpSingular}}Validator) Get{{ getLoadRelationName $.Aliases $rel }}() []types.UUID { return v.values.{{ getLoadRelationName $.Aliases $rel }} }
+{{end }}
 func (v *{{$alias.UpSingular}}Validator) Values() {{$alias.UpSingular}} { return v.values }
 func (v *{{$alias.UpSingular}}Validator) PreviousValues() {{$alias.UpSingular}} { return v.previousValues }
 func (v *{{$alias.UpSingular}}Validator) IsUpdate() bool { return v.isUpdate }
