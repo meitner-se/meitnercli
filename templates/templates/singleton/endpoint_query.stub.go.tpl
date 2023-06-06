@@ -45,7 +45,7 @@ func (q *query) Get{{$alias.UpSingular}}(ctx context.Context, r api.{{$alias.UpS
 }
 
 func (q *query) List{{$alias.UpPlural}}(ctx context.Context, r api.{{$alias.UpSingular}}ListRequest) (*api.{{$alias.UpSingular}}ListResponse, error) {
-    {{$alias.DownPlural}}, {{$alias.DownPlural}}TotalCount, err := q.svc.List{{ $alias.UpPlural }}(ctx, conversion.{{$alias.UpSingular}}QueryToModel(r.Query, nil))
+    {{$alias.DownPlural}}, totalCount, err := q.svc.List{{ $alias.UpPlural }}(ctx, conversion.{{$alias.UpSingular}}QueryToModel(r.Query, nil))
     if err != nil {
         return nil, err
     }
@@ -53,7 +53,7 @@ func (q *query) List{{$alias.UpPlural}}(ctx context.Context, r api.{{$alias.UpSi
     {{ if tableHasFile $table }} // TODO : Implement file url resolver in conversion {{end}}
 
     return &api.{{$alias.UpSingular}}ListResponse{
-        {{$alias.UpPlural}}TotalCount: *{{$alias.DownPlural}}TotalCount,
+        TotalCount: *totalCount,
         {{$alias.UpPlural}}: conversion.{{$alias.UpSingular}}FromModels({{$alias.DownPlural}} {{ if tableHasFile $table }}, nil {{end}}),
     }, nil
 }

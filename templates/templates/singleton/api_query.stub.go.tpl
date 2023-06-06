@@ -48,7 +48,7 @@ type Query_{{ titleCase .PkgName }}Service interface {
         // {{$alias.UpSingular}}ListResponse is the output object for listing {{$alias.UpSingular}}-entities
         type {{$alias.UpSingular}}ListResponse struct {
             // type: "types.Int64"
-            {{$alias.UpPlural}}TotalCount int64
+            TotalCount int64
             {{$alias.UpPlural}} []{{$alias.UpSingular}}
         }
 
