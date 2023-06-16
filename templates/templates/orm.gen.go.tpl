@@ -413,6 +413,11 @@ func getQueryModsFrom{{$alias.UpSingular}}Query(q model.{{$alias.UpSingular}}Que
 
     queryForCount := getQueryModsFrom{{$alias.UpSingular}}QueryParams(q.Params, queryWrapperFunc)
 
+    queryForCount = append(queryForCount, getQueryModsFrom{{$alias.UpSingular}}QueryForJoin(q)...)
+    for i := range q.Nested {
+        queryForCount = append(queryForCount, queryWrapperFunc(getQueryModsFrom{{$alias.UpSingular}}QueryNested(&q.Nested[i])))
+    }
+
     // Wrap the query if we have a wrapper
     if q.Wrapper != nil {
         queryWrapped := []qm.QueryMod{getQueryModsFrom{{$alias.UpSingular}}QueryNested(q.Wrapper)}
@@ -420,11 +425,6 @@ func getQueryModsFrom{{$alias.UpSingular}}Query(q model.{{$alias.UpSingular}}Que
             queryWrapped = append(queryWrapped, qm.Expr(queryForCount...))
         }
         queryForCount = queryWrapped
-    }
-
-    queryForCount = append(queryForCount, getQueryModsFrom{{$alias.UpSingular}}QueryForJoin(q)...)
-    for i := range q.Nested {
-        queryForCount = append(queryForCount, queryWrapperFunc(getQueryModsFrom{{$alias.UpSingular}}QueryNested(&q.Nested[i])))
     }
 
     queryWithPagination := queryForCount
@@ -1069,7 +1069,7 @@ func getQueryModsFrom{{$alias.UpSingular}}QueryForJoin(q model.{{$alias.UpSingul
     {{ range $rel := getLoadRelations $.Tables .Table -}}
     {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         if join{{$relAlias.Local | singular }} {
-            query = append(query, qm.InnerJoin("{{ getLoadRelationStatement $.Aliases $.Tables $rel }}"))
+            query = append(query, qm.LeftOuterJoin("{{ getLoadRelationStatement $.Aliases $.Tables $rel }}"))
         }
     {{end }}
     {{ range $rel := getJoinRelations $.Tables .Table -}}
