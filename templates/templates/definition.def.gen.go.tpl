@@ -56,6 +56,7 @@ type {{$alias.UpSingular}} struct {
 }
 
 {{ range getTableRichTextContents .Table }}
+    // rich_text_content: {}
     type {{ . }} struct {
         // type: "types.String"
         Content string
