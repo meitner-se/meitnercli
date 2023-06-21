@@ -46,15 +46,14 @@ func (c *command) Create{{$alias.UpSingular}}(ctx context.Context, r api.{{$alia
             {{- else }}
                 {{ $colAlias }}: r.{{ $colAlias }},
             {{- end -}}
-        {{- end -}}
-
-        {{ end }}
-        {{- range $rel := getLoadRelations $.Tables $table -}}
+        {{- end }}
+        {{- end }}
+        {{ range $rel := getLoadRelations $.Tables $table -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
             {{ $relAlias.Local | singular }}IDs: r.{{ $relAlias.Local | singular }}IDs,
         {{end -}}{{- /* range relationships */ -}}
     }
-    
+
     err := c.svc.Create{{ $alias.UpSingular }}(ctx, &{{$alias.DownSingular}})
     if err != nil {
         return nil, err
@@ -80,10 +79,9 @@ func (c *command) Update{{$alias.UpSingular}}(ctx context.Context, r api.{{$alia
             {{- else }}
                 {{ $colAlias }}: r.{{ $colAlias }},
             {{- end -}}
-        {{- end -}}
-        {{ end }}
-
-        {{- range $rel := getLoadRelations $.Tables $table -}}
+        {{- end }}
+        {{- end }}
+        {{ range $rel := getLoadRelations $.Tables $table -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
             {{ $relAlias.Local | singular }}IDs: r.{{ $relAlias.Local | singular }}IDs,
         {{end -}}{{- /* range relationships */ -}}

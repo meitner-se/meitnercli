@@ -63,7 +63,7 @@ func (s *svc) validate{{ $alias.UpSingular }}Func(ctx context.Context) model.{{ 
     }
 
 	return func({{ $alias.DownSingular }} model.{{ $alias.UpSingular }}, isUpdate bool) error {
-		return {{ $alias.DownSingular }}Validator.Validate(ctx, {{ $alias.DownSingular }})
+		return {{ $alias.DownSingular }}Validator.Validate(ctx, {{ $alias.DownSingular }}, isUpdate)
 	}
 }
 
