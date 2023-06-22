@@ -280,7 +280,12 @@ func Get{{$alias.UpSingular}}({{if $.NoContext}}exec boil.Executor{{else}}ctx co
                 return &fromCache, nil
             }
 
-            fromDB, err := {{$alias.UpPlural}}({{$alias.UpSingular}}Where.{{ $colAlias }}.EQ({{ camelCase $colAlias }})).One({{if not $.NoContext}}ctx,{{end}} exec)
+            // Create queryMods from SelectedFields as nil, which will load all relations by default,
+            // which is expected when using the GetByUnique-method
+            queryMods := getQueryModsFrom{{$alias.UpSingular}}QuerySelectedFields(nil)
+            queryMods = append(queryMods, {{$alias.UpSingular}}Where.{{ $colAlias }}.EQ({{ camelCase $colAlias }}))
+
+            fromDB, err := {{$alias.UpPlural}}(queryMods...).One({{if not $.NoContext}}ctx,{{end}} exec)
             if err != nil {
                 return nil, err
             }
@@ -291,7 +296,7 @@ func Get{{$alias.UpSingular}}({{if $.NoContext}}exec boil.Executor{{else}}ctx co
             if err != nil {
                 return nil, errors.Wrap(err, "cannot set to cache")
             }
-                
+
             return {{$alias.DownSingular}}, nil
         }
     {{ end }}
@@ -352,7 +357,12 @@ func List{{$alias.UpPlural}}By{{ titleCase $fKey.Column }}({{if $.NoContext}}exe
         return fromCache, nil
     }
 
-    fromDB, err := {{$alias.UpPlural}}({{$alias.UpSingular}}Where.{{ titleCase $fKey.Column }}.EQ({{ camelCase $fKey.Column }})).All({{if not $.NoContext}}ctx,{{end}} exec)
+    // Create queryMods from SelectedFields as nil, which will load all relations by default,
+    // which is expected when using the ListByFK-method
+    queryMods := getQueryModsFrom{{$alias.UpSingular}}QuerySelectedFields(nil)
+    queryMods = append(queryMods, {{$alias.UpSingular}}Where.{{ titleCase $fKey.Column }}.EQ({{ camelCase $fKey.Column }}))
+
+    fromDB, err := {{$alias.UpPlural}}(queryMods...).All({{if not $.NoContext}}ctx,{{end}} exec)
     if err != nil {
         return nil, err
     }
