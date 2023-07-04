@@ -333,7 +333,7 @@ func List{{$alias.UpPlural}}({{if .NoContext}}exec boil.Executor{{else}}ctx cont
     // Get the total count without pagination
     primaryKeys := []string{}
     {{- range $pkName := $pkNames }}
-        primaryKeys = append(primaryKeys, {{$alias.DownSingular}}QueryColumns.{{$pkName | titleCase}})
+        primaryKeys = append(primaryKeys, {{$alias.UpSingular}}QueryColumns.{{$pkName | titleCase}})
     {{- end}}
 
     queryModsForCount = append(queryModsForCount, qm.Distinct(strings.Join(primaryKeys, ", ")))
@@ -491,7 +491,7 @@ func getQueryModsFrom{{$alias.UpSingular}}QuerySelectedFields(q *model.{{$alias.
     // Always select primary keys as distinct (required when joining on many2many relationships)
     primaryKeys := []string{}
     {{- range $pkName := $pkNames }}
-        primaryKeys = append(primaryKeys, {{$alias.DownSingular}}QueryColumns.{{$pkName | titleCase}})
+        primaryKeys = append(primaryKeys, {{$alias.UpSingular}}QueryColumns.{{$pkName | titleCase}})
     {{- end}}
         selectedFields = append(selectedFields, "DISTINCT ("+ strings.Join(primaryKeys, ", ") + ")")
     {{end}}
@@ -512,7 +512,7 @@ func getQueryModsFrom{{$alias.UpSingular}}QuerySelectedFields(q *model.{{$alias.
     {{ range $column := .Table.Columns}}
     {{- $colAlias := $alias.Column $column.Name}}
         if q.{{$colAlias}}.Bool() {
-            selectedFields = append(selectedFields, {{$alias.DownSingular}}QueryColumns.{{$colAlias}})
+            selectedFields = append(selectedFields, {{$alias.UpSingular}}QueryColumns.{{$colAlias}})
         }
     {{- end}}
 
@@ -1117,7 +1117,7 @@ func getQueryModsFrom{{$alias.UpSingular}}QueryOrderBy(q *model.{{$alias.UpSingu
         {{- $colAlias := $alias.Column $column.Name}}
                 if q.{{$colAlias}} != nil {
                     orderByFields = append(orderByFields, orderByField{
-                        field: {{$alias.DownSingular}}QueryColumns.{{$colAlias}},
+                        field: {{$alias.UpSingular}}QueryColumns.{{$colAlias}},
                         order: getOrder(q.{{$colAlias}}.Desc),
                         index: q.{{$colAlias}}.Index,
                     })
@@ -1140,7 +1140,7 @@ func getQueryModsFrom{{$alias.UpSingular}}QueryOrderBy(q *model.{{$alias.UpSingu
     {{- end}}
 
     {{- range $pkName := $pkNames }}
-        orderByStrings = append(orderByStrings, {{$alias.DownSingular}}QueryColumns.{{$pkName | titleCase}} + " asc")
+        orderByStrings = append(orderByStrings, {{$alias.UpSingular}}QueryColumns.{{$pkName | titleCase}} + " asc")
     {{- end}}
 
 	return []qm.QueryMod{
@@ -1156,7 +1156,7 @@ func check{{$alias.UpSingular}}QueryParamsRecursive(checkParamsFunc func(model.{
 	}
 }
 
-var {{$alias.DownSingular}}QueryColumns = struct {
+var {{$alias.UpSingular}}QueryColumns = struct {
 	{{range $column := .Table.Columns -}}
 	{{- $colAlias := $alias.Column $column.Name -}}
 	{{$colAlias}} string
