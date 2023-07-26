@@ -78,10 +78,9 @@ func (o *{{$alias.UpSingular}}) UpdateDefined({{if .NoContext}}exec boil.Executo
     // Check if any join tables should be updated and load the existing values before updating if we have an operating audit log
     if newValues.R != nil {
         {{- range $rel := getLoadRelations $.Tables .Table -}}
-        {{- if $rel.ToJoinTable -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
             if newValues.R.{{$relAlias.Local | plural }} != nil {
-                {{$relAlias.Local | singular | camelCase }}Slice, err := o.{{$relAlias.Local | plural }}(qm.Select({{$rel.ForeignTable | titleCase }}Columns.ID)).All(ctx, exec)
+                {{$relAlias.Local | singular | camelCase }}Slice, err := o.{{$relAlias.Local | plural }}().All(ctx, exec)
                 if err != nil {
                     return err
                 }
@@ -97,13 +96,25 @@ func (o *{{$alias.UpSingular}}) UpdateDefined({{if .NoContext}}exec boil.Executo
 
                 if !slices.Match(new{{$relAlias.Local | singular}}IDs, old{{$relAlias.Local | singular}}IDs) {
                     auditLogValues = append(auditLogValues, audit.NewLogValue(model.{{$alias.UpSingular}}Column{{$relAlias.Local | singular}}IDs, "UUID", new{{$relAlias.Local | singular}}IDs, old{{$relAlias.Local | singular}}IDs, true))
-                    err := o.Set{{$relAlias.Local | plural}}(ctx, exec, false, newValues.R.{{$relAlias.Local | plural }}...)
-                    if err != nil {
-                        return err
-                    }
+
+                    {{ if $rel.ToJoinTable }}
+                        err := o.Set{{$relAlias.Local | plural}}(ctx, exec, false, newValues.R.{{$relAlias.Local | plural }}...)
+                        if err != nil {
+                            return err
+                        }
+                    {{ else }}
+                        _, err := o.R.{{$relAlias.Local}}.DeleteAll(ctx, exec)
+                        if err != nil {
+                            return err
+                        }
+
+                        err = o.Add{{$relAlias.Local | plural}}(ctx, exec, true, newValues.R.{{$relAlias.Local | plural }}...)
+                        if err != nil {
+                            return err
+                        }
+                    {{ end -}}
                 }
             }
-        {{end -}}
         {{end -}}{{- /* range relationships */ -}}
     }
 
