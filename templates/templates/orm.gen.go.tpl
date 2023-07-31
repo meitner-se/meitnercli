@@ -168,6 +168,25 @@ func (o *{{$alias.UpSingular}}) DeleteDefined({{if .NoContext}}exec boil.Executo
     {{end -}}{{end -}}
     }
 
+        if o.R != nil {
+            {{- range $rel := getLoadRelations $.Tables .Table -}}
+            {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+                if len(o.R.{{$relAlias.Local | plural }}) > 0 {
+                    {{- if $rel.ToJoinTable }}
+                        err := o.Remove{{$relAlias.Local | plural}}(ctx, exec, o.R.{{$relAlias.Local | plural }}...)
+                        if err != nil {
+                            return err
+                        }
+                    {{ else }}
+                        _, err := o.R.{{$relAlias.Local}}.DeleteAll(ctx, exec)
+                        if err != nil {
+                            return err
+                        }
+                    {{ end -}}
+                }
+            {{end -}}{{- /* range relationships */ -}}
+        }
+
     {{if not .NoRowsAffected}}_,{{end -}}err := o.Delete(ctx, exec)
 	if err != nil {
 		return err
@@ -236,6 +255,9 @@ func (o *{{$alias.UpSingular}}) Set{{ getLoadRelationName $.Aliases $rel }}({{ $
 	o.R.{{ $relAlias.Local | plural }} =  make({{$ftable.UpSingular}}Slice, len({{ $relAlias.Local | plural | camelCase }}))
 	for i := range {{ $relAlias.Local | plural | camelCase }} {
         o.R.{{ $relAlias.Local | plural }}[i] = &{{$ftable.UpSingular}}{
+            {{- if not $rel.ToJoinTable }}
+                {{ $rel.ForeignColumn | titleCase }}: o.ID,
+            {{ end -}}
             {{ $loadCol.Name | titleCase }}: {{ $relAlias.Local | plural | camelCase }}[i],
         }
 	}
