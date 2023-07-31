@@ -63,7 +63,10 @@ func (q *query) List{{$alias.UpPlural}}ByIDs(ctx context.Context, r api.{{$alias
 
     for _, id := range r.IDs {
         {{$alias.DownSingular}}, err := q.svc.Get{{$alias.UpSingular}}(ctx, id)
-        if err != nil && !errors.IsNotFound(err) {
+        if errors.IsNotFound(err) {
+        	continue
+        }
+        if err != nil {
             return nil, errors.Wrap(err, "cannot get user")
         }
 
