@@ -45,6 +45,7 @@ type {{$alias.UpSingular}} struct {
     {{end -}}
 
     {{ range $fieldName, $structName := getTableRichTextContents .Table }}
+        // nullable: true
         {{ $fieldName }} *{{ $structName }}
     {{end}}
 
