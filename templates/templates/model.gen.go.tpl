@@ -884,15 +884,9 @@ func New{{$alias.UpSingular}}QueryParamsNullableFields() *{{$alias.UpSingular}}Q
 }
 
 type {{$alias.UpSingular}}QueryParamsNullableFields struct {
-    {{- range $column := .Table.Columns}}
-    {{- $colAlias := $alias.Column $column.Name}}
-        {{- if containsAny $.Table.PKey.Columns $column.Name }}
-            {{$colAlias}} types.Bool // Primary key is nullable on left joins
-        {{- end}}
-        {{if $column.Nullable -}}
-            {{$colAlias}} types.Bool
-        {{- end}}
-    {{- end}}
+    {{- range $colAlias := getQueryNullColumns .Aliases.Tables $.Tables .Table.Name}}
+        {{ $colAlias }} types.Bool
+    {{ end }}
     {{ range $rel := getJoinRelations $.Tables .Table -}}
         {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsNullableFields
     {{end -}}{{- /* range relationships */ -}}
@@ -909,9 +903,10 @@ type {{$alias.UpSingular}}QueryParamsInFields struct {
     {{- $stringTypes := "types.String, types.UUID, types.Time, types.Date" -}}
     {{- range $column := .Table.Columns}}
         {{- $colAlias := $alias.Column $column.Name -}}
-
         {{- if or (contains $column.Type $stringTypes) (hasPrefix "types.Int" $column.Type) }}
             {{$colAlias}} []{{$column.Type}}
+        {{ else if (isEnumDBType $column.DBType) }}
+            {{$colAlias}} []types.String
         {{- end -}}
 
     {{- end}}

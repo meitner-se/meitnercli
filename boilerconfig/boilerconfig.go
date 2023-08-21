@@ -120,6 +120,12 @@ func GetConfig(driverName, configFile, serviceName, typesPackage string) (*boili
 			"getLoadRelationTableColumn":    getLoadRelationTableColumn,
 			"getLoadRelationType":           getLoadRelationType,
 			"getLoadRelations_enum_columns": getLoadRelationsEnumColumns,
+			"getQueryEqColumns":             getQueryEqColumns,
+			"getQueryNullColumns":           getQueryNullColumns,
+			"getQueryInColumns":             getQueryInColumns,
+			"getQueryComparableColumns":     getQueryComparableColumns,
+			"getQueryLikeColumns":           getQueryLikeColumns,
+			"isText":                        isText,
 			"getColumnMetadata":             getColumnMetadata,
 			"getColumnNameFileURL":          getColumnNameFileURL,
 			"getTableColumnOrder":           getTableColumnOrder,
@@ -756,6 +762,160 @@ func getLoadRelationsEnumColumns(tables []drivers.Table, fromTable drivers.Table
 	}
 
 	return columns
+}
+
+func getQueryEqColumns(aliases map[string]boilingcore.TableAlias, tables []drivers.Table, tableName string) []string {
+	var columns []string
+
+	for _, t := range tables {
+		if t.Name != tableName {
+			continue
+		}
+
+		tableAliases := aliases[t.Name]
+
+		for _, c := range t.Columns {
+			columns = append(columns, tableAliases.Column(c.Name))
+		}
+
+		loadRelations := getLoadRelations(tables, t)
+
+		for _, loadRelation := range loadRelations {
+			loadRelationName := getLoadRelationName(boilingcore.Aliases{Tables: aliases}, loadRelation)
+			loadRelationName = strmangle.Singular(strmangle.TitleCase(loadRelationName))
+
+			columns = append(columns, loadRelationName)
+		}
+	}
+
+	return columns
+}
+
+func getQueryNullColumns(aliases map[string]boilingcore.TableAlias, tables []drivers.Table, tableName string) []string {
+	var columns []string
+
+	for _, t := range tables {
+		if t.Name != tableName {
+			continue
+		}
+
+		isPK := map[string]struct{}{}
+		for _, pk := range t.PKey.Columns {
+			isPK[pk] = struct{}{}
+		}
+
+		tableAliases := aliases[t.Name]
+
+		for _, c := range t.Columns {
+			if _, ok := isPK[c.Name]; ok || c.Nullable {
+				columns = append(columns, tableAliases.Column(c.Name))
+			}
+		}
+
+		loadRelations := getLoadRelations(tables, t)
+
+		for _, loadRelation := range loadRelations {
+			loadRelationName := getLoadRelationName(boilingcore.Aliases{Tables: aliases}, loadRelation)
+			loadRelationName = strmangle.Singular(strmangle.TitleCase(loadRelationName))
+
+			columns = append(columns, loadRelationName)
+		}
+	}
+
+	return columns
+}
+
+func getQueryInColumns(aliases map[string]boilingcore.TableAlias, tables []drivers.Table, tableName string) []string {
+	var columns []string
+
+	for _, t := range tables {
+		if t.Name != tableName {
+			continue
+		}
+
+		tableAliases := aliases[t.Name]
+
+		for _, c := range t.Columns {
+			switch c.Type {
+			case "types.UUID", "types.String":
+				columns = append(columns, tableAliases.Column(c.Name))
+			}
+		}
+
+		loadRelations := getLoadRelations(tables, t)
+
+		for _, loadRelation := range loadRelations {
+			loadRelationName := getLoadRelationName(boilingcore.Aliases{Tables: aliases}, loadRelation)
+			loadRelationName = strmangle.Singular(strmangle.TitleCase(loadRelationName))
+
+			columns = append(columns, loadRelationName)
+		}
+	}
+
+	return columns
+}
+
+func getQueryComparableColumns(aliases map[string]boilingcore.TableAlias, tables []drivers.Table, tableName string) []string {
+	var columns []string
+
+	for _, t := range tables {
+		if t.Name != tableName {
+			continue
+		}
+
+		tableAliases := aliases[t.Name]
+
+		for _, c := range t.Columns {
+			switch {
+			case strings.HasPrefix(c.DBType, "date"),
+				strings.HasPrefix(c.DBType, "time"),
+				strings.HasPrefix(c.DBType, "int"):
+				columns = append(columns, tableAliases.Column(c.Name))
+			}
+		}
+	}
+
+	return columns
+}
+
+func getQueryLikeColumns(aliases map[string]boilingcore.TableAlias, tables []drivers.Table, tableName string) []string {
+	var columns []string
+
+	for _, t := range tables {
+		if t.Name != tableName {
+			continue
+		}
+
+		tableAliases := aliases[t.Name]
+
+		for _, c := range t.Columns {
+			if c.Type != "types.String" || drivers.IsEnumDBType(c.DBType) {
+				continue
+			}
+
+			columns = append(columns, tableAliases.Column(c.Name))
+		}
+	}
+
+	return columns
+}
+
+func isText(aliases map[string]boilingcore.TableAlias, table drivers.Table, columnName string) bool {
+	tableAlias := aliases[table.Name]
+
+	for _, c := range table.Columns {
+		if tableAlias.Column(c.Name) != columnName {
+			continue
+		}
+
+		if c.Type != "types.String" || drivers.IsEnumDBType(c.DBType) {
+			continue
+		}
+
+		return true
+	}
+
+	return false
 }
 
 func tableHasCustomConversion(t drivers.Table) bool {

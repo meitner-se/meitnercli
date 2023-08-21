@@ -534,11 +534,6 @@ func getQueryModsFrom{{$alias.UpSingular}}QuerySelectedFields(q *model.{{$alias.
     if q == nil {
         selectedFields = append(selectedFields, {{$alias.DownSingular}}AllQueryColumns...)
         query = append(query, qm.Select(strings.Join(selectedFields, ", ")))
-        {{ range $rel := getLoadRelations $.Tables .Table -}}
-        {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-            query = append(query, qm.Load({{$alias.UpSingular}}Rels.{{ $relAlias.Local | plural }}))
-        {{ end -}}
-
         return query
     }
 
@@ -550,13 +545,6 @@ func getQueryModsFrom{{$alias.UpSingular}}QuerySelectedFields(q *model.{{$alias.
     {{- end}}
 
     query = append(query, qm.Select(strings.Join(selectedFields, ", ")))
-
-    {{ range $rel := getLoadRelations $.Tables .Table -}}
-    {{ $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-        if q.{{$relAlias.Local | singular }}IDs.Bool() {
-            query = append(query, qm.Load({{$alias.UpSingular}}Rels.{{ $relAlias.Local | plural }}))
-        }
-    {{ end }}
 
     return query
 }
@@ -1189,16 +1177,546 @@ func check{{$alias.UpSingular}}QueryParamsRecursive(checkParamsFunc func(model.{
 	}
 }
 
+func {{$alias.UpSingular}}QueryStatementWithPagination(ctx context.Context,q *model.{{$alias.UpSingular}}Query) string {
+	query := new{{$alias.UpSingular}}QueryBuilder(ctx, q)
+
+	query.buildSelectWithColumns()
+	query.buildJoins()
+	query.buildWhere()
+	query.buildOrderBy()
+	query.buildLimit()
+	query.buildOffset()
+
+	return query.builder.String()
+}
+
+func {{$alias.UpSingular}}QueryStatmentForCount(ctx context.Context, q *model.{{$alias.UpSingular}}Query) string {
+	query := new{{$alias.UpSingular}}QueryBuilder(ctx, q)
+
+	query.buildSelectForCount()
+	query.buildJoins()
+	query.buildWhere()
+
+	return query.builder.String()
+}
+
+type {{$alias.DownSingular}}QueryBuilder struct {
+	builder *strings.Builder
+	query *model.{{$alias.UpSingular}}Query
+
+	params int
+}
+
+func new{{$alias.UpSingular}}QueryBuilder(ctx context.Context, query *model.{{$alias.UpSingular}}Query) *{{$alias.DownSingular}}QueryBuilder {
+	span := trace.SpanFromContext(ctx)
+
+	qb := &{{$alias.DownSingular}}QueryBuilder{
+		builder: &strings.Builder{},
+		query: query,
+		params: 0,
+	}
+
+	qb.builder.WriteString("-- TraceID:" + span.SpanContext().TraceID().String())
+	qb.builder.WriteString("\n")
+
+	return qb
+}
+
+func (qb *{{$alias.DownSingular}}QueryBuilder) newParam() string {
+    qb.params++
+
+    return fmt.Sprintf("$%d", qb.params)
+}
+
+func (qb *{{$alias.DownSingular}}QueryBuilder) buildSelectForCount() {
+	qb.builder.WriteString("SELECT COUNT(1)")
+}
+
+func (qb *{{$alias.DownSingular}}QueryBuilder) buildSelectWithColumns() {
+    var columns []string
+
+    if qb.query.SelectedFields != nil {
+        {{ range $column := .Table.Columns}}
+        {{- $colAlias := $alias.Column $column.Name}}
+            if qb.query.SelectedFields.{{$colAlias}}.Bool() {
+                columns = append(columns, {{$alias.UpSingular}}QueryColumns.{{$colAlias}})
+            }
+        {{- end}}
+    }
+
+    if len(columns) == 0 {
+        columns = append(columns, {{$alias.DownSingular}}AllQueryColumns...)
+    }
+
+    // If the query has a left join, wrap the primary key with a distinct on
+    if {{$alias.DownSingular}}QueryHasLeftJoin(qb.query) {
+        columns = slices.Remove(columns, {{$alias.UpSingular}}QueryColumns.ID)
+        columns = slices.Prepend(columns, "DISTINCT ON (" + {{$alias.UpSingular}}QueryColumns.ID + ")")
+    }
+
+    qb.builder.WriteString("SELECT " + strings.Join(columns, ", "))
+}
+
+func (qb *{{$alias.DownSingular}}QueryBuilder) buildJoins() {
+    {{ range $rel := getLoadRelations $.Tables .Table -}}
+    {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+        if {{$alias.DownSingular}}QueryHasJoinOn{{$relAlias.Local | singular }}(qb.query) {
+            qb.builder.WriteString(" LEFT OUTER JOIN {{ getLoadRelationStatement $.Aliases $.Tables $rel }}")
+        }
+    {{end }}
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+    {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+        if {{$alias.DownSingular}}QueryHasJoinOn{{$relAlias.Local | singular }}(qb.query) {
+            qb.builder.WriteString(" INNER JOIN \"{{ $rel.ForeignTable }}\" ON \"{{ $rel.Table }}\".\"{{ $rel.Column }}\" = \"{{ $rel.ForeignTable }}\".\"{{ $rel.ForeignColumn }}\"")
+        } else if {{$alias.DownSingular}}QueryHasLeftJoinOn{{$relAlias.Local | singular }}(qb.query) {
+            qb.builder.WriteString(" LEFT OUTER JOIN \"{{ $rel.ForeignTable }}\" ON \"{{ $rel.Table }}\".\"{{ $rel.Column }}\" = \"{{ $rel.ForeignTable }}\".\"{{ $rel.ForeignColumn }}\"")
+        }
+    {{end }}
+}
+
+func (qb *{{$alias.DownSingular}}QueryBuilder) buildWhere() {
+    qb.builder.WriteString(" WHERE")
+
+    if qb.query.Wrapper != nil {
+        qb.builder.WriteString(" (")
+        qb.buildWhereRecursive(qb.query.Wrapper)
+        qb.builder.WriteString(")")
+
+        qb.builder.WriteString(" AND (")
+        defer qb.builder.WriteString(")")
+    }
+
+    qb.buildWhereParams(&qb.query.Params, qb.query.OrCondition.Bool())
+
+    if len(qb.query.Nested) > 0 {
+        qb.builder.WriteString({{$alias.DownSingular}}ConditionToString(qb.query.OrCondition.Bool()) + "(")
+        defer qb.builder.WriteString(")")
+
+        for i := range qb.query.Nested {
+            qb.buildWhereRecursive(&qb.query.Nested[i])
+        }
+    }
+}
+
+func (qb *{{$alias.DownSingular}}QueryBuilder) buildWhereRecursive(query *model.{{$alias.UpSingular}}QueryNested) {
+
+}
+
+func (qb *{{$alias.DownSingular}}QueryBuilder) buildWhereParams(params *model.{{$alias.UpSingular}}QueryParams, orCondition bool) {
+    if params.Equals != nil {
+        qb.buildWhereParamsFields(params.Equals, " = ", orCondition)
+    }
+    if params.NotEquals != nil {
+        qb.buildWhereParamsFields(params.NotEquals, " != ", orCondition)
+    }
+    if params.Empty != nil {
+        qb.buildWhereParamsNullableFields(params.Empty, " IS NULL", orCondition)
+    }
+    if params.NotEmpty != nil {
+        qb.buildWhereParamsNullableFields(params.Empty, " IS NOT NULL", orCondition)
+    }
+    if params.In != nil {
+        qb.buildWhereParamsInFields(params.In, " = ANY ", orCondition)
+    }
+    if params.NotIn != nil {
+        qb.buildWhereParamsInFields(params.NotIn, " != ANY ", orCondition)
+    }
+    if params.GreaterThan != nil {
+        qb.buildWhereParamsComparableFields(params.GreaterThan, " > ", orCondition)
+    }
+    if params.SmallerThan != nil {
+        qb.buildWhereParamsComparableFields(params.SmallerThan, " < ", orCondition)
+    }
+    if params.SmallerOrEqual != nil {
+        qb.buildWhereParamsComparableFields(params.SmallerOrEqual, " <= ", orCondition)
+    }
+    if params.GreaterOrEqual != nil {
+        qb.buildWhereParamsComparableFields(params.GreaterOrEqual, " >= ", orCondition)
+    }
+    if params.Like != nil {
+        qb.buildWhereParamsLikeFields(params.Like, " ILIKE ", orCondition)
+    }
+    if params.NotLike != nil {
+        qb.buildWhereParamsLikeFields(params.Like, " NOT ILIKE ", orCondition)
+    }
+}
+
+func (qb *{{$alias.DownSingular}}QueryBuilder) buildWhereParamsFields(params *model.{{$alias.UpSingular}}QueryParamsFields, operator string, orCondition bool) {
+    caseInsensitive := func(column string, text bool) string {
+        if text {
+            return fmt.Sprintf("LOWER(%s)", column)
+        }
+        return column
+    }
+
+    {{- range $colAlias := getQueryEqColumns .Aliases.Tables $.Tables .Table.Name}}
+        if !params.{{$colAlias}}.IsNil() {
+            qb.builder.WriteString({{$alias.DownSingular}}ConditionToString(orCondition) + caseInsensitive({{$alias.UpSingular}}QueryColumns.{{$colAlias}}, {{ isText $.Aliases.Tables $.Table $colAlias }}) + operator + qb.newParam())
+        }
+    {{- end}}
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+        if params.{{ $rel.ForeignTable | titleCase }} != nil {
+            {{- range $colAlias := getQueryEqColumns $.Aliases.Tables $.Tables $rel.ForeignTable}}
+                if !params.{{ $rel.ForeignTable | titleCase }}.{{$colAlias}}.IsNil() {
+                    qb.builder.WriteString({{$alias.DownSingular}}ConditionToString(orCondition) + caseInsensitive({{ $rel.ForeignTable | titleCase }}QueryColumns.{{$colAlias}}, {{ isText $.Aliases.Tables $.Table $colAlias }}) + operator + qb.newParam())
+                }
+            {{- end}}
+        }
+        if params.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+            {{- range $colAlias := getQueryEqColumns $.Aliases.Tables $.Tables $rel.ForeignTable}}
+                if !params.LeftJoin{{ $rel.ForeignTable | titleCase }}.{{$colAlias}}.IsNil() {
+                    qb.builder.WriteString({{$alias.DownSingular}}ConditionToString(orCondition) + caseInsensitive({{ $rel.ForeignTable | titleCase }}QueryColumns.{{$colAlias}}, {{ isText $.Aliases.Tables $.Table $colAlias }}) + operator + qb.newParam())
+                }
+            {{- end}}
+        }
+    {{end -}}{{- /* range relationships */ -}}
+}
+
+func (qb *{{$alias.DownSingular}}QueryBuilder) buildWhereParamsNullableFields(params *model.{{$alias.UpSingular}}QueryParamsNullableFields, operator string, orCondition bool) {
+    {{- range $colAlias := getQueryNullColumns .Aliases.Tables $.Tables .Table.Name}}
+        if params.{{$colAlias}}.Bool() {
+            qb.builder.WriteString({{$alias.DownSingular}}ConditionToString(orCondition) + {{$alias.UpSingular}}QueryColumns.{{$colAlias}} + operator)
+        }
+    {{- end}}
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+        if params.{{ $rel.ForeignTable | titleCase }} != nil {
+            {{- range $colAlias := getQueryNullColumns $.Aliases.Tables $.Tables $rel.ForeignTable}}
+                if params.{{ $rel.ForeignTable | titleCase }}.{{$colAlias}}.Bool() {
+                    qb.builder.WriteString({{$alias.DownSingular}}ConditionToString(orCondition) + {{ $rel.ForeignTable | titleCase }}QueryColumns.{{$colAlias}} + operator)
+                }
+            {{- end}}
+        }
+        if params.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+            {{- range $colAlias := getQueryNullColumns $.Aliases.Tables $.Tables $rel.ForeignTable}}
+                if params.LeftJoin{{ $rel.ForeignTable | titleCase }}.{{$colAlias}}.Bool() {
+                    qb.builder.WriteString({{$alias.DownSingular}}ConditionToString(orCondition) + {{ $rel.ForeignTable | titleCase }}QueryColumns.{{$colAlias}} + operator)
+                }
+            {{- end}}
+        }
+    {{end -}}{{- /* range relationships */ -}}
+}
+
+func (qb *{{$alias.DownSingular}}QueryBuilder) buildWhereParamsInFields(params *model.{{$alias.UpSingular}}QueryParamsInFields, operator string, orCondition bool) {
+    {{- range $colAlias := getQueryInColumns .Aliases.Tables $.Tables .Table.Name}}
+        if params.{{$colAlias}} != nil {
+            qb.builder.WriteString({{$alias.DownSingular}}ConditionToString(orCondition) + {{$alias.UpSingular}}QueryColumns.{{$colAlias}} + operator + qb.newParam())
+        }
+    {{- end}}
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+        if params.{{ $rel.ForeignTable | titleCase }} != nil {
+            {{- range $colAlias := getQueryInColumns $.Aliases.Tables $.Tables $rel.ForeignTable}}
+                if params.{{ $rel.ForeignTable | titleCase }}.{{$colAlias}} != nil {
+                    qb.builder.WriteString({{$alias.DownSingular}}ConditionToString(orCondition) + {{ $rel.ForeignTable | titleCase }}QueryColumns.{{$colAlias}} + operator + qb.newParam())
+                }
+            {{- end}}
+        }
+        if params.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+            {{- range $colAlias := getQueryInColumns $.Aliases.Tables $.Tables $rel.ForeignTable}}
+                if params.LeftJoin{{ $rel.ForeignTable | titleCase }}.{{$colAlias}} != nil {
+                    qb.builder.WriteString({{$alias.DownSingular}}ConditionToString(orCondition) + {{ $rel.ForeignTable | titleCase }}QueryColumns.{{$colAlias}} + operator + qb.newParam())
+                }
+            {{- end}}
+        }
+    {{end -}}{{- /* range relationships */ -}}
+}
+
+func (qb *{{$alias.DownSingular}}QueryBuilder) buildWhereParamsComparableFields(params *model.{{$alias.UpSingular}}QueryParamsComparableFields, operator string, orCondition bool) {
+    {{- range $colAlias := getQueryComparableColumns .Aliases.Tables $.Tables .Table.Name}}
+        if !params.{{$colAlias}}.IsNil() {
+            qb.builder.WriteString({{$alias.DownSingular}}ConditionToString(orCondition) + {{$alias.UpSingular}}QueryColumns.{{$colAlias}} + operator + qb.newParam())
+        }
+    {{- end}}
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+        if params.{{ $rel.ForeignTable | titleCase }} != nil {
+            {{- range $colAlias := getQueryComparableColumns $.Aliases.Tables $.Tables $rel.ForeignTable}}
+                if !params.{{ $rel.ForeignTable | titleCase }}.{{$colAlias}}.IsNil() {
+                    qb.builder.WriteString({{$alias.DownSingular}}ConditionToString(orCondition) + {{ $rel.ForeignTable | titleCase }}QueryColumns.{{$colAlias}} + operator + qb.newParam())
+                }
+            {{- end}}
+        }
+        if params.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+            {{- range $colAlias := getQueryComparableColumns $.Aliases.Tables $.Tables $rel.ForeignTable}}
+                if !params.LeftJoin{{ $rel.ForeignTable | titleCase }}.{{$colAlias}}.IsNil() {
+                    qb.builder.WriteString({{$alias.DownSingular}}ConditionToString(orCondition) + {{ $rel.ForeignTable | titleCase }}QueryColumns.{{$colAlias}} + operator + qb.newParam())
+                }
+            {{- end}}
+        }
+    {{end -}}{{- /* range relationships */ -}}
+}
+
+func (qb *{{$alias.DownSingular}}QueryBuilder) buildWhereParamsLikeFields(params *model.{{$alias.UpSingular}}QueryParamsLikeFields, operator string, orCondition bool) {
+    {{- range $colAlias := getQueryLikeColumns .Aliases.Tables $.Tables .Table.Name}}
+        if !params.{{$colAlias}}.IsNil() {
+            qb.builder.WriteString({{$alias.DownSingular}}ConditionToString(orCondition) + {{$alias.UpSingular}}QueryColumns.{{$colAlias}} + operator + qb.newParam())
+        }
+    {{- end}}
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+        if params.{{ $rel.ForeignTable | titleCase }} != nil {
+            {{- range $colAlias := getQueryLikeColumns $.Aliases.Tables $.Tables $rel.ForeignTable}}
+                if !params.{{ $rel.ForeignTable | titleCase }}.{{$colAlias}}.IsNil() {
+                    qb.builder.WriteString({{$alias.DownSingular}}ConditionToString(orCondition) + {{ $rel.ForeignTable | titleCase }}QueryColumns.{{$colAlias}} + operator + qb.newParam())
+                }
+            {{- end}}
+        }
+        if params.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+            {{- range $colAlias := getQueryLikeColumns $.Aliases.Tables $.Tables $rel.ForeignTable}}
+                if !params.LeftJoin{{ $rel.ForeignTable | titleCase }}.{{$colAlias}}.IsNil() {
+                    qb.builder.WriteString({{$alias.DownSingular}}ConditionToString(orCondition) + {{ $rel.ForeignTable | titleCase }}QueryColumns.{{$colAlias}} + operator + qb.newParam())
+                }
+            {{- end}}
+        }
+    {{end -}}{{- /* range relationships */ -}}
+}
+
+func (qb *{{$alias.DownSingular}}QueryBuilder) buildOrderBy() {
+
+}
+
+func (qb *{{$alias.DownSingular}}QueryBuilder) buildLimit() {
+
+}
+
+func (qb *{{$alias.DownSingular}}QueryBuilder) buildOffset() {
+
+}
+
+func {{$alias.DownSingular}}ConditionToString(orCondition bool) string {
+    if orCondition {
+        return " OR "
+    }
+    return " AND "
+}
+
+func {{$alias.DownSingular}}QueryHasLeftJoin(q *model.{{$alias.UpSingular}}Query) bool {
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+    {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+        if ok := {{$alias.DownSingular}}QueryHasLeftJoinOn{{$relAlias.Local | singular }}(q); ok {
+            return true
+        }
+    {{end }}
+
+    return false
+}
+
+{{ range $rel := getLoadRelations $.Tables .Table -}}
+{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+func {{$alias.DownSingular}}QueryHasJoinOn{{$relAlias.Local | singular }}(q *model.{{$alias.UpSingular}}Query) bool {
+    hasJoin := false
+
+    checkParams := func(p model.{{$alias.UpSingular}}QueryParams) {
+        if p.Equals != nil {
+            if !p.Equals.{{ getLoadRelationName $.Aliases $rel | singular }}.IsNil() {
+                hasJoin = true
+            }
+        }
+        if p.NotEquals != nil {
+            if !p.NotEquals.{{ getLoadRelationName $.Aliases $rel | singular }}.IsNil() {
+                hasJoin = true
+            }
+        }
+        if p.In != nil {
+            if p.In.{{ getLoadRelationName $.Aliases $rel | singular }} != nil {
+                hasJoin = true
+            }
+        }
+        if p.NotIn != nil {
+            if p.NotIn.{{ getLoadRelationName $.Aliases $rel | singular }} != nil {
+                hasJoin = true
+            }
+        }
+    }
+
+    checkParams(q.Params)
+
+    for _, nested := range q.Nested {
+    	check{{$alias.UpSingular}}QueryParamsRecursive(checkParams, nested)
+    }
+
+    if q.Wrapper != nil {
+    	check{{$alias.UpSingular}}QueryParamsRecursive(checkParams, *q.Wrapper)
+    }
+
+    return hasJoin
+}
+{{end -}}{{- /* range relationships */ -}}
+
+{{ range $rel := getJoinRelations $.Tables .Table -}}
+{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+func {{$alias.DownSingular}}QueryHasJoinOn{{$relAlias.Local | singular }}(q *model.{{$alias.UpSingular}}Query) bool {
+    hasJoin := false
+
+    checkParams := func(p model.{{$alias.UpSingular}}QueryParams) {
+        if p.Equals != nil {
+            if p.Equals.{{ $rel.ForeignTable | titleCase }} != nil {
+                hasJoin = true
+            }
+        }
+        if p.NotEquals != nil {
+            if p.NotEquals.{{ $rel.ForeignTable | titleCase }} != nil {
+                hasJoin = true
+            }
+        }
+        if p.Empty != nil {
+            if p.Empty.{{ $rel.ForeignTable | titleCase }} != nil {
+                hasJoin = true
+            }
+        }
+        if p.NotEmpty != nil {
+            if p.NotEmpty.{{ $rel.ForeignTable | titleCase }} != nil {
+                hasJoin = true
+            }
+        }
+        if p.In != nil {
+            if p.In.{{ $rel.ForeignTable | titleCase }} != nil {
+                hasJoin = true
+            }
+        }
+        if p.NotIn != nil {
+            if p.NotIn.{{ $rel.ForeignTable | titleCase }} != nil {
+                hasJoin = true
+            }
+        }
+        if p.GreaterThan != nil {
+            if p.GreaterThan.{{ $rel.ForeignTable | titleCase }} != nil {
+                hasJoin = true
+            }
+        }
+        if p.SmallerThan != nil {
+            if p.SmallerThan.{{ $rel.ForeignTable | titleCase }} != nil {
+                hasJoin = true
+            }
+        }
+        if p.SmallerOrEqual != nil {
+            if p.SmallerOrEqual.{{ $rel.ForeignTable | titleCase }} != nil {
+                hasJoin = true
+            }
+        }
+        if p.GreaterOrEqual != nil {
+            if p.GreaterOrEqual.{{ $rel.ForeignTable | titleCase }} != nil {
+                hasJoin = true
+            }
+        }
+        if p.Like != nil {
+            if p.Like.{{ $rel.ForeignTable | titleCase }} != nil {
+                hasJoin = true
+            }
+        }
+        if p.NotLike != nil {
+            if p.NotLike.{{ $rel.ForeignTable | titleCase }} != nil {
+                hasJoin = true
+            }
+        }
+    }
+
+    checkParams(q.Params)
+
+    for _, nested := range q.Nested {
+    	check{{$alias.UpSingular}}QueryParamsRecursive(checkParams, nested)
+    }
+
+    if q.Wrapper != nil {
+    	check{{$alias.UpSingular}}QueryParamsRecursive(checkParams, *q.Wrapper)
+    }
+
+    return hasJoin
+}
+
+func {{$alias.DownSingular}}QueryHasLeftJoinOn{{$relAlias.Local | singular }}(q *model.{{$alias.UpSingular}}Query) bool {
+    hasLeftJoin := false
+
+    checkParams := func(p model.{{$alias.UpSingular}}QueryParams) {
+        if p.Equals != nil {
+            if p.Equals.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+                hasLeftJoin = true
+            }
+        }
+        if p.NotEquals != nil {
+            if p.NotEquals.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+                hasLeftJoin = true
+            }
+        }
+        if p.Empty != nil {
+            if p.Empty.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+                hasLeftJoin = true
+            }
+        }
+        if p.NotEmpty != nil {
+            if p.NotEmpty.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+                hasLeftJoin = true
+            }
+        }
+        if p.In != nil {
+            if p.In.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+                hasLeftJoin = true
+            }
+        }
+        if p.NotIn != nil {
+            if p.NotIn.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+                hasLeftJoin = true
+            }
+        }
+        if p.GreaterThan != nil {
+            if p.GreaterThan.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+                hasLeftJoin = true
+            }
+        }
+        if p.SmallerThan != nil {
+            if p.SmallerThan.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+                hasLeftJoin = true
+            }
+        }
+        if p.SmallerOrEqual != nil {
+            if p.SmallerOrEqual.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+                hasLeftJoin = true
+            }
+        }
+        if p.GreaterOrEqual != nil {
+            if p.GreaterOrEqual.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+                hasLeftJoin = true
+            }
+        }
+        if p.Like != nil {
+            if p.Like.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+                hasLeftJoin = true
+            }
+        }
+        if p.NotLike != nil {
+            if p.NotLike.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+                hasLeftJoin = true
+            }
+        }
+    }
+
+    checkParams(q.Params)
+
+    for _, nested := range q.Nested {
+    	check{{$alias.UpSingular}}QueryParamsRecursive(checkParams, nested)
+    }
+
+    if q.Wrapper != nil {
+    	check{{$alias.UpSingular}}QueryParamsRecursive(checkParams, *q.Wrapper)
+    }
+
+    return hasLeftJoin
+}
+{{end }}
+
 var {{$alias.UpSingular}}QueryColumns = struct {
 	{{range $column := .Table.Columns -}}
 	{{- $colAlias := $alias.Column $column.Name -}}
 	{{$colAlias}} string
 	{{end -}}
+    {{ range $rel := getLoadRelations $.Tables .Table -}}
+    {{ getLoadRelationName $.Aliases $rel | singular }} string
+    {{end -}}
 }{
 	{{range $column := .Table.Columns -}}
 	{{- $colAlias := $alias.Column $column.Name -}}
 	{{$colAlias}}: "\"{{$.Table.Name}}\".\"{{$column.Name}}\"",
 	{{end -}}
+    {{ range $rel := getLoadRelations $.Tables .Table -}}
+    {{ getLoadRelationName $.Aliases $rel | singular }}: "{{ getLoadRelationTableColumn $.Tables $rel }}",
+    {{end -}}
 }
 
 var {{$alias.DownSingular}}AllQueryColumns = []string{
