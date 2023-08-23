@@ -395,6 +395,18 @@ func List{{$alias.UpPlural}}By{{ titleCase $fKey.Column }}({{if $.NoContext}}exe
     queryMods := getQueryModsFrom{{$alias.UpSingular}}QuerySelectedFields(nil)
     queryMods = append(queryMods, {{$alias.UpSingular}}Where.{{ titleCase $fKey.Column }}.EQ({{ camelCase $fKey.Column }}))
 
+    // Add the default order by columns defined in the schema to keep consistency
+    orderByStrings := []string{}
+    {{- range getTableOrderByColumns $.Table }}
+        orderByStrings = append(orderByStrings, `{{ . }}`)
+    {{- end}}
+
+    {{- range $pkName := $pkNames }}
+        orderByStrings = append(orderByStrings, {{$alias.UpSingular}}QueryColumns.{{$pkName | titleCase}} + " asc")
+    {{- end}}
+
+    queryMods = append(queryMods, qm.OrderBy(strings.Join(orderByStrings, ",")))
+
     fromDB, err := {{$alias.UpPlural}}(queryMods...).All({{if not $.NoContext}}ctx,{{end}} exec)
     if err != nil {
         return nil, err
