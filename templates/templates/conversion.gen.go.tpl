@@ -126,6 +126,10 @@ func {{$alias.DownSingular}}QueryParamsNullableFieldsToModel(toModel *api.{{$ali
             {{- end -}}
         {{- end }}
 
+        {{ range $rel := getLoadRelations $.Tables .Table -}}
+            {{ getLoadRelationName $.Aliases $rel }}: toModel.{{ getLoadRelationName $.Aliases $rel }},
+        {{end -}}{{- /* range relationships */ -}}
+
         {{- range $rel := getJoinRelations $.Tables .Table }}
             {{ $rel.ForeignTable | titleCase }}: {{ $rel.ForeignTable | camelCase }}QueryParamsNullableFieldsToModel(toModel.{{ $rel.ForeignTable | titleCase }}),
         {{- end }}

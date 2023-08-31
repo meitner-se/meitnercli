@@ -893,6 +893,9 @@ type {{$alias.UpSingular}}QueryParamsNullableFields struct {
             {{$colAlias}} types.Bool
         {{- end}}
     {{- end}}
+    {{ range $rel := getLoadRelations $.Tables .Table -}}
+        {{ getLoadRelationName $.Aliases $rel }} types.Bool
+    {{end -}}{{- /* range relationships */ -}}
     {{ range $rel := getJoinRelations $.Tables .Table -}}
         {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsNullableFields
     {{end -}}{{- /* range relationships */ -}}
