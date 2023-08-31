@@ -720,6 +720,16 @@ func getQueryModsFrom{{$alias.UpSingular}}Empty(q *model.{{$alias.UpSingular}}Qu
 
     {{- end}}
 
+    {{ range $rel := getLoadRelations $.Tables .Table -}}
+        {{$schemaJoinTable := $rel.JoinTable | $.SchemaTable -}}
+        {{$loadCol := getLoadRelationColumn $.Tables $rel -}}
+        {{$whereHelper := printf "whereHelper%s" (goVarname $loadCol.Type) -}}
+
+        if q.{{ getLoadRelationName $.Aliases $rel }}.Bool() {
+            query = append(query, queryWrapperFunc({{ $whereHelper }}{"{{ getLoadRelationTableColumn $.Tables $rel }}"}.IsNull()))
+        }
+    {{end -}}{{- /* range relationships */ -}}
+
     {{ range $rel := getJoinRelations $.Tables .Table -}}
         if q.{{ $rel.ForeignTable | titleCase }} != nil {
            query = append(query, getQueryModsFrom{{ $rel.ForeignTable | titleCase }}Empty(q.{{ $rel.ForeignTable | titleCase }}, queryWrapperFunc)...)
@@ -753,6 +763,16 @@ func getQueryModsFrom{{$alias.UpSingular}}NotEmpty(q *model.{{$alias.UpSingular}
         {{- end}}
 
     {{- end}}
+
+    {{ range $rel := getLoadRelations $.Tables .Table -}}
+        {{$schemaJoinTable := $rel.JoinTable | $.SchemaTable -}}
+        {{$loadCol := getLoadRelationColumn $.Tables $rel -}}
+        {{$whereHelper := printf "whereHelper%s" (goVarname $loadCol.Type) -}}
+
+        if q.{{ getLoadRelationName $.Aliases $rel }}.Bool() {
+            query = append(query, queryWrapperFunc({{ $whereHelper }}{"{{ getLoadRelationTableColumn $.Tables $rel }}"}.IsNotNull()))
+        }
+    {{end -}}{{- /* range relationships */ -}}
 
     {{ range $rel := getJoinRelations $.Tables .Table -}}
         if q.{{ $rel.ForeignTable | titleCase }} != nil {
@@ -1009,6 +1029,16 @@ func getQueryModsFrom{{$alias.UpSingular}}QueryForJoin(q model.{{$alias.UpSingul
         }
         if p.NotIn != nil {
             if p.NotIn.{{ getLoadRelationName $.Aliases $rel | singular }} != nil {
+                join{{$relAlias.Local | singular }} = true
+            }
+        }
+        if p.Empty != nil {
+            if p.Empty.{{ getLoadRelationName $.Aliases $rel }}.IsNil() {
+                join{{$relAlias.Local | singular }} = true
+            }
+        }
+        if p.NotEmpty != nil {
+            if p.NotEmpty.{{ getLoadRelationName $.Aliases $rel }}.IsNil() {
                 join{{$relAlias.Local | singular }} = true
             }
         }
