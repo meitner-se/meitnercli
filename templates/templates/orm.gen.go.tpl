@@ -1177,25 +1177,27 @@ func check{{$alias.UpSingular}}QueryParamsRecursive(checkParamsFunc func(model.{
 	}
 }
 
+func {{$alias.UpSingular}}QueryStatmentForCount(ctx context.Context, q *model.{{$alias.UpSingular}}Query) string {
+	query := new{{$alias.UpSingular}}QueryBuilder(ctx, q)
+
+	query.buildSelectForCount()
+	query.buildFrom()
+	query.buildJoins()
+	query.buildWhere()
+
+	return query.builder.String()
+}
+
 func {{$alias.UpSingular}}QueryStatementWithPagination(ctx context.Context,q *model.{{$alias.UpSingular}}Query) string {
 	query := new{{$alias.UpSingular}}QueryBuilder(ctx, q)
 
 	query.buildSelectWithColumns()
+	query.buildFrom()
 	query.buildJoins()
 	query.buildWhere()
 	query.buildOrderBy()
 	query.buildLimit()
 	query.buildOffset()
-
-	return query.builder.String()
-}
-
-func {{$alias.UpSingular}}QueryStatmentForCount(ctx context.Context, q *model.{{$alias.UpSingular}}Query) string {
-	query := new{{$alias.UpSingular}}QueryBuilder(ctx, q)
-
-	query.buildSelectForCount()
-	query.buildJoins()
-	query.buildWhere()
 
 	return query.builder.String()
 }
@@ -1208,7 +1210,7 @@ type {{$alias.DownSingular}}QueryBuilder struct {
 }
 
 func new{{$alias.UpSingular}}QueryBuilder(ctx context.Context, query *model.{{$alias.UpSingular}}Query) *{{$alias.DownSingular}}QueryBuilder {
-	span := trace.SpanFromContext(ctx)
+	//span := trace.SpanFromContext(ctx)
 
 	qb := &{{$alias.DownSingular}}QueryBuilder{
 		builder: &strings.Builder{},
@@ -1216,7 +1218,7 @@ func new{{$alias.UpSingular}}QueryBuilder(ctx context.Context, query *model.{{$a
 		params: 0,
 	}
 
-	qb.builder.WriteString("-- TraceID:" + span.SpanContext().TraceID().String())
+	//qb.builder.WriteString("-- TraceID:" + span.SpanContext().TraceID().String())
 	qb.builder.WriteString("\n")
 
 	return qb
@@ -1245,7 +1247,7 @@ func (qb *{{$alias.DownSingular}}QueryBuilder) buildSelectWithColumns() {
     }
 
     if len(columns) == 0 {
-        columns = append(columns, {{$alias.DownSingular}}AllQueryColumns...)
+        columns = {{$alias.DownSingular}}AllQueryColumns
     }
 
     // If the query has a left join, wrap the primary key with a distinct on
@@ -1257,30 +1259,36 @@ func (qb *{{$alias.DownSingular}}QueryBuilder) buildSelectWithColumns() {
     qb.builder.WriteString("SELECT " + strings.Join(columns, ", "))
 }
 
+func (qb *{{$alias.DownSingular}}QueryBuilder) buildFrom() {
+    qb.builder.WriteString(" FROM \"{{ .Table.Name }}\"")
+}
+
 func (qb *{{$alias.DownSingular}}QueryBuilder) buildJoins() {
-    {{ range $rel := getLoadRelations $.Tables .Table -}}
-    {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+    {{- range $rel := getLoadRelations $.Tables .Table }}
+    {{ $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         if {{$alias.DownSingular}}QueryHasJoinOn{{$relAlias.Local | singular }}(qb.query) {
             qb.builder.WriteString(" LEFT OUTER JOIN {{ getLoadRelationStatement $.Aliases $.Tables $rel }}")
         }
-    {{end }}
-    {{ range $rel := getJoinRelations $.Tables .Table -}}
-    {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+    {{end -}}
+    {{ range $rel := getJoinRelations $.Tables .Table }}
+    {{ $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         if {{$alias.DownSingular}}QueryHasJoinOn{{$relAlias.Local | singular }}(qb.query) {
             qb.builder.WriteString(" INNER JOIN \"{{ $rel.ForeignTable }}\" ON \"{{ $rel.Table }}\".\"{{ $rel.Column }}\" = \"{{ $rel.ForeignTable }}\".\"{{ $rel.ForeignColumn }}\"")
         } else if {{$alias.DownSingular}}QueryHasLeftJoinOn{{$relAlias.Local | singular }}(qb.query) {
             qb.builder.WriteString(" LEFT OUTER JOIN \"{{ $rel.ForeignTable }}\" ON \"{{ $rel.Table }}\".\"{{ $rel.Column }}\" = \"{{ $rel.ForeignTable }}\".\"{{ $rel.ForeignColumn }}\"")
         }
-    {{end }}
+    {{end -}}
 }
 
 func (qb *{{$alias.DownSingular}}QueryBuilder) buildWhere() {
+    if !{{$alias.DownSingular}}QueryHasWhere(qb.query) {
+        return
+    }
+
     qb.builder.WriteString(" WHERE")
 
     if qb.query.Wrapper != nil {
-        qb.builder.WriteString(" (")
-        qb.buildWhereRecursive(qb.query.Wrapper)
-        qb.builder.WriteString(")")
+        qb.buildWhereRecursive(qb.query.Wrapper, false)
 
         qb.builder.WriteString(" AND (")
         defer qb.builder.WriteString(")")
@@ -1293,13 +1301,29 @@ func (qb *{{$alias.DownSingular}}QueryBuilder) buildWhere() {
         defer qb.builder.WriteString(")")
 
         for i := range qb.query.Nested {
-            qb.buildWhereRecursive(&qb.query.Nested[i])
+            qb.buildWhereRecursive(&qb.query.Nested[i], i != 0)
         }
     }
 }
 
-func (qb *{{$alias.DownSingular}}QueryBuilder) buildWhereRecursive(query *model.{{$alias.UpSingular}}QueryNested) {
+func (qb *{{$alias.DownSingular}}QueryBuilder) buildWhereRecursive(q *model.{{$alias.UpSingular}}QueryNested, withOperator bool) {
+	if withOperator {
+	    qb.builder.WriteString({{$alias.DownSingular}}ConditionToString(q.OrCondition.Bool()))
+	}
 
+	qb.builder.WriteString(" (")
+	defer qb.builder.WriteString(")")
+
+	qb.buildWhereParams(&q.Params, q.OrCondition.Bool())
+
+    if len(q.Nested) > 0 {
+        qb.builder.WriteString({{$alias.DownSingular}}ConditionToString(q.OrCondition.Bool()) + "(")
+        defer qb.builder.WriteString(")")
+
+        for i := range q.Nested {
+            qb.buildWhereRecursive(&q.Nested[i], i != 0)
+        }
+    }
 }
 
 func (qb *{{$alias.DownSingular}}QueryBuilder) buildWhereParams(params *model.{{$alias.UpSingular}}QueryParams, orCondition bool) {
@@ -1700,6 +1724,28 @@ func {{$alias.DownSingular}}QueryHasLeftJoinOn{{$relAlias.Local | singular }}(q 
     return hasLeftJoin
 }
 {{end }}
+
+func {{$alias.DownSingular}}QueryHasWhere(q *model.{{$alias.UpSingular}}Query) bool {
+    switch {
+        case q.Wrapper != nil,
+            q.Nested != nil,
+            q.Params.Equals != nil,
+            q.Params.NotEquals != nil,
+            q.Params.Empty != nil,
+            q.Params.NotEmpty != nil,
+            q.Params.In != nil,
+            q.Params.NotIn != nil,
+            q.Params.GreaterThan != nil,
+            q.Params.SmallerThan != nil,
+            q.Params.SmallerOrEqual != nil,
+            q.Params.GreaterOrEqual != nil,
+            q.Params.Like != nil,
+            q.Params.NotLike != nil:
+            return true
+        default:
+            return false
+    }
+}
 
 var {{$alias.UpSingular}}QueryColumns = struct {
 	{{range $column := .Table.Columns -}}
