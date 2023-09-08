@@ -734,6 +734,16 @@ func {{$alias.DownSingular}}QueryHasJoinOn{{$relAlias.Local | singular }}(q *mod
                 hasJoin = true
             }
         }
+        if p.Empty != nil {
+            if !p.Empty.{{ getLoadRelationName $.Aliases $rel | singular }}.IsNil() {
+                hasJoin = true
+            }
+        }
+        if p.NotEmpty != nil {
+            if !p.NotEmpty.{{ getLoadRelationName $.Aliases $rel | singular }}.IsNil() {
+                hasJoin = true
+            }
+        }
         if p.In != nil {
             if p.In.{{ getLoadRelationName $.Aliases $rel | singular }} != nil {
                 hasJoin = true

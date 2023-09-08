@@ -254,6 +254,12 @@ type {{$alias.UpSingular}}QueryParamsNullableFieldsRequest struct {
         {{- end}}
     {{- end}}
 
+    {{ range $rel := getLoadRelations $.Tables .Table -}}
+        // optional: true
+        // type: "types.Bool"
+        {{ getLoadRelationName $.Aliases $rel | singular }} bool
+    {{end -}}{{- /* range relationships */ -}}
+
     {{ range $rel := getJoinRelations $.Tables .Table -}}
         // optional: true
         {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsNullableFieldsRequest
