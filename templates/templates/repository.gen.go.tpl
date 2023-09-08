@@ -22,6 +22,7 @@ type {{$alias.UpSingular}} interface {
     {{end -}}
 
     List{{$alias.UpPlural}}(ctx context.Context, query model.{{$alias.UpSingular}}Query) ([]*model.{{$alias.UpSingular}}, *types.Int64, error)
+    List{{$alias.UpPlural}}ByIDs(ctx context.Context, ids []types.UUID) ([]*model.{{$alias.UpSingular}}, error)
     {{ range $fKey := .Table.FKeys -}}
         List{{$alias.UpPlural}}By{{ titleCase $fKey.Column }}({{if $.NoContext}}{{else}}ctx context.Context{{end}}, {{ camelCase $fKey.Column }} types.UUID) ([]*model.{{$alias.UpSingular}}, error)
     {{ end }}

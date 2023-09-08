@@ -136,21 +136,23 @@ func (r *repo) List{{$alias.UpPlural}}(ctx context.Context, query model.{{$alias
     ctx, span := r.tracer.Start(ctx, "{{ getServiceName }}.List{{$alias.UpPlural}}")
     defer span.End()
 
-    {{ if tableHasQueryWrapper .Table }}
-        // TODO : Activate this wrapper
-        //if err := wrap{{$alias.UpSingular}}Query(ctx, &query); err != nil {
-        //    return nil, nil, errors.Wrap(err, "failed to wrap query")
-        //}
-    {{ end }}
+    return r.list{{$alias.UpPlural}}(ctx, query)
+}
 
-    exec := database.GetBoilExec(ctx, r.db)
+func (r *repo) List{{$alias.UpPlural}}ByIDs(ctx context.Context, ids []types.UUID) ([]*model.{{$alias.UpSingular}}, error) {
+    ctx, span := r.tracer.Start(ctx, "{{ getServiceName }}.List{{$alias.UpPlural}}ByIDs")
+    defer span.End()
 
-    {{$alias.DownPlural}}, totalCount, err := orm.List{{$alias.UpPlural}}(ctx, exec, query)
+    query := model.New{{$alias.UpSingular}}Query()
+    query.Params.In = model.New{{$alias.UpSingular}}QueryParamsInFields()
+    query.Params.In.ID = ids
+
+    {{$alias.DownPlural}}, _, err := r.list{{$alias.UpPlural}}(ctx, query)
     if err != nil {
-		return nil, nil, errors.Wrap(err, errors.MessageCannotFindEntity("{{$alias.DownSingular}}"))
+		return nil, errors.Wrap(err, "cannot list {{$alias.DownPlural}} by ids")
 	}
 
-    return {{$alias.DownPlural}}, totalCount, nil
+    return {{$alias.DownPlural}}, nil
 }
 
 {{ range $fKey := .Table.FKeys -}}
@@ -162,7 +164,7 @@ func (r *repo) List{{$alias.UpPlural}}By{{ titleCase $fKey.Column }}({{if $.NoCo
     query.Params.Equals = model.New{{$alias.UpSingular}}QueryParamsFields()
     query.Params.Equals.{{ titleCase $fKey.Column }} = {{ camelCase $fKey.Column }}
 
-    {{$alias.DownPlural}}, _, err := r.List{{$alias.UpPlural}}(ctx, query)
+    {{$alias.DownPlural}}, _, err := r.list{{$alias.UpPlural}}(ctx, query)
     if err != nil {
 		return nil, errors.Wrap(err, errors.MessageCannotFindEntity("{{$alias.DownSingular}}"))
 	}
@@ -171,8 +173,26 @@ func (r *repo) List{{$alias.UpPlural}}By{{ titleCase $fKey.Column }}({{if $.NoCo
 }
 {{ end }}
 
+func (r *repo) list{{$alias.UpPlural}}(ctx context.Context, query model.{{$alias.UpSingular}}Query) ([]*model.{{$alias.UpSingular}}, *types.Int64, error) {
+    exec := database.GetBoilExec(ctx, r.db)
+
+    {{ if tableHasQueryWrapper .Table }}
+        // TODO : Activate this wrapper
+        //if err := wrap{{$alias.UpSingular}}Query(ctx, &query); err != nil {
+        //    return nil, nil, errors.Wrap(err, "failed to wrap query")
+        //}
+    {{ end }}
+
+    {{$alias.DownPlural}}, totalCount, err := orm.List{{$alias.UpPlural}}(ctx, exec, query)
+    if err != nil {
+		return nil, nil, errors.Wrap(err, errors.MessageCannotFindEntity("{{$alias.DownSingular}}"))
+	}
+
+    return {{$alias.DownPlural}}, totalCount, nil
+}
+
 func (r *repo) get{{$alias.UpSingular}}(ctx context.Context, query model.{{$alias.UpSingular}}Query) (*model.{{$alias.UpSingular}}, error) {
-	{{$alias.DownPlural}}, _, err := r.List{{$alias.UpPlural}}(ctx, query)
+	{{$alias.DownPlural}}, _, err := r.list{{$alias.UpPlural}}(ctx, query)
 	if err != nil {
 		return nil, errors.Wrap(err, errors.MessageCannotFindEntity("{{$alias.DownSingular}}"))
 	}
