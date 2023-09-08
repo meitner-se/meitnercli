@@ -19,6 +19,7 @@ func Boiler(outFolder, pkgORM, pkgServiceModel, pkgRepository, pkgErrors, pkgAud
 		}
 		cfg.Imports.All.ThirdParty = importers.List{
 			formatPkgImport("github.com/google/uuid"),
+			formatPkgImport("github.com/lib/pq"),
 			formatPkgImportWithAlias(pkgORM, "orm"),
 			formatPkgImportWithAlias(pkgServiceModel, "model"),
 			formatPkgImportWithAlias(pkgAuth, "auth"),

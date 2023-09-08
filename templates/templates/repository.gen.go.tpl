@@ -9,8 +9,15 @@
 
 type {{$alias.UpSingular}} interface {
     Create{{$alias.UpSingular}}(ctx context.Context, input *model.{{$alias.UpSingular}}) error
+
     Update{{$alias.UpSingular}}(ctx context.Context, input *model.{{$alias.UpSingular}}) error
+
     Delete{{$alias.UpSingular}}(ctx context.Context, input *model.{{$alias.UpSingular}}) error
+    {{ range $rel := getLoadRelations $.Tables .Table -}}
+    {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+        Delete{{$alias.UpSingular}}{{$relAlias.Local}}By{{ getLoadRelationName $.Aliases $rel | singular }}(ctx context.Context, {{ getLoadRelationName $.Aliases $rel | camelCase }} ...types.UUID) error
+    {{ end }}
+
     Get{{$alias.UpSingular}}(ctx context.Context, {{ $pkArgs }}) (*model.{{$alias.UpSingular}}, error)
     Get{{$alias.UpSingular}}WithQueryParams(ctx context.Context, queryParams model.{{$alias.UpSingular}}QueryParams) (*model.{{$alias.UpSingular}}, error)
 
@@ -22,6 +29,7 @@ type {{$alias.UpSingular}} interface {
     {{end -}}
 
     List{{$alias.UpPlural}}(ctx context.Context, query model.{{$alias.UpSingular}}Query) ([]*model.{{$alias.UpSingular}}, *types.Int64, error)
+    List{{$alias.UpPlural}}ByIDs(ctx context.Context, ids []types.UUID) ([]*model.{{$alias.UpSingular}}, error)
     {{ range $fKey := .Table.FKeys -}}
         List{{$alias.UpPlural}}By{{ titleCase $fKey.Column }}({{if $.NoContext}}{{else}}ctx context.Context{{end}}, {{ camelCase $fKey.Column }} types.UUID) ([]*model.{{$alias.UpSingular}}, error)
     {{ end }}

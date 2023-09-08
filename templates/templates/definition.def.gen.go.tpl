@@ -257,7 +257,7 @@ type {{$alias.UpSingular}}QueryParamsNullableFieldsRequest struct {
     {{ range $rel := getLoadRelations $.Tables .Table -}}
         // optional: true
         // type: "types.Bool"
-        {{ getLoadRelationName $.Aliases $rel }} bool
+        {{ getLoadRelationName $.Aliases $rel | singular }} bool
     {{end -}}{{- /* range relationships */ -}}
 
     {{ range $rel := getJoinRelations $.Tables .Table -}}

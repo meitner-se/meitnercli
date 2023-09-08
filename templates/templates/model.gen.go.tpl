@@ -769,6 +769,9 @@ type {{$alias.UpSingular}}Query struct {
     // Selected fields for the query, leave nil for all fields.
     SelectedFields *{{$alias.UpSingular}}QuerySelectedFields
 
+    // Selected fields for the query, leave nil for all fields.
+    Fields *{{$alias.UpSingular}}QueryFieldsWithOrderBy
+
     // To order by specific columns, by default we will always primary keys first as ascending
     OrderBy *{{$alias.UpSingular}}QueryOrderBy
     
@@ -782,6 +785,38 @@ type {{$alias.UpSingular}}Query struct {
 
     // Limit the number of returned rows
     Limit types.Int
+}
+
+func (q *{{$alias.UpSingular}}Query) Validate() error {
+    // TODO :
+    //  If any params are used, make sure the values are set
+    //  if the values aren't set, return a bad request error.
+    //
+    // This method is used in the List method in ORM-layer waiting to be implemented
+    //
+    // Use Context with deadline here since we use recursive functions
+
+    return nil
+}
+
+func (q *{{$alias.UpSingular}}Query) NewWrapper() *{{$alias.UpSingular}}QueryNested {
+    if !q.HasWrapper() {
+    	return new({{$alias.UpSingular}}QueryNested)
+    }
+
+    newWrapper := New{{$alias.UpSingular}}QueryNested()
+    newWrapper.OrCondition = types.NewBool(false)
+    newWrapper.Nested = []{{$alias.UpSingular}}QueryNested{*q.Wrapper}
+
+    return &newWrapper
+}
+
+func (q *{{$alias.UpSingular}}Query) HasWrapper() bool {
+    return q.Wrapper != nil
+}
+
+func (q *{{$alias.UpSingular}}Query) HasNested() bool {
+    return len(q.Nested) > 0
 }
 
 func New{{$alias.UpSingular}}QuerySelectedFields() {{$alias.UpSingular}}QuerySelectedFields {
@@ -798,6 +833,28 @@ type {{$alias.UpSingular}}QuerySelectedFields struct {
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         {{ $relAlias.Local | singular }}IDs types.Bool
     {{end -}}{{- /* range relationships */ -}}
+}
+
+type {{$alias.UpSingular}}QueryFieldsWithOrderBy struct {
+    {{- range $column := .Table.Columns}}
+    {{- $colAlias := $alias.Column $column.Name}}
+            {{$colAlias}} {{$alias.UpSingular}}QueryField
+    {{- end}}
+
+    {{ range $rel := getLoadRelations $.Tables .Table -}}
+        {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+        {{ $relAlias.Local | singular }}IDs bool
+    {{end -}}{{- /* range relationships */ -}}
+}
+
+type {{$alias.UpSingular}}QueryField struct {
+    Selected bool
+    OrderBy *{{$alias.UpSingular}}QueryFieldOrderBy
+}
+
+type {{$alias.UpSingular}}QueryFieldOrderBy struct {
+    Desc bool
+    Index int
 }
 
 func (hide {{$alias.UpSingular}}QuerySelectedFields) HideFields(o *{{$alias.UpSingular}}) {
@@ -858,6 +915,26 @@ type {{$alias.UpSingular}}QueryParams struct {
     NotLike *{{$alias.UpSingular}}QueryParamsLikeFields
 }
 
+func (q *{{$alias.UpSingular}}QueryParams) IsSet() bool {
+    switch {
+        case q.Equals != nil,
+            q.NotEquals != nil,
+            q.Empty != nil,
+            q.NotEmpty != nil,
+            q.In != nil,
+            q.NotIn != nil,
+            q.GreaterThan != nil,
+            q.SmallerThan != nil,
+            q.SmallerOrEqual != nil,
+            q.GreaterOrEqual != nil,
+            q.Like != nil,
+            q.NotLike != nil:
+            return true
+        default:
+            return false
+    }
+}
+
 func New{{$alias.UpSingular}}QueryParamsFields() *{{$alias.UpSingular}}QueryParamsFields {
     return &{{$alias.UpSingular}}QueryParamsFields{}
 }
@@ -884,18 +961,9 @@ func New{{$alias.UpSingular}}QueryParamsNullableFields() *{{$alias.UpSingular}}Q
 }
 
 type {{$alias.UpSingular}}QueryParamsNullableFields struct {
-    {{- range $column := .Table.Columns}}
-    {{- $colAlias := $alias.Column $column.Name}}
-        {{- if containsAny $.Table.PKey.Columns $column.Name }}
-            {{$colAlias}} types.Bool // Primary key is nullable on left joins
-        {{- end}}
-        {{if $column.Nullable -}}
-            {{$colAlias}} types.Bool
-        {{- end}}
-    {{- end}}
-    {{ range $rel := getLoadRelations $.Tables .Table -}}
-        {{ getLoadRelationName $.Aliases $rel }} types.Bool
-    {{end -}}{{- /* range relationships */ -}}
+    {{- range $colAlias := getQueryNullColumns .Aliases.Tables $.Tables .Table.Name}}
+        {{ $colAlias }} types.Bool
+    {{ end }}
     {{ range $rel := getJoinRelations $.Tables .Table -}}
         {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsNullableFields
     {{end -}}{{- /* range relationships */ -}}
@@ -912,9 +980,10 @@ type {{$alias.UpSingular}}QueryParamsInFields struct {
     {{- $stringTypes := "types.String, types.UUID, types.Time, types.Date" -}}
     {{- range $column := .Table.Columns}}
         {{- $colAlias := $alias.Column $column.Name -}}
-
         {{- if or (contains $column.Type $stringTypes) (hasPrefix "types.Int" $column.Type) }}
             {{$colAlias}} []{{$column.Type}}
+        {{ else if (isEnumDBType $column.DBType) }}
+            {{$colAlias}} []types.String
         {{- end -}}
 
     {{- end}}
