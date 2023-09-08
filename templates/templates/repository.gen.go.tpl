@@ -9,8 +9,15 @@
 
 type {{$alias.UpSingular}} interface {
     Create{{$alias.UpSingular}}(ctx context.Context, input *model.{{$alias.UpSingular}}) error
+
     Update{{$alias.UpSingular}}(ctx context.Context, input *model.{{$alias.UpSingular}}) error
+
     Delete{{$alias.UpSingular}}(ctx context.Context, input *model.{{$alias.UpSingular}}) error
+    {{ range $rel := getLoadRelations $.Tables .Table -}}
+    {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+        Delete{{$alias.UpSingular}}{{$relAlias.Local}}By{{ getLoadRelationName $.Aliases $rel | singular }}(ctx context.Context, {{ getLoadRelationName $.Aliases $rel | camelCase }} ...types.UUID) error
+    {{ end }}
+
     Get{{$alias.UpSingular}}(ctx context.Context, {{ $pkArgs }}) (*model.{{$alias.UpSingular}}, error)
     Get{{$alias.UpSingular}}WithQueryParams(ctx context.Context, queryParams model.{{$alias.UpSingular}}QueryParams) (*model.{{$alias.UpSingular}}, error)
 

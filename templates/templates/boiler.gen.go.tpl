@@ -94,6 +94,32 @@ func (r *repo) Delete{{$alias.UpSingular}}(ctx context.Context, input *model.{{$
     return nil
 }
 
+{{ range $rel := getLoadRelations $.Tables .Table }}
+{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+func (r *repo) Delete{{$alias.UpSingular}}{{$relAlias.Local}}By{{ getLoadRelationName $.Aliases $rel | singular }}(ctx context.Context, {{ getLoadRelationName $.Aliases $rel | camelCase }} ...types.UUID) error {
+    ctx, span := r.tracer.Start(ctx, "{{ getServiceName }}.Delete{{$alias.UpSingular}}{{$relAlias.Local}}By{{ getLoadRelationName $.Aliases $rel | singular }}")
+    defer span.End()
+
+	if len({{ getLoadRelationName $.Aliases $rel | camelCase }}) == 0 {
+		return nil
+	}
+
+	stringArray := make(pq.StringArray, len({{ getLoadRelationName $.Aliases $rel | camelCase }}))
+	for i := range {{ getLoadRelationName $.Aliases $rel | camelCase }} {
+		stringArray[i] = {{ getLoadRelationName $.Aliases $rel | camelCase }}[i].String()
+	}
+
+	exec := database.GetBoilExec(ctx, r.db)
+
+	_, err := exec.ExecContext(ctx, "DELETE FROM {{ getLoadRelationForeignTable $.Aliases $.Tables $rel }} WHERE \"{{ $rel.JoinForeignColumn }}\" = ANY($1::uuid[])", stringArray)
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
+
+	return nil
+}
+{{ end }}
+
 func (r *repo) Get{{$alias.UpSingular}}(ctx context.Context, id types.UUID) (*model.{{$alias.UpSingular}}, error) {
     ctx, span := r.tracer.Start(ctx, "{{ getServiceName }}.Get{{$alias.UpSingular}}")
     defer span.End()
@@ -256,4 +282,5 @@ var (
     _ = time.Second 	// Force time package dependency for automated UpdatedAt/CreatedAt.
     _ = uuid.Nil 		// Force uuid package dependency for generation UUIDs to entities
 	_ auth.Claims
+    _ pq.StringArray
 )
