@@ -112,29 +112,41 @@ func GetConfig(driverName, configFile, serviceName, typesPackage string) (*boili
 		},
 		Version: sqlBoilerVersion,
 		CustomTemplateFuncs: template.FuncMap{
-			"getJoinRelations":              getJoinRelations,
-			"getLoadRelations":              getLoadRelations,
-			"getLoadRelationStatement":      getLoadRelationStatement,
-			"getLoadRelationName":           getLoadRelationName,
-			"getLoadRelationColumn":         getLoadRelationColumn,
-			"getLoadRelationTableColumn":    getLoadRelationTableColumn,
-			"getLoadRelationType":           getLoadRelationType,
-			"getLoadRelations_enum_columns": getLoadRelationsEnumColumns,
-			"getQueryEqColumns":             getQueryEqColumns,
-			"getQueryNullColumns":           getQueryNullColumns,
-			"getQueryInColumns":             getQueryInColumns,
-			"getQueryComparableColumns":     getQueryComparableColumns,
-			"getQueryLikeColumns":           getQueryLikeColumns,
-			"isText":                        isText,
-			"getColumnMetadata":             getColumnMetadata,
-			"getColumnNameFileURL":          getColumnNameFileURL,
-			"getTableColumnOrder":           getTableColumnOrder,
-			"getTableOrderByColumns":        getTableOrderByColumns,
-			"getTableRichTextContents":      getTableRichTextContents,
-			"getServiceName":                func() string { return serviceName },
-			"stripPrefix":                   strings.TrimPrefix,
-			"tableHasCustomConversion":      tableHasCustomConversion,
-			"tableHasFile":                  tableHasFile,
+			"getJoinRelations":                   getJoinRelations,
+			"getLoadRelationForeignTable":        getLoadRelationForeignTable,
+			"getLoadRelationForeignKey":          getLoadRelationForeignKey,
+			"getLoadRelationReferenceKey":        getLoadRelationReferenceKey,
+			"getLoadRelations":                   getLoadRelations,
+			"getLoadRelationStatement":           getLoadRelationStatement,
+			"getLoadRelationName":                getLoadRelationName,
+			"getLoadRelationColumn":              getLoadRelationColumn,
+			"getLoadRelationTableColumn":         getLoadRelationTableColumn,
+			"getLoadRelationType":                getLoadRelationType,
+			"getLoadRelations_enum_columns":      getLoadRelationsEnumColumns,
+			"getQueryEqColumns":                  getQueryEqColumns,
+			"getQueryNullColumns":                getQueryNullColumns,
+			"getQueryInColumns":                  getQueryInColumns,
+			"getQueryComparableColumns":          getQueryComparableColumns,
+			"getQueryLikeColumns":                getQueryLikeColumns,
+			"isText":                             isText,
+			"isPrimaryKey":                       isPrimaryKey,
+			"hasOrderBy":                         hasOrderBy,
+			"hasLoadRelations":                   hasLoadRelations,
+			"getOrderByIndex":                    getOrderByIndex,
+			"getOrderByDesc":                     getOrderByDesc,
+			"getColumnMetadata":                  getColumnMetadata,
+			"getColumnNameFileURL":               getColumnNameFileURL,
+			"getTableColumnOrder":                getTableColumnOrder,
+			"getTableOrderByColumns":             getTableOrderByColumns,
+			"getTableRichTextContents":           getTableRichTextContents,
+			"getServiceName":                     func() string { return serviceName },
+			"stripPrefix":                        strings.TrimPrefix,
+			"tableHasCustomConversion":           tableHasCustomConversion,
+			"tableHasFile":                       tableHasFile,
+			"tableHasQueryWrapper":               tableHasQueryWrapper,
+			"tableHasColumnOrganizationID":       tableHasColumnOrganizationID,
+			"tableHasColumnSchoolOrganizationID": tableHasColumnSchoolOrganizationID,
+			"tableHasColumnUnitOrganizationID":   tableHasColumnUnitOrganizationID,
 		},
 	}
 
@@ -644,6 +656,90 @@ func getLoadRelationTableColumn(tables []drivers.Table, rel drivers.ToManyRelati
 	panic("load relation column not found")
 }
 
+func getLoadRelationForeignTable(aliases boilingcore.Aliases, tables []drivers.Table, rel drivers.ToManyRelationship) string {
+	quoteFunc := func(s string) string { return fmt.Sprintf(`\"%s\"`, s) }
+
+	for _, t := range tables {
+		if t.Name != rel.ForeignTable {
+			continue
+		}
+
+		if rel.ToJoinTable {
+			return quoteFunc(rel.JoinTable)
+		}
+
+		for _, column := range t.Columns {
+			if column.Name == rel.ForeignColumn {
+				continue
+			}
+
+			return quoteFunc(t.Name)
+		}
+	}
+
+	panic("load relation column not found")
+}
+
+func getLoadRelationReferenceKey(aliases boilingcore.Aliases, tables []drivers.Table, rel drivers.ToManyRelationship) string {
+	quoteFunc := func(s string) string { return fmt.Sprintf(`\"%s\"`, s) }
+
+	for _, t := range tables {
+		if t.Name != rel.ForeignTable {
+			continue
+		}
+
+		if rel.ToJoinTable {
+			return fmt.Sprintf("%s.%s",
+				quoteFunc(rel.Table),
+				quoteFunc(rel.ForeignColumn),
+			)
+		}
+
+		for _, column := range t.Columns {
+			if column.Name == rel.ForeignColumn {
+				continue
+			}
+
+			return fmt.Sprintf("%s.%s",
+				quoteFunc(rel.Table),
+				quoteFunc(rel.Column),
+			)
+		}
+	}
+
+	panic("load relation column not found")
+}
+
+func getLoadRelationForeignKey(aliases boilingcore.Aliases, tables []drivers.Table, rel drivers.ToManyRelationship) string {
+	quoteFunc := func(s string) string { return fmt.Sprintf(`\"%s\"`, s) }
+
+	for _, t := range tables {
+		if t.Name != rel.ForeignTable {
+			continue
+		}
+
+		if rel.ToJoinTable {
+			return fmt.Sprintf("%s.%s",
+				quoteFunc(rel.JoinTable),
+				quoteFunc(rel.JoinLocalColumn),
+			)
+		}
+
+		for _, column := range t.Columns {
+			if column.Name == rel.ForeignColumn {
+				continue
+			}
+
+			return fmt.Sprintf("%s.%s",
+				quoteFunc(t.Name),
+				quoteFunc(rel.ForeignColumn),
+			)
+		}
+	}
+
+	panic("load relation column not found")
+}
+
 func getLoadRelationStatement(aliases boilingcore.Aliases, tables []drivers.Table, rel drivers.ToManyRelationship) string {
 	quoteFunc := func(s string) string { return fmt.Sprintf(`\"%s\"`, s) }
 
@@ -729,6 +825,17 @@ func getLoadRelations(tables []drivers.Table, fromTable drivers.Table) []drivers
 		for _, t := range tables {
 			if !isLoadTable(t, toManyRelationship) {
 				continue
+			}
+
+			if !toManyRelationship.ToJoinTable {
+				for _, column := range t.Columns {
+					switch column.Name {
+					case toManyRelationship.ForeignColumn:
+						toManyRelationship.JoinLocalColumn = column.Name
+					default:
+						toManyRelationship.JoinForeignColumn = column.Name
+					}
+				}
 			}
 
 			toManyRelationships = append(toManyRelationships, toManyRelationship)
@@ -916,6 +1023,88 @@ func isText(aliases map[string]boilingcore.TableAlias, table drivers.Table, colu
 	}
 
 	return false
+}
+
+func isPrimaryKey(table drivers.Table, column drivers.Column) bool {
+	if table.PKey == nil {
+		return false
+	}
+
+	for _, pk := range table.PKey.Columns {
+		if pk == column.Name {
+			return true
+		}
+	}
+
+	return false
+}
+
+func hasOrderBy(column drivers.Column) bool {
+	c := getColumnMetadata(column)
+
+	return c.Sort != nil
+}
+
+func hasLoadRelations(tables []drivers.Table, fromTable drivers.Table) bool {
+	for _, toManyRelationship := range fromTable.ToManyRelationships {
+		for _, t := range tables {
+			if !isLoadTable(t, toManyRelationship) {
+				continue
+			}
+
+			return true
+		}
+	}
+
+	return false
+}
+
+func tableHasQueryWrapper(t drivers.Table) bool {
+	return tableHasColumnOrganizationID(t) ||
+		tableHasColumnSchoolOrganizationID(t) ||
+		tableHasColumnUnitOrganizationID(t)
+}
+
+func tableHasColumnOrganizationID(table drivers.Table) bool {
+	for _, column := range table.Columns {
+		if column.Name == "organization_id" {
+			return true
+		}
+	}
+
+	return false
+}
+
+func tableHasColumnSchoolOrganizationID(table drivers.Table) bool {
+	for _, column := range table.Columns {
+		if column.Name == "school_organization_id" {
+			return true
+		}
+	}
+
+	return false
+}
+
+func tableHasColumnUnitOrganizationID(table drivers.Table) bool {
+	for _, column := range table.Columns {
+		if column.Name == "unit_organization_id" {
+			return true
+		}
+	}
+
+	return false
+}
+
+func getOrderByIndex(column drivers.Column) int {
+	c := getColumnMetadata(column)
+
+	return c.Sort.Order
+}
+
+func getOrderByDesc(column drivers.Column) bool {
+	c := getColumnMetadata(column)
+
+	return c.Sort.Desc
 }
 
 func tableHasCustomConversion(t drivers.Table) bool {
