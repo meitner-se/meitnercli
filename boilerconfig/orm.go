@@ -28,6 +28,7 @@ func ORM(outFolder, pkgServiceModel, pkgAudit, pkgCache, pkgErrors, pkgSlices st
 			formatPkgImport("github.com/lib/pq"),
 			formatPkgImport("github.com/volatiletech/sqlboiler/v4/boil"),
 			formatPkgImport("github.com/volatiletech/sqlboiler/v4/queries/qm"),
+			formatPkgImport("go.opentelemetry.io/otel/trace"),
 		}
 		cfg.DefaultTemplates = templates.ORM
 	}

@@ -434,7 +434,7 @@ func check{{$alias.UpSingular}}QueryParamsRecursive(checkParamsFunc func(model.{
 }
 
 func {{$alias.UpSingular}}QueryStatementWithPagination(ctx context.Context, q *model.{{$alias.UpSingular}}Query) (string, []any) {
-    // TODO : Add context deadline (this method should be fast)
+    // TODO : Add context deadline, this method should be fast and not be slower than a second (generous)
 
 	queryBuilder := querybuilder.New("\"{{ .Table.Name }}\"")
 
@@ -444,16 +444,16 @@ func {{$alias.UpSingular}}QueryStatementWithPagination(ctx context.Context, q *m
 	build{{$alias.UpSingular}}QueryOffset(q, queryBuilder)
 	build{{$alias.UpSingular}}QueryLimit(q, queryBuilder)
 
-	//span := trace.SpanFromContext(ctx)
+	span := trace.SpanFromContext(ctx)
 
 	return fmt.Sprintf("-- TraceID:%s\n%s",
-	    "TraceID", // span.SpanContext().TraceID().String()
+	    span.SpanContext().TraceID().String(),
 	    queryBuilder.String(),
     ), queryBuilder.Params()
 }
 
 func {{$alias.UpSingular}}QueryStatementForCount(ctx context.Context, q *model.{{$alias.UpSingular}}Query) (string, []any) {
-    // TODO : Add context deadline (this method should be fast)
+    // TODO : Add context deadline, this method should be fast and not be slower than a second (generous)
 
 	queryBuilder := querybuilder.New("\"{{ .Table.Name }}\"")
 
@@ -461,10 +461,10 @@ func {{$alias.UpSingular}}QueryStatementForCount(ctx context.Context, q *model.{
 	build{{$alias.UpSingular}}QueryJoins(q, queryBuilder)
 	build{{$alias.UpSingular}}QueryWhere(q, queryBuilder)
 
-	//span := trace.SpanFromContext(ctx)
+	span := trace.SpanFromContext(ctx)
 
 	return fmt.Sprintf("-- TraceID:%s\n%s",
-	    "TraceID", // span.SpanContext().TraceID().String()
+	    span.SpanContext().TraceID().String(),
 	    queryBuilder.String(),
     ), queryBuilder.Params()
 }
@@ -472,7 +472,7 @@ func {{$alias.UpSingular}}QueryStatementForCount(ctx context.Context, q *model.{
 func build{{$alias.UpSingular}}QuerySelectForCount(q *model.{{$alias.UpSingular}}Query, selector querybuilder.Selector) {
     // If the query has a left join, wrap the primary key with a distinct on
     if {{$alias.DownSingular}}QueryHasLeftJoin(q) {
-        selector.Select("COUNT(DISTINCT ON (" + {{$alias.UpSingular}}QueryColumns.ID + "))")
+        selector.Select("COUNT(DISTINCT (" + {{$alias.UpSingular}}QueryColumns.ID + "))")
     } else {
         selector.Select("COUNT(" + {{$alias.UpSingular}}QueryColumns.ID + ")")
     }
