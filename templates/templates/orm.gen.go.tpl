@@ -283,7 +283,7 @@ func List{{$alias.UpPlural}}({{if .NoContext}}exec boil.Executor{{else}}ctx cont
     for rows.Next() {
     	var {{$alias.DownSingular}} model.{{$alias.UpSingular}}
 
-    	if err := rows.Scan(get{{$alias.UpSingular}}ValuesForScan(&{{$alias.DownSingular}}, query.Fields)...); err != nil {
+    	if err := rows.Scan(get{{$alias.UpSingular}}ValuesForScan(&{{$alias.DownSingular}}, query.SelectedFields)...); err != nil {
     		return nil, nil, errors.Wrap(err, "cannot scan row for {{$alias.DownSingular}}")
     	}
 
@@ -295,7 +295,7 @@ func List{{$alias.UpPlural}}({{if .NoContext}}exec boil.Executor{{else}}ctx cont
     }
 
     {{ if hasLoadRelations $.Tables .Table }}
-        if err := load{{$alias.UpSingular}}Relationships(ctx, exec, query.Fields, {{$alias.DownPlural}}...); err != nil {
+        if err := load{{$alias.UpSingular}}Relationships(ctx, exec, query.SelectedFields, {{$alias.DownPlural}}...); err != nil {
             return nil, nil, errors.Wrap(err, "got error when loading relationships")
         }
     {{ end }}
@@ -322,7 +322,7 @@ func List{{$alias.UpPlural}}({{if .NoContext}}exec boil.Executor{{else}}ctx cont
 }
 
 {{ if hasLoadRelations $.Tables .Table }}
-func load{{$alias.UpSingular}}Relationships(ctx context.Context, exec boil.ContextExecutor, fields *model.{{$alias.UpSingular}}QueryFieldsWithOrderBy, {{$alias.DownPlural}} ...*model.{{$alias.UpSingular}}) error {
+func load{{$alias.UpSingular}}Relationships(ctx context.Context, exec boil.ContextExecutor, fields *model.{{$alias.UpSingular}}QuerySelectedFields, {{$alias.DownPlural}} ...*model.{{$alias.UpSingular}}) error {
     if len({{$alias.DownPlural}}) == 0 {
         return nil // Nothing to load since we don't have any {{$alias.DownPlural}}
     }
@@ -339,7 +339,7 @@ func load{{$alias.UpSingular}}Relationships(ctx context.Context, exec boil.Conte
 
     {{ range $rel := getLoadRelations $.Tables .Table -}}
     {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-        if fields.{{$relAlias.Local | singular }}IDs {
+        if fields.{{$relAlias.Local | singular }}IDs.Bool() {
             err := load{{$alias.UpSingular}}{{$relAlias.Local | singular }}IDs(ctx, exec, {{$alias.DownSingular}}IDs, {{$alias.DownSingular}}Map)
             if err != nil {
                 return errors.Wrap(err, "failed to load {{$relAlias.Local | singular }}IDs")
@@ -441,6 +441,7 @@ func {{$alias.UpSingular}}QueryStatementWithPagination(ctx context.Context, q *m
 	build{{$alias.UpSingular}}QuerySelectWithColumns(q, queryBuilder)
 	build{{$alias.UpSingular}}QueryJoins(q, queryBuilder)
 	build{{$alias.UpSingular}}QueryWhere(q, queryBuilder)
+	build{{$alias.UpSingular}}QueryOrderBy(q.OrderBy, queryBuilder, false)
 	build{{$alias.UpSingular}}QueryOffset(q, queryBuilder)
 	build{{$alias.UpSingular}}QueryLimit(q, queryBuilder)
 
@@ -479,24 +480,20 @@ func build{{$alias.UpSingular}}QuerySelectForCount(q *model.{{$alias.UpSingular}
 }
 
 func build{{$alias.UpSingular}}QuerySelectWithColumns(q *model.{{$alias.UpSingular}}Query, selector querybuilder.Selector) {
-    if q.Fields == nil {
-        q.Fields = all{{$alias.UpSingular}}QueryFields
+    if q.SelectedFields == nil {
+        q.SelectedFields = all{{$alias.UpSingular}}QuerySelectedFields
     }
 
     {{- range $column := .Table.Columns}}
     {{- $colAlias := $alias.Column $column.Name}}
-        if q.Fields.{{$colAlias}}.Selected {
+        if q.SelectedFields.{{$colAlias}}.Bool() {
             {{- if isPrimaryKey $.Table $column }}
                 // If the query has a left join, wrap the primary key with a distinct on
                 if {{$alias.DownSingular}}QueryHasLeftJoin(q) {
                     selector.DistinctOn({{$alias.UpSingular}}QueryColumns.{{$colAlias}})
                 }
             {{- end }}
-            if q.Fields.{{$colAlias}}.OrderBy != nil {
-                selector.SelectWithOrderBy({{$alias.UpSingular}}QueryColumns.{{$colAlias}}, q.Fields.{{$colAlias}}.OrderBy.Index, q.Fields.{{$colAlias}}.OrderBy.Desc)
-            } else {
-                selector.Select({{$alias.UpSingular}}QueryColumns.{{$colAlias}})
-            }
+            selector.Select({{$alias.UpSingular}}QueryColumns.{{$colAlias}})
         }
     {{- end}}
 }
@@ -689,6 +686,48 @@ func build{{$alias.UpSingular}}QueryWhereParamsLikeFields(params *model.{{$alias
     {{end -}}{{- /* range relationships */ -}}
 }
 
+func build{{$alias.UpSingular}}QueryOrderBy(q *model.{{$alias.UpSingular}}QueryOrderBy, orderer querybuilder.Orderer, fromJoin bool) {
+    // Add defaults to the orderBy, if it doesn't come from a Join
+    if !fromJoin {
+        {{- range $column := .Table.Columns}}
+        {{- $colAlias := $alias.Column $column.Name}}
+            {{- if isPrimaryKey $.Table $column }}
+                if q == nil || q.{{$colAlias}} == nil {
+                    orderer.AddOrderBy({{$alias.UpSingular}}QueryColumns.{{$colAlias}}, 0, false)
+                }
+            {{- else if $column.Name | eq "created_at" }}
+                if q == nil || q.{{$colAlias}} == nil {
+                    orderer.AddOrderBy({{$alias.UpSingular}}QueryColumns.{{$colAlias}}, 1, false)
+                }
+            {{- else if hasOrderBy $column }}
+                if q == nil || q.{{$colAlias}} == nil {
+                    orderer.AddOrderBy({{$alias.UpSingular}}QueryColumns.{{$colAlias}}, {{ getOrderByIndex $column }} + 2, {{ getOrderByDesc $column }}) // + 2 because of primary key and created_at are default
+                }
+            {{ end }}
+        {{- end }}
+    }
+
+    if q == nil {
+        return // Return early if the client hasn't provided an order by
+    }
+
+    // Add the orderBy from the client, always increment the index by 500,
+    // so that the default order won't be affected.
+    {{ range $column := .Table.Columns -}}
+    {{- $colAlias := $alias.Column $column.Name -}}
+        if q.{{ $colAlias}} != nil {
+            orderer.AddOrderBy({{$alias.UpSingular}}QueryColumns.{{$colAlias}}, q.{{ $colAlias}}.Index+500, q.{{ $colAlias}}.Desc)
+        }
+    {{ end -}}
+
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+    {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+        if q.{{$relAlias.Local | singular }} != nil {
+            build{{$relAlias.Local | singular }}QueryOrderBy(q.{{$relAlias.Local | singular }}, orderer, true)
+        }
+    {{ end -}}
+}
+
 func build{{$alias.UpSingular}}QueryOffset(q *model.{{$alias.UpSingular}}Query, limiter querybuilder.Limiter) {
     if !q.Offset.IsNil() {
         limiter.Offset(q.Offset.Int())
@@ -773,6 +812,10 @@ func {{$alias.DownSingular}}QueryHasJoinOn{{$relAlias.Local | singular }}(q *mod
 {{ range $rel := getJoinRelations $.Tables .Table -}}
 {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
 func {{$alias.DownSingular}}QueryHasJoinOn{{$relAlias.Local | singular }}(q *model.{{$alias.UpSingular}}Query) bool {
+    if q.OrderBy != nil && q.OrderBy.{{$relAlias.Local | singular }} != nil {
+        return true
+    }
+
     hasJoin := false
 
     checkParams := func(p model.{{$alias.UpSingular}}QueryParams) {
@@ -940,44 +983,24 @@ func {{$alias.DownSingular}}QueryHasWhere(q *model.{{$alias.UpSingular}}Query) b
     }
 }
 
-var all{{$alias.UpSingular}}QueryFields = &model.{{$alias.UpSingular}}QueryFieldsWithOrderBy{
+var all{{$alias.UpSingular}}QuerySelectedFields = &model.{{$alias.UpSingular}}QuerySelectedFields{
     {{- range $column := .Table.Columns}}
     {{- $colAlias := $alias.Column $column.Name}}
-            {{$colAlias}}: model.{{$alias.UpSingular}}QueryField{
-                Selected: true,
-                {{- if isPrimaryKey $.Table $column }}
-                    OrderBy: &model.{{$alias.UpSingular}}QueryFieldOrderBy {
-                        Index: 0,
-                        Desc:  false,
-                    },
-                {{ else if $column.Name | eq "created_at" }}
-                    OrderBy: &model.{{$alias.UpSingular}}QueryFieldOrderBy{
-                        Index: 1,
-                        Desc:  true,
-                    },
-                {{- else if hasOrderBy $column }}
-                    OrderBy: &model.{{$alias.UpSingular}}QueryFieldOrderBy{
-                        Index: {{ getOrderByIndex $column }} + 2, // + 2 because of primary key and created_at are default
-                        Desc:  {{ getOrderByDesc $column }},
-                    },
-                {{- else }}
-                    OrderBy: nil,
-                {{- end }}
-            },
+        {{$colAlias}}: types.NewBool(true),
     {{- end}}
 
     {{- range $rel := getLoadRelations $.Tables .Table -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-        {{ $relAlias.Local | singular }}IDs: true,
+        {{ $relAlias.Local | singular }}IDs: types.NewBool(true),
     {{end -}}{{- /* range relationships */ -}}
 }
 
-func get{{$alias.UpSingular}}ValuesForScan({{$alias.DownSingular}} *model.{{$alias.UpSingular}}, fields *model.{{$alias.UpSingular}}QueryFieldsWithOrderBy) []any {
+func get{{$alias.UpSingular}}ValuesForScan({{$alias.DownSingular}} *model.{{$alias.UpSingular}}, fields *model.{{$alias.UpSingular}}QuerySelectedFields) []any {
     values := make([]any, 0)
 
     {{range $column := .Table.Columns -}}
         {{- $colAlias := $alias.Column $column.Name -}}
-        if fields.{{ $colAlias }}.Selected {
+        if fields.{{ $colAlias }}.Bool() {
             values = append(values, &{{$alias.DownSingular}}.{{ $colAlias }})
         }
     {{end }}
