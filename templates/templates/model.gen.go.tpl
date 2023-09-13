@@ -769,9 +769,6 @@ type {{$alias.UpSingular}}Query struct {
     // Selected fields for the query, leave nil for all fields.
     SelectedFields *{{$alias.UpSingular}}QuerySelectedFields
 
-    // Selected fields for the query, leave nil for all fields.
-    Fields *{{$alias.UpSingular}}QueryFieldsWithOrderBy
-
     // To order by specific columns, by default we will always primary keys first as ascending
     OrderBy *{{$alias.UpSingular}}QueryOrderBy
     
@@ -833,28 +830,6 @@ type {{$alias.UpSingular}}QuerySelectedFields struct {
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         {{ $relAlias.Local | singular }}IDs types.Bool
     {{end -}}{{- /* range relationships */ -}}
-}
-
-type {{$alias.UpSingular}}QueryFieldsWithOrderBy struct {
-    {{- range $column := .Table.Columns}}
-    {{- $colAlias := $alias.Column $column.Name}}
-            {{$colAlias}} {{$alias.UpSingular}}QueryField
-    {{- end}}
-
-    {{ range $rel := getLoadRelations $.Tables .Table -}}
-        {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
-        {{ $relAlias.Local | singular }}IDs bool
-    {{end -}}{{- /* range relationships */ -}}
-}
-
-type {{$alias.UpSingular}}QueryField struct {
-    Selected bool
-    OrderBy *{{$alias.UpSingular}}QueryFieldOrderBy
-}
-
-type {{$alias.UpSingular}}QueryFieldOrderBy struct {
-    Desc bool
-    Index int
 }
 
 func (hide {{$alias.UpSingular}}QuerySelectedFields) HideFields(o *{{$alias.UpSingular}}) {
@@ -1044,6 +1019,9 @@ type {{$alias.UpSingular}}QueryOrderBy struct {
     {{- $colAlias := $alias.Column $column.Name}}
             {{$colAlias}} *{{$alias.UpSingular}}QueryOrderByField
     {{- end}}
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+        {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryOrderBy
+    {{end -}}{{- /* range relationships */ -}}
 }
 
 type {{$alias.UpSingular}}QueryOrderByField struct {
