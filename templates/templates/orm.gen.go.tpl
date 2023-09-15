@@ -441,7 +441,7 @@ func {{$alias.UpSingular}}QueryStatementWithPagination(ctx context.Context, q *m
 	build{{$alias.UpSingular}}QuerySelectWithColumns(q, queryBuilder)
 	build{{$alias.UpSingular}}QueryJoins(q, queryBuilder)
 	build{{$alias.UpSingular}}QueryWhere(q, queryBuilder)
-	build{{$alias.UpSingular}}QueryOrderBy(q.OrderBy, queryBuilder, false)
+	build{{$alias.UpSingular}}QueryOrderBy(q.OrderBy, q.SelectedFields, queryBuilder, false)
 	build{{$alias.UpSingular}}QueryOffset(q, queryBuilder)
 	build{{$alias.UpSingular}}QueryLimit(q, queryBuilder)
 
