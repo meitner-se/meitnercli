@@ -342,9 +342,15 @@ type {{$alias.UpSingular}}QueryParamsLikeFieldsRequest struct {
 type {{$alias.UpSingular}}QueryOrderByRequest struct {
     {{- range $column := .Table.Columns}}
     {{- $colAlias := $alias.Column $column.Name}}
-            // optional: true
-            {{$colAlias}} *{{$alias.UpSingular}}QueryOrderByFieldRequest
+        // optional: true
+        {{$colAlias}} *{{$alias.UpSingular}}QueryOrderByFieldRequest
     {{- end}}
+
+    {{ range $rel := getJoinRelations $.Tables .Table -}}
+    {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+        // optional: true
+        {{$relAlias.Local | singular }} *{{$relAlias.Local | singular }}QueryOrderByRequest
+    {{ end -}}
 }
 
 type {{$alias.UpSingular}}QueryOrderByFieldRequest struct {

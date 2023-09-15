@@ -221,6 +221,10 @@ func {{$alias.DownSingular}}QueryOrderByToModel(toModel *api.{{$alias.UpSingular
 		{{- $colAlias := $alias.Column $column.Name}}
 				{{$colAlias}}: (*model.{{$alias.UpSingular}}QueryOrderByField)(toModel.{{$colAlias}}),
 		{{- end}}
+        {{ range $rel := getJoinRelations $.Tables .Table -}}
+        {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+            {{$relAlias.Local | singular }}: {{$relAlias.Local | singular | camelCase }}QueryOrderByToModel(toModel.{{$relAlias.Local | singular }}),
+        {{ end -}}
 	}
 }
 
