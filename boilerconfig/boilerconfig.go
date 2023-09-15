@@ -136,6 +136,7 @@ func GetConfig(driverName, configFile, serviceName, typesPackage string) (*boili
 			"getOrderByDesc":                     getOrderByDesc,
 			"getColumnMetadata":                  getColumnMetadata,
 			"getColumnNameFileURL":               getColumnNameFileURL,
+			"getTable":                           getTable,
 			"getTableColumnOrder":                getTableColumnOrder,
 			"getTableOrderByColumns":             getTableOrderByColumns,
 			"getTableRichTextContents":           getTableRichTextContents,
@@ -333,6 +334,16 @@ func getColumnMetadata(c drivers.Column) ColumnMetadata {
 	}
 
 	return columnMetadata
+}
+
+func getTable(tables []drivers.Table, name string) drivers.Table {
+	for i := range tables {
+		if tables[i].Name == name {
+			return tables[i]
+		}
+	}
+
+	panic("table not found: " + name)
 }
 
 // getColumnNameFileURL takes a column alias for a file,
