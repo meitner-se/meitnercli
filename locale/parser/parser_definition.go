@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
-	"log/slog"
 	"os"
 	"sort"
 	"strings"
@@ -15,8 +14,6 @@ import (
 )
 
 func ParseDefinitions(ctx context.Context, filename string) ([]*Definition, error) {
-	slog.Info("START Parse Definitions")
-
 	file, fileset, err := parseFile(ctx, filename)
 	if err != nil {
 		return nil, err
@@ -75,8 +72,6 @@ func ParseDefinitions(ctx context.Context, filename string) ([]*Definition, erro
 		fmt.Fprintf(os.Stderr, "Fields are not alphabetically sorted:\n%s\n", strings.Join(errors, "\n"))
 		os.Exit(1)
 	}
-
-	slog.Info("FINISH Parse Definitions")
 
 	return v.definitions, nil
 }
