@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/meitner-se/meitnercli/locale"
 	// embed the psql driver in order to use it directly (no need to have it installed)
 	_ "github.com/volatiletech/sqlboiler/v4/drivers/sqlboiler-psql/driver"
 
@@ -90,6 +91,15 @@ type config struct {
 			Types    string `conf:"help:name of the types package which should be used in generation, default:meitner/pkg/types"`
 			Valid    string `conf:"help:name of the valid package which should be used to add validations in generation, default:meitner/pkg/valid"`
 		}
+	}
+	Locale struct {
+		Only                   bool   `conf:"help:only generate locale files, default:false"`
+		SkipValidation         bool   `conf:"" yaml:"skip_validation"`
+		DefinitionInputFile    string `conf:"" yaml:"definition_input_file"`
+		DefinitionOutputFileGO string `conf:"" yaml:"definition_output_file_go"`
+		ValuesInputFile        string `conf:"" yaml:"values_input_file"`
+		ValuesOutputFileGO     string `conf:"" yaml:"values_output_file_go"`
+		ValuesOutputFileTS     string `conf:"" yaml:"values_output_file_ts"`
 	}
 	OtoSkipBackend     bool `conf:"help:skip backend oto templates, default:false" yaml:"oto_skip_backend_only"`
 	OtoSkipAfterScript bool `conf:"help:skip after script oto, default:false" yaml:"oto_skip_after_script"`
@@ -174,6 +184,26 @@ func generate(cfg config) error {
 	service := &cfg.Service
 	if cfg.Service == "" {
 		service = nil
+	}
+
+	localeConfig := locale.Config{
+		SkipValidation:         cfg.Locale.SkipValidation,
+		DefinitionInputFile:    cfg.Locale.DefinitionInputFile,
+		DefinitionOutputFileGO: cfg.Locale.DefinitionOutputFileGO,
+		ValuesInputFile:        cfg.Locale.ValuesInputFile,
+		ValuesOutputFileGO:     cfg.Locale.ValuesOutputFileGO,
+		ValuesOutputFileTS:     cfg.Locale.ValuesOutputFileTS,
+		AuthPKG:                cfg.Go.Packages.Auth,
+	}
+
+	err := locale.Generate(context.Background(), localeConfig)
+	if err != nil {
+		return err
+	}
+
+	// Do not generate anything more if only locale is specified
+	if cfg.Locale.Only {
+		return nil
 	}
 
 	configFilePaths, err := getConfigFilePaths(cfg.Go.RootDir, cfg.Go.ServiceDir, service)
