@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
-	"log/slog"
 	"regexp"
 	"strings"
 
@@ -45,9 +44,6 @@ type ObjectFieldValueSchoolType struct {
 }
 
 func ParseValues(ctx context.Context, definitions []*Definition, filename string, skipValidation bool) (*Object, error) {
-	slog.Info("START Parse Values")
-	defer slog.Info("FINISH Parse Values")
-
 	file, fileset, err := parseFile(ctx, filename)
 	if err != nil {
 		return nil, err
