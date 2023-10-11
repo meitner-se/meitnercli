@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log/slog"
 	"os"
 	"strings"
 
@@ -26,8 +25,6 @@ type Config struct {
 }
 
 func Generate(ctx context.Context, config Config) error {
-	slog.Info("Generate locale", config)
-
 	definitions, err := parser.ParseDefinitions(ctx, config.DefinitionInputFile)
 	if err != nil {
 		return err
@@ -50,15 +47,10 @@ func Generate(ctx context.Context, config Config) error {
 		return err
 	}
 
-	slog.Info("Finished locale")
-
 	return nil
 }
 
 func generateDefinitionsGO(definitions []*parser.Definition, outputFile string) error {
-	slog.Info("START Generate Definitions GO")
-	defer slog.Info("FINISH Generate Definitions GO")
-
 	out, err := os.Create(outputFile)
 	if err != nil {
 		return errors.Wrap(err, "cannot create output file")
@@ -90,9 +82,6 @@ func generateDefinitionsGO(definitions []*parser.Definition, outputFile string) 
 }
 
 func generateValuesTS(values *parser.Object, outputFile string) error {
-	slog.Info("START Generate Values TS")
-	defer slog.Info("FINISH Generate Values TS")
-
 	out, err := os.Create(outputFile)
 	if err != nil {
 		return errors.Wrap(err, "cannot create output file")
@@ -211,9 +200,6 @@ func generateValueOptions(out io.Writer, prefix string, fields []parser.ObjectFi
 }
 
 func generateValuesGO(values *parser.Object, outputFile, pkgAuth string) error {
-	slog.Info("START Generate Values GO")
-	defer slog.Info("FINISH Generate Values GO")
-
 	out, err := os.Create(outputFile)
 	if err != nil {
 		return errors.Wrap(err, "cannot create output file")
