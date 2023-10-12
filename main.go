@@ -14,7 +14,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/meitner-se/meitnercli/locale"
 	// embed the psql driver in order to use it directly (no need to have it installed)
 	_ "github.com/volatiletech/sqlboiler/v4/drivers/sqlboiler-psql/driver"
 
@@ -186,20 +185,20 @@ func generate(cfg config) error {
 		service = nil
 	}
 
-	localeConfig := locale.Config{
-		SkipValidation:         cfg.Locale.SkipValidation,
-		DefinitionInputFile:    cfg.Locale.DefinitionInputFile,
-		DefinitionOutputFileGO: cfg.Locale.DefinitionOutputFileGO,
-		ValuesInputFile:        cfg.Locale.ValuesInputFile,
-		ValuesOutputFileGO:     cfg.Locale.ValuesOutputFileGO,
-		ValuesOutputFileTS:     cfg.Locale.ValuesOutputFileTS,
-		AuthPKG:                cfg.Go.Packages.Auth,
-	}
-
-	err := locale.Generate(context.Background(), localeConfig)
-	if err != nil {
-		return err
-	}
+	//localeConfig := locale.Config{
+	//	SkipValidation:         cfg.Locale.SkipValidation,
+	//	DefinitionInputFile:    cfg.Locale.DefinitionInputFile,
+	//	DefinitionOutputFileGO: cfg.Locale.DefinitionOutputFileGO,
+	//	ValuesInputFile:        cfg.Locale.ValuesInputFile,
+	//	ValuesOutputFileGO:     cfg.Locale.ValuesOutputFileGO,
+	//	ValuesOutputFileTS:     cfg.Locale.ValuesOutputFileTS,
+	//	AuthPKG:                cfg.Go.Packages.Auth,
+	//}
+	//
+	//err := locale.Generate(context.Background(), localeConfig)
+	//if err != nil {
+	//	return err
+	//}
 
 	// Do not generate anything more if only locale is specified
 	if cfg.Locale.Only {
@@ -352,14 +351,19 @@ func wipe(root string, cfg config) error {
 }
 
 func bootstrap(cfg config) error {
-	serviceNameToMigrationsFolder := make(map[string]string)
 	patternSuffix := "/repository/boiler/migrations"
 	pattern := fmt.Sprintf("%s/*", fullGoServiceDir(cfg)) + patternSuffix
 	folders, _ := filepath.Glob(pattern)
+
+	serviceNames := make([]string, 0, len(folders))
+	serviceNameToMigrationsFolder := make(map[string]string)
+
 	for _, folder := range folders {
 		// figure out service name by removing the suffix and getting the last slice element which will be the service name
 		tmp := strings.Split(strings.TrimSuffix(folder, patternSuffix), "/")
 		serviceName := tmp[len(tmp)-1]
+
+		serviceNames = append(serviceNames, serviceName)
 		serviceNameToMigrationsFolder[serviceName] = folder
 	}
 
@@ -375,7 +379,7 @@ func bootstrap(cfg config) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to open db connection")
 	}
-	if err := gooseBootstrap(db, serviceNameToMigrationsFolder); err != nil {
+	if err := gooseBootstrap(db, serviceNames, serviceNameToMigrationsFolder); err != nil {
 		return errors.Wrap(err, "failed to bootstrap the database")
 	}
 	return nil
@@ -383,16 +387,27 @@ func bootstrap(cfg config) error {
 
 // gooseBootstrap accepts db sql connection and a map of service name to migration folder.
 // it iterates through the map and runs migrations in the provided folder with table named service_name_goose_db_version.
-func gooseBootstrap(db *sql.DB, serviceNameToMigrationFolder map[string]string) error {
-	for serviceName, migrationFolder := range serviceNameToMigrationFolder {
+func gooseBootstrap(db *sql.DB, serviceNames []string, serviceNameToMigrationFolder map[string]string) error {
+	for _, serviceName := range serviceNames {
+		migrationFolder := serviceNameToMigrationFolder[serviceName]
+
+		// goose needs to know where to look for migrations
 		goose.SetBaseFS(os.DirFS(migrationFolder))
+
 		// it replaces service name spaces with underscores and lowercase's the whole string
-		goose.SetTableName(fmt.Sprintf("%s_goose_db_version", strings.ToLower(strings.Replace(serviceName, " ", "_", -1))))
+		goose.SetTableName(fmt.Sprintf("%s_goose_db_version", strings.ToLower(strings.Replace(
+			serviceName,
+			" ",
+			"_",
+			-1,
+		))))
+
 		// since we already have migration folder we don't need to provide any dir
 		if err := goose.Up(db, ""); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
