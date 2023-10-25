@@ -6,7 +6,7 @@ require (
 	github.com/ardanlabs/conf/v3 v3.1.3
 	github.com/friendsofgo/errors v0.9.2
 	github.com/lib/pq v1.10.6
-	github.com/meitner-se/oto v0.11.1-meitner1.4
+	github.com/meitner-se/oto v0.11.1-meitner1.4-fix
 	github.com/pressly/goose/v3 v3.9.0
 	github.com/spf13/viper v1.14.0
 	github.com/volatiletech/sqlboiler/v4 v4.14.0
