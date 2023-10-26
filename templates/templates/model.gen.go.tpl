@@ -72,6 +72,83 @@ func (o *{{$alias.UpSingular}}) mergeUndefinedFields(from *{{$alias.UpSingular}}
     {{end -}}{{- /* range relationships */ -}}
 }
 
+// {{$alias.UpSingular}}Normalizer is used to normalize the fields of {{$alias.UpSingular}} before validation
+type {{$alias.UpSingular}}Normalizer struct {
+    {{ range $column := .Table.Columns -}}
+    {{- if (or (contains "types.Int" $column.Type) (contains "types.String" $column.Type) (isEnumDBType .DBType)) -}}
+    {{- $colAlias := $alias.Column $column.Name -}}
+    {{- if not (or (containsAny $pkNames $colAlias) (eq $column.Name "created_at") (eq $column.Name "created_by") (eq $column.Name "updated_at") (eq $column.Name "updated_by")) -}}
+        {{$colAlias}} func(ctx context.Context, {{$colAlias }} *{{ if and (isEnumDBType .DBType) (.Nullable) }} {{ stripPrefix $column.Type "Null" }} {{ else }} {{$column.Type}} {{ end }}) error
+    {{end -}}
+    {{end -}}
+    {{end -}}
+}
+
+func (v *{{$alias.UpSingular}}Normalizer) Normalize(ctx context.Context, o *{{$alias.UpSingular}}) error {
+    errFields := errors.NewErrFields()
+
+    {{ range $column := .Table.Columns -}}
+    {{- $colAlias := $alias.Column $column.Name -}}
+    {{- if (or (contains "types.Int" $column.Type) (contains "types.String" $column.Type) (isEnumDBType .DBType)) -}}
+    {{- if not (or (containsAny $pkNames $colAlias) (eq $column.Name "created_at") (eq $column.Name "created_by") (eq $column.Name "updated_at") (eq $column.Name "updated_by")) -}}
+    {{ $columnMetadata := getColumnMetadata $column }}
+    {{- if (or ($columnMetadata.Validate.CountryCode) ($columnMetadata.Validate.MunicipalityCode)) }}
+        if !o.{{$colAlias}}.IsNil(){
+            o.{{$colAlias}} = types.NewString(strings.ToUpper(o.{{$colAlias}}.String()))
+        }
+    {{ end }}
+    {{- if contains "types.String" $column.Type -}}
+        if !o.{{$colAlias}}.IsNil(){
+            o.{{$colAlias}} = types.NewString(strings.TrimSpace(o.{{$colAlias}}.String()))
+        }
+    {{end -}}
+
+    {{- if (isEnumDBType .DBType) }}
+        if !o.{{$colAlias}}.IsNil() {
+        {{- $vals := parseEnumVals $column.DBType -}}
+        {{range $val := $vals -}}
+        {{- $enumValue := titleCase $val -}}
+            if strings.ToLower(strings.TrimSpace(o.{{$colAlias}}.String.String())) == strings.ToLower({{printf "%q" $val}}){
+                o.{{$colAlias}} = {{stripPrefix $column.Type "Null"}}{types.NewString({{printf "%q" $val}})}
+            }
+        {{end -}}
+        }
+    {{ end }}
+
+        if v.{{$colAlias}} != nil {
+            err := v.{{$colAlias}}(ctx, &o.{{$colAlias}})
+            if err != nil {
+                switch v := err.(type){
+                case errors.FieldValidationError:
+                    if v.Name == ""{
+                        v = v.WithName({{$alias.UpSingular}}Column{{$colAlias}})
+                    }
+                    if v.Value == nil{
+                        v = v.WithValue(o.{{$colAlias}})
+                    }
+                    errFields.Add(v.FieldError())
+                case *errors.ErrFields:
+                    if v != nil {
+                        for _, errField := range *v {
+                            errFields.Add(errField)
+                        }
+                    }
+                default:
+                    return err
+                }
+            }
+        }
+    {{end -}}
+    {{end -}}
+    {{end -}}
+
+    // return nil if no errors so it would not be concrete type under error interface.
+	if !errFields.NotEmpty(){
+		return nil
+	}
+	return errFields
+}
+
 // {{$alias.UpSingular}}Validator is used to validate the fields of {{$alias.UpSingular}}
 type {{$alias.UpSingular}}Validator struct {
     // GetFunc is only used on update to get the {{$alias.UpSingular}} and merge all the undefined values for convenience on validation
@@ -1067,3 +1144,4 @@ func (o *{{$alias.UpPlural}}) UnmarshalBinary(data []byte) (error) { return json
 var _ = valid.EmailAddress
 var _ = strconv.AppendInt
 var _ = slices.UUIDsToStringSlice
+var _ = strings.TrimSpace
