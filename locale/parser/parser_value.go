@@ -43,7 +43,7 @@ type ObjectFieldValueSchoolType struct {
 	Swedish string
 }
 
-func ParseValues(ctx context.Context, definitions []*Definition, filename string, skipValidation bool) (*Object, error) {
+func ParseValues(ctx context.Context, definitions []*Definition, filename string) (*Object, error) {
 	file, fileset, err := parseFile(ctx, filename)
 	if err != nil {
 		return nil, err
@@ -55,11 +55,9 @@ func ParseValues(ctx context.Context, definitions []*Definition, filename string
 
 	ast.Walk(&v, file)
 
-	if !skipValidation {
-		err = validateFields(fileset, v.locale.Fields)
-		if err != nil {
-			return nil, err
-		}
+	err = validateFields(fileset, v.locale.Fields)
+	if err != nil {
+		return nil, err
 	}
 
 	return &v.locale, nil

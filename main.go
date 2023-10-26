@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/meitner-se/meitnercli/locale"
 	// embed the psql driver in order to use it directly (no need to have it installed)
 	_ "github.com/volatiletech/sqlboiler/v4/drivers/sqlboiler-psql/driver"
 
@@ -92,8 +93,6 @@ type config struct {
 		}
 	}
 	Locale struct {
-		Only                   bool   `conf:"help:only generate locale files, default:false"`
-		SkipValidation         bool   `conf:"" yaml:"skip_validation"`
 		DefinitionInputFile    string `conf:"" yaml:"definition_input_file"`
 		DefinitionOutputFileGO string `conf:"" yaml:"definition_output_file_go"`
 		ValuesInputFile        string `conf:"" yaml:"values_input_file"`
@@ -185,24 +184,18 @@ func generate(cfg config) error {
 		service = nil
 	}
 
-	//localeConfig := locale.Config{
-	//	SkipValidation:         cfg.Locale.SkipValidation,
-	//	DefinitionInputFile:    cfg.Locale.DefinitionInputFile,
-	//	DefinitionOutputFileGO: cfg.Locale.DefinitionOutputFileGO,
-	//	ValuesInputFile:        cfg.Locale.ValuesInputFile,
-	//	ValuesOutputFileGO:     cfg.Locale.ValuesOutputFileGO,
-	//	ValuesOutputFileTS:     cfg.Locale.ValuesOutputFileTS,
-	//	AuthPKG:                cfg.Go.Packages.Auth,
-	//}
-	//
-	//err := locale.Generate(context.Background(), localeConfig)
-	//if err != nil {
-	//	return err
-	//}
+	localeConfig := locale.Config{
+		DefinitionInputFile:    cfg.Locale.DefinitionInputFile,
+		DefinitionOutputFileGO: cfg.Locale.DefinitionOutputFileGO,
+		ValuesInputFile:        cfg.Locale.ValuesInputFile,
+		ValuesOutputFileGO:     cfg.Locale.ValuesOutputFileGO,
+		ValuesOutputFileTS:     cfg.Locale.ValuesOutputFileTS,
+		AuthPKG:                cfg.Go.Packages.Auth,
+	}
 
-	// Do not generate anything more if only locale is specified
-	if cfg.Locale.Only {
-		return nil
+	err := locale.Generate(context.Background(), localeConfig)
+	if err != nil {
+		return err
 	}
 
 	configFilePaths, err := getConfigFilePaths(cfg.Go.RootDir, cfg.Go.ServiceDir, service)
