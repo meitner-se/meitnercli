@@ -12,8 +12,6 @@ import (
 )
 
 type Config struct {
-	SkipValidation bool
-
 	DefinitionInputFile    string
 	DefinitionOutputFileGO string
 
@@ -30,7 +28,7 @@ func Generate(ctx context.Context, config Config) error {
 		return err
 	}
 
-	values, err := parser.ParseValues(ctx, definitions, config.ValuesInputFile, config.SkipValidation)
+	values, err := parser.ParseValues(ctx, definitions, config.ValuesInputFile)
 	if err != nil {
 		return err
 	}
