@@ -100,6 +100,9 @@ func (v *{{$alias.UpSingular}}Normalizer) Normalize(ctx context.Context, o *{{$a
     {{- if contains "types.String" $column.Type -}}
         if !o.{{$colAlias}}.IsNil(){
             o.{{$colAlias}} = types.NewString(strings.TrimSpace(o.{{$colAlias}}.String()))
+            {{- if ($columnMetadata.Validate.PhoneNumber) }}
+            o.{{$colAlias}} = normalize.PhoneNumber(o.{{$colAlias}})
+            {{ end }}
         }
     {{end -}}
 
@@ -1145,3 +1148,4 @@ var _ = valid.EmailAddress
 var _ = strconv.AppendInt
 var _ = slices.UUIDsToStringSlice
 var _ = strings.TrimSpace
+var _ = normalize.PhoneNumber
