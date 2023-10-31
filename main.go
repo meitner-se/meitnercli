@@ -86,11 +86,11 @@ type config struct {
 			Database  string `conf:"help:name of the database package which should be used in generation, default:meitner/pkg/database"`
 			Errors    string `conf:"help:name of the errors package which should be used in generation, default:meitner/pkg/errors"`
 			Logger    string `conf:"help:name of the logger package which should be used in generation, default:meitner/pkg/logger"`
+			Normalize string `conf:"help:name of the normalize package which should be used for normalization, default:meitner/pkg/normalize"`
 			Slice     string `conf:"help:name of the slice package which should be used in generation, default:meitner/pkg/slice"`
 			Sort      string `conf:"help:name fo the sort package which should be used in generation, default:meitner/pkg/sort"`
 			Types     string `conf:"help:name of the types package which should be used in generation, default:meitner/pkg/types"`
 			Valid     string `conf:"help:name of the valid package which should be used to add validations in generation, default:meitner/pkg/valid"`
-			Normalize string `conf:"help:name of the normalize package which should be used for normalization, default:meitner/pkg/normalize"`
 		}
 	}
 	Locale struct {
