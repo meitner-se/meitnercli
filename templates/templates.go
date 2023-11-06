@@ -39,4 +39,9 @@ var (
 	//go:embed templates/service.stub.go.tpl
 	//go:embed templates/singleton/service.stub.go.tpl
 	ServiceStub embed.FS
+
+	//go:embed templates/integration_test.query_test.stub.go.tpl
+	//go:embed templates/integration_test.command_test.stub.go.tpl
+	//go:embed templates/singleton/base_setup_test.stub.go.tpl
+	IntegrationTestStub embed.FS
 )

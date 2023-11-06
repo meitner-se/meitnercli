@@ -60,12 +60,13 @@ func main() {
 
 type config struct {
 	conf.Version
-	Args    conf.Args
-	Path    string `conf:"flag:config,env:CONFIG"`
-	Layer   string `conf:"help:generate or wipe a specific layer"`
-	Service string `conf:"help:generate or wipe a specific service"`
-	Stubs   bool   `conf:"help:generate or wipe stubs,default:false"`
-	DB      struct {
+	Args       conf.Args
+	Path       string `conf:"flag:config,env:CONFIG"`
+	Layer      string `conf:"help:generate or wipe a specific layer"`
+	Service    string `conf:"help:generate or wipe a specific service"`
+	Stubs      bool   `conf:"help:generate or wipe stubs,default:false"`
+	LocaleOnly bool   `conf:"help:generate locale only,default:false"`
+	DB         struct {
 		Name     string `conf:"help:name of the database, default:meitner-dev"`
 		User     string `conf:"help:user of the database, default:meitner"`
 		Password string `conf:"help:password of the user, default:meitner"`
@@ -91,6 +92,8 @@ type config struct {
 			Sort      string `conf:"help:name fo the sort package which should be used in generation, default:meitner/pkg/sort"`
 			Types     string `conf:"help:name of the types package which should be used in generation, default:meitner/pkg/types"`
 			Valid     string `conf:"help:name of the valid package which should be used to add validations in generation, default:meitner/pkg/valid"`
+			Helpers   string `conf:"help:name of test helpers package where test helpers stub will be generated, default:meitner/pkg/test_helpers"`
+			Client    string `conf:"help:name of test client package which is used for integration tests to call the api, default:meitner/pkg/client"`
 		}
 	}
 	Locale struct {
@@ -198,6 +201,10 @@ func generate(cfg config) error {
 	if err != nil {
 		return err
 	}
+	if cfg.LocaleOnly {
+		// if we are generating locale only we can return early
+		return nil
+	}
 
 	configFilePaths, err := getConfigFilePaths(cfg.Go.RootDir, cfg.Go.ServiceDir, service)
 	if err != nil {
@@ -214,6 +221,7 @@ func generate(cfg config) error {
 		ormDir := fmt.Sprintf("%s/repository/boiler/orm", serviceDir)
 		repoDir := fmt.Sprintf("%s/repository/boiler", serviceDir)
 		repositoryDir := fmt.Sprintf("%s/repository", serviceDir)
+		integrationTestDir := serviceDir + "/tests"
 
 		pkgServiceModel := fmt.Sprintf("%s/%s/model", cfg.Go.ModuleName, serviceDir)
 		pkgORM := fmt.Sprintf("%s/%s/repository/boiler/orm", cfg.Go.ModuleName, serviceDir)
@@ -245,6 +253,13 @@ func generate(cfg config) error {
 				err = runGeneration(cfg, configFilePath, serviceName, true, boilerconfig.Service(serviceDir, serviceName, pkgRepository, pkgServiceModel, cfg.Go.Packages.Errors))
 				if err != nil {
 					return errors.Wrap(err, "service stubs")
+				}
+			}
+
+			if cfg.Layer == "" || cfg.Layer == "integration_test" {
+				err = runGeneration(cfg, configFilePath, serviceName, true, boilerconfig.IntegrationTest(integrationTestDir, cfg.Go.Packages.Types, cfg.Go.Packages.Helpers, cfg.Go.Packages.Client))
+				if err != nil {
+					return errors.Wrap(err, "integration test stubs")
 				}
 			}
 
