@@ -109,6 +109,9 @@ func {{$alias.DownSingular}}QueryParamsFieldsToModel(toModel *api.{{$alias.UpSin
         {{- range $rel := getJoinRelations $.Tables .Table }}
             {{ $rel.ForeignTable | titleCase }}: {{ $rel.ForeignTable | camelCase }}QueryParamsFieldsToModel(toModel.{{ $rel.ForeignTable | titleCase }}),
         {{- end -}}
+        {{- range $rel := getJoinFromChildForeignKeys .Table -}}
+            {{ $rel.ForeignTable | titleCase }}: {{ $rel.ForeignTable | camelCase }}QueryParamsFieldsToModel(toModel.{{ $rel.ForeignTable | titleCase }}),
+        {{- end -}}
         CaseInsensitive: toModel.CaseInsensitive,
 	}
 }
@@ -130,7 +133,11 @@ func {{$alias.DownSingular}}QueryParamsNullableFieldsToModel(toModel *api.{{$ali
             {{ getLoadRelationName $.Aliases $rel | singular }}: toModel.{{ getLoadRelationName $.Aliases $rel | singular }},
         {{end -}}{{- /* range relationships */ -}}
 
-        {{- range $rel := getJoinRelations $.Tables .Table }}
+        {{ range $rel := getJoinRelations $.Tables .Table }}
+            {{ $rel.ForeignTable | titleCase }}: {{ $rel.ForeignTable | camelCase }}QueryParamsNullableFieldsToModel(toModel.{{ $rel.ForeignTable | titleCase }}),
+        {{- end }}
+
+        {{- range $rel := getJoinFromChildForeignKeys .Table -}}
             {{ $rel.ForeignTable | titleCase }}: {{ $rel.ForeignTable | camelCase }}QueryParamsNullableFieldsToModel(toModel.{{ $rel.ForeignTable | titleCase }}),
         {{- end }}
     }
@@ -162,6 +169,10 @@ func {{$alias.DownSingular}}QueryParamsInFieldsToModel(toModel *api.{{$alias.UpS
         {{- range $rel := getJoinRelations $.Tables .Table }}
             {{ $rel.ForeignTable | titleCase }}: {{ $rel.ForeignTable | camelCase }}QueryParamsInFieldsToModel(toModel.{{ $rel.ForeignTable | titleCase }}),
         {{- end }}
+
+        {{- range $rel := getJoinFromChildForeignKeys .Table -}}
+            {{ $rel.ForeignTable | titleCase }}: {{ $rel.ForeignTable | camelCase }}QueryParamsInFieldsToModel(toModel.{{ $rel.ForeignTable | titleCase }}),
+        {{- end }}
     }
 }
 
@@ -187,6 +198,10 @@ func {{$alias.DownSingular}}QueryParamsComparableFieldsToModel(toModel *api.{{$a
         {{- range $rel := getJoinRelations $.Tables .Table }}
             {{ $rel.ForeignTable | titleCase }}: {{ $rel.ForeignTable | camelCase }}QueryParamsComparableFieldsToModel(toModel.{{ $rel.ForeignTable | titleCase }}),
         {{- end }}
+
+        {{- range $rel := getJoinFromChildForeignKeys .Table -}}
+            {{ $rel.ForeignTable | titleCase }}: {{ $rel.ForeignTable | camelCase }}QueryParamsComparableFieldsToModel(toModel.{{ $rel.ForeignTable | titleCase }}),
+        {{- end }}
     }
 }
 
@@ -208,6 +223,10 @@ func {{$alias.DownSingular}}QueryParamsLikeFieldsToModel(toModel *api.{{$alias.U
         {{- range $rel := getJoinRelations $.Tables .Table }}
             {{ $rel.ForeignTable | titleCase }}: {{ $rel.ForeignTable | camelCase }}QueryParamsLikeFieldsToModel(toModel.{{ $rel.ForeignTable | titleCase }}),
         {{- end }}
+
+        {{- range $rel := getJoinFromChildForeignKeys .Table -}}
+            {{ $rel.ForeignTable | titleCase }}: {{ $rel.ForeignTable | camelCase }}QueryParamsLikeFieldsToModel(toModel.{{ $rel.ForeignTable | titleCase }}),
+        {{- end }}
     }
 }
 
@@ -224,6 +243,10 @@ func {{$alias.DownSingular}}QueryOrderByToModel(toModel *api.{{$alias.UpSingular
         {{ range $rel := getJoinRelations $.Tables .Table -}}
         {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
             {{$relAlias.Local | singular }}: {{$relAlias.Local | singular | camelCase }}QueryOrderByToModel(toModel.{{$relAlias.Local | singular }}),
+        {{ end -}}
+        {{- range $rel := getJoinFromChildForeignKeys .Table -}}
+        {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.Table $rel.Name -}}
+            {{$relAlias.Foreign | singular }}: {{$relAlias.Foreign | singular | camelCase }}QueryOrderByToModel(toModel.{{$relAlias.Foreign | singular }}),
         {{ end -}}
 	}
 }

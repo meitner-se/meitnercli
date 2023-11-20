@@ -148,6 +148,8 @@ func GetConfig(driverName, configFile, serviceName, typesPackage string) (*boili
 			"tableHasColumnOrganizationID":       tableHasColumnOrganizationID,
 			"tableHasColumnSchoolOrganizationID": tableHasColumnSchoolOrganizationID,
 			"tableHasColumnUnitOrganizationID":   tableHasColumnUnitOrganizationID,
+			"getJoinFromChildForeignKeys":        getJoinFromChildForeignKeys,
+			"isJoinFromChildTable":               isJoinFromChildTable,
 		},
 	}
 
@@ -291,7 +293,7 @@ func getColumnMetadata(c drivers.Column) ColumnMetadata {
 		}
 
 		switch comment {
-		case "load", "join":
+		case "load", "join", "join_from_child":
 			continue
 		}
 
@@ -795,6 +797,14 @@ func isJoinTable(table drivers.Table, rel drivers.ToManyRelationship) bool {
 	return strings.Contains(table.GetColumn(rel.ForeignColumn).Comment, "join")
 }
 
+func isJoinFromChildTable(childTable drivers.Table, rel drivers.ToManyRelationship) bool {
+	if childTable.Name != rel.ForeignTable {
+		return false
+	}
+
+	return strings.Contains(childTable.GetColumn(rel.ForeignColumn).Comment, "join_from_child")
+}
+
 func getJoinRelations(tables []drivers.Table, fromTable drivers.Table) []drivers.ToManyRelationship {
 	var toManyRelationships []drivers.ToManyRelationship
 
@@ -809,6 +819,16 @@ func getJoinRelations(tables []drivers.Table, fromTable drivers.Table) []drivers
 	}
 
 	return toManyRelationships
+}
+
+func getJoinFromChildForeignKeys(table drivers.Table) []drivers.ForeignKey {
+	res := []drivers.ForeignKey{}
+	for _, fk := range table.FKeys {
+		if strings.Contains(table.GetColumn(fk.Column).Comment, "join_from_child") {
+			res = append(res, fk)
+		}
+	}
+	return res
 }
 
 func isLoadTable(table drivers.Table, rel drivers.ToManyRelationship) bool {
