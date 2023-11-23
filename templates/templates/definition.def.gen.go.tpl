@@ -236,6 +236,11 @@ type {{$alias.UpSingular}}QueryParamsFieldsRequest struct {
         {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsFieldsRequest
     {{end -}}{{- /* range relationships */ -}}
 
+    {{ range $rel := getJoinFromChildForeignKeys .Table -}}
+        // optional: true
+        {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsFieldsRequest
+    {{end -}}{{- /* range relationships */ -}}
+
     // Set to true to use case insensitive query for strings
     //
     // optional: true
@@ -261,6 +266,11 @@ type {{$alias.UpSingular}}QueryParamsNullableFieldsRequest struct {
     {{end -}}{{- /* range relationships */ -}}
 
     {{ range $rel := getJoinRelations $.Tables .Table -}}
+        // optional: true
+        {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsNullableFieldsRequest
+    {{end -}}{{- /* range relationships */ -}}
+
+    {{ range $rel := getJoinFromChildForeignKeys .Table -}}
         // optional: true
         {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsNullableFieldsRequest
     {{end -}}{{- /* range relationships */ -}}
@@ -294,6 +304,11 @@ type {{$alias.UpSingular}}QueryParamsInFieldsRequest struct {
         // optional: true
         {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsInFieldsRequest
     {{end -}}{{- /* range relationships */ -}}
+
+    {{ range $rel := getJoinFromChildForeignKeys .Table -}}
+        // optional: true
+        {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsInFieldsRequest
+    {{end -}}{{- /* range relationships */ -}}
 }
 
 type {{$alias.UpSingular}}QueryParamsComparableFieldsRequest struct {
@@ -318,6 +333,11 @@ type {{$alias.UpSingular}}QueryParamsComparableFieldsRequest struct {
         // optional: true
         {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsComparableFieldsRequest
     {{end -}}{{- /* range relationships */ -}}
+
+    {{ range $rel := getJoinFromChildForeignKeys .Table -}}
+        // optional: true
+        {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsComparableFieldsRequest
+    {{end -}}{{- /* range relationships */ -}}
 }
 
 type {{$alias.UpSingular}}QueryParamsLikeFieldsRequest struct {
@@ -337,6 +357,11 @@ type {{$alias.UpSingular}}QueryParamsLikeFieldsRequest struct {
         // optional: true
         {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsLikeFieldsRequest
     {{end -}}{{- /* range relationships */ -}}
+
+    {{ range $rel := getJoinFromChildForeignKeys .Table -}}
+        // optional: true
+        {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsLikeFieldsRequest
+    {{end -}}{{- /* range relationships */ -}}
 }
 
 type {{$alias.UpSingular}}QueryOrderByRequest struct {
@@ -350,6 +375,11 @@ type {{$alias.UpSingular}}QueryOrderByRequest struct {
     {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         // optional: true
         {{$relAlias.Local | singular }} *{{$relAlias.Local | singular }}QueryOrderByRequest
+    {{ end -}}
+
+    {{ range $rel := getJoinFromChildForeignKeys .Table -}}
+        // optional: true
+        {{$rel.ForeignTable | titleCase }} *{{$rel.ForeignTable | titleCase }}QueryOrderByRequest
     {{ end -}}
 }
 
