@@ -80,20 +80,20 @@ type config struct {
 		ServiceAPIDir string `conf:"help:where the api definitions should be generated, default:./api/services" yaml:"service_api_dir"`
 		ModuleName    string `conf:"help:module name of the go server, default:meitner" yaml:"module_name"`
 		Packages      struct {
-			API       string `conf:"help:name of the api package which should be used in generation, default:meitner/pkg/api"`
-			Audit     string `conf:"help:name of the audit package which should be used in generation, default:meitner/pkg/audit"`
-			Auth      string `conf:"help:name of the auth package which should be used in generation, default:meitner/pkg/auth"`
-			Cache     string `conf:"help:name of the cache package which should be used in generation, default:meitner/pkg/cache"`
-			Database  string `conf:"help:name of the database package which should be used in generation, default:meitner/pkg/database"`
-			Errors    string `conf:"help:name of the errors package which should be used in generation, default:meitner/pkg/errors"`
-			Logger    string `conf:"help:name of the logger package which should be used in generation, default:meitner/pkg/logger"`
-			Normalize string `conf:"help:name of the normalize package which should be used for normalization, default:meitner/pkg/normalize"`
-			Slice     string `conf:"help:name of the slice package which should be used in generation, default:meitner/pkg/slice"`
-			Sort      string `conf:"help:name fo the sort package which should be used in generation, default:meitner/pkg/sort"`
-			Types     string `conf:"help:name of the types package which should be used in generation, default:meitner/pkg/types"`
-			Valid     string `conf:"help:name of the valid package which should be used to add validations in generation, default:meitner/pkg/valid"`
-			Helpers   string `conf:"help:name of test helpers package where test helpers stub will be generated, default:meitner/pkg/test_helpers"`
-			Client    string `conf:"help:name of test client package which is used for integration tests to call the api, default:meitner/pkg/client"`
+			API         string `conf:"help:name of the api package which should be used in generation, default:meitner/pkg/api"`
+			Audit       string `conf:"help:name of the audit package which should be used in generation, default:meitner/pkg/audit"`
+			Auth        string `conf:"help:name of the auth package which should be used in generation, default:meitner/pkg/auth"`
+			Cache       string `conf:"help:name of the cache package which should be used in generation, default:meitner/pkg/cache"`
+			Database    string `conf:"help:name of the database package which should be used in generation, default:meitner/pkg/database"`
+			Errors      string `conf:"help:name of the errors package which should be used in generation, default:meitner/pkg/errors"`
+			Logger      string `conf:"help:name of the logger package which should be used in generation, default:meitner/pkg/logger"`
+			Normalize   string `conf:"help:name of the normalize package which should be used for normalization, default:meitner/pkg/normalize"`
+			Slice       string `conf:"help:name of the slice package which should be used in generation, default:meitner/pkg/slice"`
+			Sort        string `conf:"help:name fo the sort package which should be used in generation, default:meitner/pkg/sort"`
+			TestClient  string `conf:"help:name of test client package which is used for integration tests to call the api, default:meitner/pkg/client" yaml:"test_client"`
+			TestHelpers string `conf:"help:name of test helpers package where test helpers stub will be generated, default:meitner/pkg/test_helpers" yaml:"test_helpers"`
+			Types       string `conf:"help:name of the types package which should be used in generation, default:meitner/pkg/types"`
+			Valid       string `conf:"help:name of the valid package which should be used to add validations in generation, default:meitner/pkg/valid"`
 		}
 	}
 	Locale struct {
@@ -257,7 +257,7 @@ func generate(cfg config) error {
 			}
 
 			if cfg.Layer == "" || cfg.Layer == "integration_test" {
-				err = runGeneration(cfg, configFilePath, serviceName, true, boilerconfig.IntegrationTest(integrationTestDir, cfg.Go.Packages.Types, cfg.Go.Packages.Helpers, cfg.Go.Packages.Client))
+				err = runGeneration(cfg, configFilePath, serviceName, true, boilerconfig.IntegrationTest(integrationTestDir, cfg.Go.Packages.Errors, cfg.Go.Packages.Types, cfg.Go.Packages.TestHelpers, cfg.Go.Packages.TestClient))
 				if err != nil {
 					return errors.Wrap(err, "integration test stubs")
 				}
