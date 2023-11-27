@@ -7,12 +7,7 @@
 {{- $schemaTable := .Table.Name | .SchemaTable}}
 
 func (s *svc) Create{{ $alias.UpSingular }}(ctx context.Context, {{ $alias.DownSingular }} *model.{{ $alias.UpSingular }}) error {
-    err := s.normalize{{ $alias.UpSingular }}(ctx, {{ $alias.DownSingular }}, false)
-    if err != nil {
-        return err
-    }
-
-	err = {{ $alias.DownSingular }}.Validate(false, s.validate{{ $alias.UpSingular }}Func(ctx))
+	err := {{ $alias.DownSingular }}.NormalizeAndValidate(ctx, false, s.validate{{ $alias.UpSingular }}Func(ctx))
 	if err != nil {
 		return err
 	}
@@ -26,12 +21,7 @@ func (s *svc) Create{{ $alias.UpSingular }}(ctx context.Context, {{ $alias.DownS
 }
 
 func (s *svc) Update{{ $alias.UpSingular }}(ctx context.Context, {{ $alias.DownSingular }} *model.{{ $alias.UpSingular }}) error {
-    err := s.normalize{{ $alias.UpSingular }}(ctx, {{ $alias.DownSingular }}, true)
-    if err != nil {
-        return err
-    }
-
-	err = {{ $alias.DownSingular }}.Validate(true, s.validate{{ $alias.UpSingular }}Func(ctx))
+	err := {{ $alias.DownSingular }}.NormalizeAndValidate(ctx, true, s.validate{{ $alias.UpSingular }}Func(ctx))
 	if err != nil {
 		return err
 	}
@@ -76,18 +66,3 @@ func (s *svc) validate{{ $alias.UpSingular }}Func(ctx context.Context) model.{{ 
 		return {{ $alias.DownSingular }}Validator.Validate(ctx, {{ $alias.DownSingular }}, isUpdate)
 	}
 }
-
-// normalize{{ $alias.UpSingular }} is used to normalize {{ $alias.UpSingular }}-values before validation on Create and Update
-func (s *svc) normalize{{ $alias.UpSingular }}(ctx context.Context, {{ $alias.DownSingular }} *model.{{ $alias.UpSingular }}, isUpdate bool) error {
-    if isUpdate {
-        return nil // Skip update for now
-    }
-
-    {{ $alias.DownSingular }}Normalizer := model.{{ $alias.UpSingular }}Normalizer{
-        // TODO : Generate fields
-    }
-
-    return {{ $alias.DownSingular }}Normalizer.Normalize(ctx, {{ $alias.DownSingular }})
-}
-
-{{end -}}

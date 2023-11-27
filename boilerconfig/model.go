@@ -17,8 +17,9 @@ func Model(outFolder, pkgTypes, pkgErrors, pkgSort, pkgSlices, pkgValid, pkgNorm
 		cfg.NoTests = true
 		cfg.Imports.All.Standard = importers.List{
 			formatPkgImport("context"),
-			formatPkgImport("strings"),
 			formatPkgImport("encoding/json"),
+			formatPkgImport("strings"),
+			formatPkgImport("time"),
 		}
 		cfg.Imports.All.ThirdParty = importers.List{
 			formatPkgImportWithAlias(pkgTypes, "types"),

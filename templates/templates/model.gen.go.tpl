@@ -73,24 +73,52 @@ func (o *{{$alias.UpSingular}}) mergeUndefinedFields(from *{{$alias.UpSingular}}
 }
 
 // {{$alias.UpSingular}}Normalizer is used to normalize the fields of {{$alias.UpSingular}} before validation
-type {{$alias.UpSingular}}Normalizer struct {
+// to set custom normalizations, set each field on service initialization.
+var {{$alias.UpSingular}}Normalizer = &{{ $alias.DownSingular }}Normalizer{}
+
+// {{$alias.DownSingular}}Normalizer is used to normalize the fields of {{$alias.UpSingular}} before validation
+type {{$alias.DownSingular}}Normalizer struct {
     {{ range $column := .Table.Columns -}}
-    {{- if (or (contains "types.Int" $column.Type) (contains "types.String" $column.Type) (isEnumDBType .DBType)) -}}
     {{- $colAlias := $alias.Column $column.Name -}}
-    {{- if not (or (containsAny $pkNames $colAlias) (eq $column.Name "created_at") (eq $column.Name "created_by") (eq $column.Name "updated_at") (eq $column.Name "updated_by")) -}}
+    {{- if not (or (containsAny $pkNames $colAlias) (eq $column.Type "types.UUID") (eq $column.Name "created_at") (eq $column.Name "created_by") (eq $column.Name "updated_at") (eq $column.Name "updated_by")) -}}
         {{$colAlias}} func(ctx context.Context, {{$colAlias }} *{{ if and (isEnumDBType .DBType) (.Nullable) }} {{ stripPrefix $column.Type "Null" }} {{ else }} {{$column.Type}} {{ end }}) error
-    {{end -}}
     {{end -}}
     {{end -}}
 }
 
-func (v *{{$alias.UpSingular}}Normalizer) Normalize(ctx context.Context, o *{{$alias.UpSingular}}) error {
+func (v *{{$alias.DownSingular}}Normalizer) Normalize(ctx context.Context, o *{{$alias.UpSingular}}, isUpdate bool) error {
     errFields := errors.NewErrFields()
+
+    // If the object is being created, we need to set the default values for the undefined fields
+    if !isUpdate {
+        {{- range $column := .Table.Columns -}}
+        {{- $colAlias := $alias.Column $column.Name -}}
+        {{- $columnMetadata := getColumnMetadata $column -}}
+        {{- if not (or (containsAny $pkNames $colAlias) (eq $column.Type "types.UUID") (eq $column.Name "created_at") (eq $column.Name "created_by") (eq $column.Name "updated_at") (eq $column.Name "updated_by")) -}}
+        {{- if not (eq $column.Default "") -}}
+            if !o.{{$colAlias}}.IsDefined() {
+                {{- if (eq $column.Default "NULL") }}
+                    {{- if (isEnumDBType .DBType) }}
+                        o.{{$colAlias}} = {{ parseEnumName $column.DBType | titleCase }}FromString(types.NewStringFromPtr(nil))
+                    {{ else -}}
+                        o.{{$colAlias}} = types.New{{ stripPrefix $column.Type "types." }}FromPtr(nil)
+                    {{ end -}}
+                {{- else if (eq $column.Default "CURRENT_TIMESTAMP") }}
+                    o.{{$colAlias}} = types.New{{ stripPrefix $column.Type "types." }}(time.Now())
+                {{- else if (eq $column.Type "types.Bool") }}
+                    o.{{$colAlias}} = types.New{{ stripPrefix $column.Type "types." }}({{ $column.Default }})
+                {{- else }}
+                    "invalid default value for {{$column.Name}}" // should not compile
+                {{ end -}}
+            }
+        {{ end -}}
+        {{ end -}}
+        {{ end -}}
+    }
 
     {{ range $column := .Table.Columns -}}
     {{- $colAlias := $alias.Column $column.Name -}}
-    {{- if (or (contains "types.Int" $column.Type) (contains "types.String" $column.Type) (isEnumDBType .DBType)) -}}
-    {{- if not (or (containsAny $pkNames $colAlias) (eq $column.Name "created_at") (eq $column.Name "created_by") (eq $column.Name "updated_at") (eq $column.Name "updated_by")) -}}
+    {{- if not (or (containsAny $pkNames $colAlias) (eq $column.Type "types.UUID") (eq $column.Name "created_at") (eq $column.Name "created_by") (eq $column.Name "updated_at") (eq $column.Name "updated_by")) -}}
     {{ $columnMetadata := getColumnMetadata $column }}
     {{- if (or ($columnMetadata.Validate.CountryCode) ($columnMetadata.Validate.MunicipalityCode)) }}
         if !o.{{$colAlias}}.IsNil(){
@@ -143,12 +171,12 @@ func (v *{{$alias.UpSingular}}Normalizer) Normalize(ctx context.Context, o *{{$a
         }
     {{end -}}
     {{end -}}
-    {{end -}}
 
     // return nil if no errors so it would not be concrete type under error interface.
 	if !errFields.NotEmpty(){
 		return nil
 	}
+
 	return errFields
 }
 
@@ -301,8 +329,13 @@ func (v *{{$alias.UpSingular}}Validator) Validate(ctx context.Context, o {{$alia
 // it will be passed as an argument to the validate-method which is auto-generated from the database schema.
 type {{$alias.UpSingular}}ValidateBusinessFunc func(o {{$alias.UpSingular}}, isUpdate bool) error
 
-// Validate is auto-generated from the database schema and should be executed before any manipulation of the {{$alias.UpSingular}}-entity
-func (o {{$alias.UpSingular}}) Validate(isUpdate bool, validateBusinessFunc {{$alias.UpSingular}}ValidateBusinessFunc) error {
+// NormalizeAndValidate is auto-generated from the database schema and should be executed before any manipulation of the {{$alias.UpSingular}}-entity
+func (o *{{$alias.UpSingular}}) NormalizeAndValidate(ctx context.Context, isUpdate bool, validateBusinessFunc {{$alias.UpSingular}}ValidateBusinessFunc) error {
+    // Normalize first to make sure that all of the fields are normalized and set to their default values before validation
+    if err := {{$alias.UpSingular}}Normalizer.Normalize(ctx, o, isUpdate); err != nil {
+        return err
+    }
+
     errFields := errors.NewErrFields()
     {{range $column := .Table.Columns -}}
     {{- $colAlias := $alias.Column $column.Name}}
@@ -391,7 +424,7 @@ func (o {{$alias.UpSingular}}) Validate(isUpdate bool, validateBusinessFunc {{$a
         return errors.NewBadRequest(errors.MessageValidationFailedForEntity("{{$alias.DownSingular}}"), *errFields...)
     }
 
-    if err := errFields.Merge(validateBusinessFunc(o, isUpdate)); err != nil {
+    if err := errFields.Merge(validateBusinessFunc(*o, isUpdate)); err != nil {
         return err
     }
 
@@ -1149,3 +1182,4 @@ var _ = strconv.AppendInt
 var _ = slices.UUIDsToStringSlice
 var _ = strings.TrimSpace
 var _ = normalize.PhoneNumber
+var _ time.Time
