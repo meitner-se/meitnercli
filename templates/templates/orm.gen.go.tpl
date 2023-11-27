@@ -8,6 +8,33 @@
 {{- $schemaTable := .Table.Name | .SchemaTable}}
 {{- $stringTypes := "types.String, types.UUID, types.Time, types.Date" -}}
 
+{{- range $rel := .Table.ToManyRelationships -}}
+{{- if isJoinFromChildTable (getTable $.Tables $rel.ForeignTable) $rel -}}
+		{{- $ltable := $.Aliases.Table $rel.Table -}}
+		{{- $ftable := $.Aliases.Table $rel.ForeignTable -}}
+		{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
+		{{- $schemaForeignTable := .ForeignTable | $.SchemaTable -}}
+		{{- $canSoftDelete := (getTable $.Tables .ForeignTable).CanSoftDelete $.AutoColumns.Deleted}}
+// {{$relAlias.Local}} retrieves all the {{.ForeignTable | singular}}'s {{$ftable.UpPlural}} with an executor
+{{- if not (eq $relAlias.Local $ftable.UpPlural)}} via {{$rel.ForeignColumn}} column{{- end}}.
+func (o *{{$ftable.UpSingular}}) {{$ltable.UpPlural}}(mods ...qm.QueryMod) {{$ftable.DownSingular}}Query {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		{{$schemaJoinTable := $rel.Table | $.SchemaTable -}}
+		qm.InnerJoin("{{$schemaJoinTable}} on {{$schemaForeignTable}}.{{$rel.ForeignColumn | $.Quotes}} = {{$schemaJoinTable}}.{{$rel.Column | $.Quotes}}"),
+		qm.Where("{{$schemaJoinTable}}.{{$rel.Column | $.Quotes}}=?", o.{{$ltable.Column $rel.Column}}),
+	)
+
+	return {{$ftable.UpPlural}}(queryMods...)
+}
+
+{{end -}}{{- /* if isJoinFromChildTable */ -}}
+{{- end -}}{{- /* range relationships */ -}}
+
 // InsertDefined inserts {{$alias.UpSingular}} with the defined values only.
 func (o *{{$alias.UpSingular}}) InsertDefined({{if .NoContext}}exec boil.Executor{{else}}ctx context.Context, exec boil.ContextExecutor{{end}}, auditLog audit.Log, cacheClient cache.Client) error {
     whitelist := boil.Whitelist() // whitelist each column that has a defined value
@@ -511,6 +538,17 @@ func build{{$alias.UpSingular}}QuerySelectWithColumns(q *model.{{$alias.UpSingul
         }
     {{- end}}
     {{end -}}
+
+    {{ range $rel := getJoinFromChildForeignKeys .Table }}
+    {{- $relTable := getTable $.Tables $rel.ForeignTable }}
+    {{- $relTableAlias := $.Aliases.Table $relTable.Name -}}
+    {{- range $column := $relTable.Columns }}
+    {{- $colAlias := $relTableAlias.Column $column.Name}}
+        if q.OrderBy != nil && q.OrderBy.{{$rel.ForeignTable | titleCase }} != nil && q.OrderBy.{{$rel.ForeignTable | titleCase }}.{{$colAlias}} != nil {
+            selector.Select({{$rel.ForeignTable | titleCase }}QueryColumns.{{$colAlias}})
+        }
+    {{- end}}
+    {{end -}}
 }
 
 func build{{$alias.UpSingular}}QueryJoins(q *model.{{$alias.UpSingular}}Query, joiner querybuilder.Joiner) {
@@ -525,6 +563,14 @@ func build{{$alias.UpSingular}}QueryJoins(q *model.{{$alias.UpSingular}}Query, j
         if {{$alias.DownSingular}}QueryHasJoinOn{{$relAlias.Local | singular }}(q) {
             joiner.InnerJoin("\"{{ $rel.ForeignTable }}\"", "\"{{ $rel.ForeignTable }}\".\"{{ $rel.ForeignColumn }}\"", "\"{{ $rel.Table }}\".\"{{ $rel.Column }}\"")
         } else if {{$alias.DownSingular}}QueryHasLeftJoinOn{{$relAlias.Local | singular }}(q) {
+            joiner.LeftOuterJoin("\"{{ $rel.ForeignTable }}\"", "\"{{ $rel.ForeignTable }}\".\"{{ $rel.ForeignColumn }}\"", "\"{{ $rel.Table }}\".\"{{ $rel.Column }}\"")
+        }
+    {{end -}}
+    {{ range $rel := getJoinFromChildForeignKeys .Table }}
+    {{ $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.Table $rel.Name -}}
+        if {{$alias.DownSingular}}QueryHasJoinOn{{$rel.ForeignTable | titleCase }}(q) {
+            joiner.InnerJoin("\"{{ $rel.ForeignTable }}\"", "\"{{ $rel.ForeignTable }}\".\"{{ $rel.ForeignColumn }}\"", "\"{{ $rel.Table }}\".\"{{ $rel.Column }}\"")
+        } else if {{$alias.DownSingular}}QueryHasLeftJoinOn{{$rel.ForeignTable | titleCase }}(q) {
             joiner.LeftOuterJoin("\"{{ $rel.ForeignTable }}\"", "\"{{ $rel.ForeignTable }}\".\"{{ $rel.ForeignColumn }}\"", "\"{{ $rel.Table }}\".\"{{ $rel.Column }}\"")
         }
     {{end -}}
@@ -635,6 +681,14 @@ func build{{$alias.UpSingular}}QueryWhereParamsFields(params *model.{{$alias.UpS
             build{{ $rel.ForeignTable | titleCase }}QueryWhereParamsFields(params.LeftJoin{{ $rel.ForeignTable | titleCase }}, whereFunc)
         }
     {{end -}}{{- /* range relationships */ -}}
+    {{ range $rel := getJoinFromChildForeignKeys .Table -}}
+        if params.{{ $rel.ForeignTable | titleCase }} != nil {
+            build{{ $rel.ForeignTable | titleCase }}QueryWhereParamsFields(params.{{ $rel.ForeignTable | titleCase }}, whereFunc)
+        }
+        if params.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+            build{{ $rel.ForeignTable | titleCase }}QueryWhereParamsFields(params.LeftJoin{{ $rel.ForeignTable | titleCase }}, whereFunc)
+        }
+    {{end -}}{{- /* range relationships */ -}}
 }
 
 func build{{$alias.UpSingular}}QueryWhereParamsNullableFields(params *model.{{$alias.UpSingular}}QueryParamsNullableFields, whereFunc func(column string)) {
@@ -644,6 +698,15 @@ func build{{$alias.UpSingular}}QueryWhereParamsNullableFields(params *model.{{$a
         }
     {{- end}}
     {{ range $rel := getJoinRelations $.Tables .Table -}}
+        if params.{{ $rel.ForeignTable | titleCase }} != nil {
+            build{{ $rel.ForeignTable | titleCase }}QueryWhereParamsNullableFields(params.{{ $rel.ForeignTable | titleCase }}, whereFunc)
+        }
+        if params.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+            build{{ $rel.ForeignTable | titleCase }}QueryWhereParamsNullableFields(params.LeftJoin{{ $rel.ForeignTable | titleCase }}, whereFunc)
+        }
+    {{end -}}{{- /* range relationships */ -}}
+
+    {{ range $rel := getJoinFromChildForeignKeys .Table -}}
         if params.{{ $rel.ForeignTable | titleCase }} != nil {
             build{{ $rel.ForeignTable | titleCase }}QueryWhereParamsNullableFields(params.{{ $rel.ForeignTable | titleCase }}, whereFunc)
         }
@@ -667,6 +730,15 @@ func build{{$alias.UpSingular}}QueryWhereParamsInFields(params *model.{{$alias.U
             build{{ $rel.ForeignTable | titleCase }}QueryWhereParamsInFields(params.LeftJoin{{ $rel.ForeignTable | titleCase }}, whereFunc)
         }
     {{end -}}{{- /* range relationships */ -}}
+
+    {{ range $rel := getJoinFromChildForeignKeys .Table -}}
+        if params.{{ $rel.ForeignTable | titleCase }} != nil {
+            build{{ $rel.ForeignTable | titleCase }}QueryWhereParamsInFields(params.{{ $rel.ForeignTable | titleCase }}, whereFunc)
+        }
+        if params.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+            build{{ $rel.ForeignTable | titleCase }}QueryWhereParamsInFields(params.LeftJoin{{ $rel.ForeignTable | titleCase }}, whereFunc)
+        }
+    {{end -}}{{- /* range relationships */ -}}
 }
 
 func build{{$alias.UpSingular}}QueryWhereParamsComparableFields(params *model.{{$alias.UpSingular}}QueryParamsComparableFields, whereFunc func(column string, value any)) {
@@ -683,6 +755,14 @@ func build{{$alias.UpSingular}}QueryWhereParamsComparableFields(params *model.{{
             build{{ $rel.ForeignTable | titleCase }}QueryWhereParamsComparableFields(params.LeftJoin{{ $rel.ForeignTable | titleCase }}, whereFunc)
         }
     {{end -}}{{- /* range relationships */ -}}
+    {{- range $rel := getJoinFromChildForeignKeys .Table -}}
+        if params.{{ $rel.ForeignTable | titleCase }} != nil {
+            build{{ $rel.ForeignTable | titleCase }}QueryWhereParamsComparableFields(params.{{ $rel.ForeignTable | titleCase }}, whereFunc)
+        }
+        if params.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+            build{{ $rel.ForeignTable | titleCase }}QueryWhereParamsComparableFields(params.LeftJoin{{ $rel.ForeignTable | titleCase }}, whereFunc)
+        }
+    {{end -}}{{- /* range relationships */ -}}
 }
 
 func build{{$alias.UpSingular}}QueryWhereParamsLikeFields(params *model.{{$alias.UpSingular}}QueryParamsLikeFields, whereFunc func(column string, value any)) {
@@ -692,6 +772,14 @@ func build{{$alias.UpSingular}}QueryWhereParamsLikeFields(params *model.{{$alias
         }
     {{- end}}
     {{ range $rel := getJoinRelations $.Tables .Table -}}
+        if params.{{ $rel.ForeignTable | titleCase }} != nil {
+            build{{ $rel.ForeignTable | titleCase }}QueryWhereParamsLikeFields(params.{{ $rel.ForeignTable | titleCase }}, whereFunc)
+        }
+        if params.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+            build{{ $rel.ForeignTable | titleCase }}QueryWhereParamsLikeFields(params.LeftJoin{{ $rel.ForeignTable | titleCase }}, whereFunc)
+        }
+    {{end -}}{{- /* range relationships */ -}}
+    {{- range $rel := getJoinFromChildForeignKeys .Table -}}
         if params.{{ $rel.ForeignTable | titleCase }} != nil {
             build{{ $rel.ForeignTable | titleCase }}QueryWhereParamsLikeFields(params.{{ $rel.ForeignTable | titleCase }}, whereFunc)
         }
@@ -744,6 +832,11 @@ func build{{$alias.UpSingular}}QueryOrderBy(q *model.{{$alias.UpSingular}}QueryO
             build{{$relAlias.Local | singular }}QueryOrderBy(q.{{$relAlias.Local | singular }}, all{{$relAlias.Local | singular }}QuerySelectedFields, orderer, true)
         }
     {{ end -}}
+    {{ range $rel := getJoinFromChildForeignKeys .Table -}}
+        if q.{{$rel.ForeignTable | titleCase }} != nil {
+            build{{$rel.ForeignTable | titleCase }}QueryOrderBy(q.{{$rel.ForeignTable | titleCase }}, all{{$rel.ForeignTable | titleCase }}QuerySelectedFields, orderer, true)
+        }
+    {{ end -}}
 }
 
 func build{{$alias.UpSingular}}QueryOffset(q *model.{{$alias.UpSingular}}Query, limiter querybuilder.Limiter) {
@@ -768,6 +861,12 @@ func {{$alias.DownSingular}}QueryHasLeftJoin(q *model.{{$alias.UpSingular}}Query
     {{ range $rel := getJoinRelations $.Tables .Table -}}
     {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.JoinTable $rel.JoinLocalFKeyName -}}
         if ok := {{$alias.DownSingular}}QueryHasLeftJoinOn{{$relAlias.Local | singular }}(q); ok {
+            return true
+        }
+    {{end }}
+    {{- range $rel := getJoinFromChildForeignKeys .Table -}}
+    {{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.Table $rel.Name -}}
+        if ok := {{$alias.DownSingular}}QueryHasLeftJoinOn{{$rel.ForeignTable | titleCase }}(q); ok {
             return true
         }
     {{end }}
@@ -913,6 +1012,171 @@ func {{$alias.DownSingular}}QueryHasJoinOn{{$relAlias.Local | singular }}(q *mod
 }
 
 func {{$alias.DownSingular}}QueryHasLeftJoinOn{{$relAlias.Local | singular }}(q *model.{{$alias.UpSingular}}Query) bool {
+    hasLeftJoin := false
+
+    checkParams := func(p model.{{$alias.UpSingular}}QueryParams) {
+        if p.Equals != nil {
+            if p.Equals.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+                hasLeftJoin = true
+            }
+        }
+        if p.NotEquals != nil {
+            if p.NotEquals.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+                hasLeftJoin = true
+            }
+        }
+        if p.Empty != nil {
+            if p.Empty.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+                hasLeftJoin = true
+            }
+        }
+        if p.NotEmpty != nil {
+            if p.NotEmpty.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+                hasLeftJoin = true
+            }
+        }
+        if p.In != nil {
+            if p.In.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+                hasLeftJoin = true
+            }
+        }
+        if p.NotIn != nil {
+            if p.NotIn.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+                hasLeftJoin = true
+            }
+        }
+        if p.GreaterThan != nil {
+            if p.GreaterThan.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+                hasLeftJoin = true
+            }
+        }
+        if p.SmallerThan != nil {
+            if p.SmallerThan.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+                hasLeftJoin = true
+            }
+        }
+        if p.SmallerOrEqual != nil {
+            if p.SmallerOrEqual.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+                hasLeftJoin = true
+            }
+        }
+        if p.GreaterOrEqual != nil {
+            if p.GreaterOrEqual.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+                hasLeftJoin = true
+            }
+        }
+        if p.Like != nil {
+            if p.Like.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+                hasLeftJoin = true
+            }
+        }
+        if p.NotLike != nil {
+            if p.NotLike.LeftJoin{{ $rel.ForeignTable | titleCase }} != nil {
+                hasLeftJoin = true
+            }
+        }
+    }
+
+    checkParams(q.Params)
+
+    for _, nested := range q.Nested {
+    	check{{$alias.UpSingular}}QueryParamsRecursive(checkParams, nested)
+    }
+
+    if q.Wrapper != nil {
+    	check{{$alias.UpSingular}}QueryParamsRecursive(checkParams, *q.Wrapper)
+    }
+
+    return hasLeftJoin
+}
+{{end }}
+
+{{ range $rel := getJoinFromChildForeignKeys .Table -}}
+{{- $relAlias := $.Aliases.ManyRelationship $rel.ForeignTable $rel.Name $rel.Table $rel.Name -}}
+func {{$alias.DownSingular}}QueryHasJoinOn{{$relAlias.Foreign | singular }}(q *model.{{$alias.UpSingular}}Query) bool {
+    if q.OrderBy != nil && q.OrderBy.{{$relAlias.Foreign | singular }} != nil {
+        return true
+    }
+
+    hasJoin := false
+
+    checkParams := func(p model.{{$alias.UpSingular}}QueryParams) {
+        if p.Equals != nil {
+            if p.Equals.{{ $rel.ForeignTable | titleCase }} != nil {
+                hasJoin = true
+            }
+        }
+        if p.NotEquals != nil {
+            if p.NotEquals.{{ $rel.ForeignTable | titleCase }} != nil {
+                hasJoin = true
+            }
+        }
+        if p.Empty != nil {
+            if p.Empty.{{ $rel.ForeignTable | titleCase }} != nil {
+                hasJoin = true
+            }
+        }
+        if p.NotEmpty != nil {
+            if p.NotEmpty.{{ $rel.ForeignTable | titleCase }} != nil {
+                hasJoin = true
+            }
+        }
+        if p.In != nil {
+            if p.In.{{ $rel.ForeignTable | titleCase }} != nil {
+                hasJoin = true
+            }
+        }
+        if p.NotIn != nil {
+            if p.NotIn.{{ $rel.ForeignTable | titleCase }} != nil {
+                hasJoin = true
+            }
+        }
+        if p.GreaterThan != nil {
+            if p.GreaterThan.{{ $rel.ForeignTable | titleCase }} != nil {
+                hasJoin = true
+            }
+        }
+        if p.SmallerThan != nil {
+            if p.SmallerThan.{{ $rel.ForeignTable | titleCase }} != nil {
+                hasJoin = true
+            }
+        }
+        if p.SmallerOrEqual != nil {
+            if p.SmallerOrEqual.{{ $rel.ForeignTable | titleCase }} != nil {
+                hasJoin = true
+            }
+        }
+        if p.GreaterOrEqual != nil {
+            if p.GreaterOrEqual.{{ $rel.ForeignTable | titleCase }} != nil {
+                hasJoin = true
+            }
+        }
+        if p.Like != nil {
+            if p.Like.{{ $rel.ForeignTable | titleCase }} != nil {
+                hasJoin = true
+            }
+        }
+        if p.NotLike != nil {
+            if p.NotLike.{{ $rel.ForeignTable | titleCase }} != nil {
+                hasJoin = true
+            }
+        }
+    }
+
+    checkParams(q.Params)
+
+    for _, nested := range q.Nested {
+    	check{{$alias.UpSingular}}QueryParamsRecursive(checkParams, nested)
+    }
+
+    if q.Wrapper != nil {
+    	check{{$alias.UpSingular}}QueryParamsRecursive(checkParams, *q.Wrapper)
+    }
+
+    return hasJoin
+}
+
+func {{$alias.DownSingular}}QueryHasLeftJoinOn{{$relAlias.Foreign | singular }}(q *model.{{$alias.UpSingular}}Query) bool {
     hasLeftJoin := false
 
     checkParams := func(p model.{{$alias.UpSingular}}QueryParams) {

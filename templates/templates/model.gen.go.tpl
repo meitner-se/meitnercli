@@ -1041,6 +1041,12 @@ type {{$alias.UpSingular}}QueryParamsFields struct {
     {{ range $rel := getJoinRelations $.Tables .Table -}}
         LeftJoin{{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsFields
     {{end -}}{{- /* range relationships */ -}}
+    {{ range $rel := getJoinFromChildForeignKeys .Table -}}
+        {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsFields
+    {{end -}}{{- /* range relationships */ -}}
+    {{ range $rel := getJoinFromChildForeignKeys .Table -}}
+        LeftJoin{{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsFields
+    {{end -}}{{- /* range relationships */ -}}
     CaseInsensitive types.Bool
 }
 
@@ -1056,6 +1062,12 @@ type {{$alias.UpSingular}}QueryParamsNullableFields struct {
         {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsNullableFields
     {{end -}}{{- /* range relationships */ -}}
     {{ range $rel := getJoinRelations $.Tables .Table -}}
+        LeftJoin{{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsNullableFields
+    {{end -}}{{- /* range relationships */ -}}
+    {{ range $rel := getJoinFromChildForeignKeys .Table -}}
+        {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsNullableFields
+    {{end -}}{{- /* range relationships */ -}}
+    {{ range $rel := getJoinFromChildForeignKeys .Table -}}
         LeftJoin{{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsNullableFields
     {{end -}}{{- /* range relationships */ -}}
 }
@@ -1086,6 +1098,14 @@ type {{$alias.UpSingular}}QueryParamsInFields struct {
     {{ range $rel := getJoinRelations $.Tables .Table -}}
         LeftJoin{{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsInFields
     {{end -}}{{- /* range relationships */ -}}
+
+    {{ range $rel := getJoinFromChildForeignKeys .Table -}}
+        {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsInFields
+    {{end -}}{{- /* range relationships */ -}}
+
+    {{ range $rel := getJoinFromChildForeignKeys .Table -}}
+        LeftJoin{{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsInFields
+    {{end -}}{{- /* range relationships */ -}}
 }
 
 func New{{$alias.UpSingular}}QueryParamsComparableFields() *{{$alias.UpSingular}}QueryParamsComparableFields {
@@ -1104,6 +1124,14 @@ type {{$alias.UpSingular}}QueryParamsComparableFields struct {
     {{end -}}{{- /* range relationships */ -}}
 
     {{ range $rel := getJoinRelations $.Tables .Table -}}
+        LeftJoin{{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsComparableFields
+    {{end -}}{{- /* range relationships */ -}}
+
+    {{ range $rel := getJoinFromChildForeignKeys .Table -}}
+        {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsComparableFields
+    {{end -}}{{- /* range relationships */ -}}
+
+    {{ range $rel := getJoinFromChildForeignKeys .Table -}}
         LeftJoin{{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsComparableFields
     {{end -}}{{- /* range relationships */ -}}
 }
@@ -1125,6 +1153,12 @@ type {{$alias.UpSingular}}QueryParamsLikeFields struct {
     {{ range $rel := getJoinRelations $.Tables .Table -}}
         LeftJoin{{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsLikeFields
     {{end -}}{{- /* range relationships */ -}}
+    {{ range $rel := getJoinFromChildForeignKeys .Table -}}
+        {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsLikeFields
+    {{end -}}{{- /* range relationships */ -}}
+    {{ range $rel := getJoinFromChildForeignKeys .Table -}}
+        LeftJoin{{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryParamsLikeFields
+    {{end -}}{{- /* range relationships */ -}}
 }
 
 type {{$alias.UpSingular}}QueryOrderBy struct {
@@ -1133,6 +1167,9 @@ type {{$alias.UpSingular}}QueryOrderBy struct {
             {{$colAlias}} *{{$alias.UpSingular}}QueryOrderByField
     {{- end}}
     {{ range $rel := getJoinRelations $.Tables .Table -}}
+        {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryOrderBy
+    {{end -}}{{- /* range relationships */ -}}
+    {{ range $rel := getJoinFromChildForeignKeys .Table -}}
         {{ $rel.ForeignTable | titleCase }} *{{ $rel.ForeignTable | titleCase }}QueryOrderBy
     {{end -}}{{- /* range relationships */ -}}
 }
