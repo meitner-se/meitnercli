@@ -219,6 +219,10 @@ func (r *repo) list{{$alias.UpPlural}}(ctx context.Context, query model.{{$alias
 
 func (r *repo) get{{$alias.UpSingular}}(ctx context.Context, query model.{{$alias.UpSingular}}Query) (*model.{{$alias.UpSingular}}, error) {
 	{{$alias.DownPlural}}, _, err := r.list{{$alias.UpPlural}}(ctx, query)
+    if err == sql.ErrNoRows {
+        return nil, errors.NewNotFoundWrapped(err, errors.MessageCannotFindEntity("{{$alias.DownSingular}}"))
+    }
+
 	if err != nil {
 		return nil, errors.Wrap(err, errors.MessageCannotFindEntity("{{$alias.DownSingular}}"))
 	}
