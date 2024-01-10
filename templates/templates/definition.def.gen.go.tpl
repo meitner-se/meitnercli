@@ -11,6 +11,9 @@ type {{$alias.UpSingular}} struct {
 	{{- range $columnMetadata.Comments }}
     // {{ . }}
     {{- end }}
+    {{- if $columnMetadata.IsOptional }}
+        // optional: true
+    {{- end -}}
 
     {{- if (isEnumDBType .DBType) }}
         // options: [{{- parseEnumVals $column.DBType | stringMap $.StringFuncs.quoteWrap | join ", " -}}]
@@ -35,10 +38,11 @@ type {{$alias.UpSingular}} struct {
         *interface{}
 	{{end -}}
 
-    {{- if $columnMetadata.IsFile -}}
+    {{- if $columnMetadata.IsFile }}
         // type: "types.String"
+        // optional: true
         {{ getColumnNameFileURL $colAlias }} *string
-    {{ end }}
+    {{- end }}
 
     {{end}}
     {{end -}}
