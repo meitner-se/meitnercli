@@ -211,6 +211,7 @@ type ColumnMetadata struct {
 	IsRichText bool
 	Sort       *ColumnMetadataForSort
 	Validate   ColumnMetadataForValidation
+	IsOptional bool
 }
 
 func (c ColumnMetadata) CustomConversion() bool {
@@ -227,6 +228,11 @@ func getColumnMetadata(c drivers.Column) ColumnMetadata {
 
 	for _, comment := range strings.Split(c.Comment, " | ") {
 		if comment == "" {
+			continue
+		}
+
+		if strings.HasPrefix(comment, "optional") {
+			columnMetadata.IsOptional = true
 			continue
 		}
 
