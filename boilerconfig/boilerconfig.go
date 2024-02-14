@@ -71,6 +71,8 @@ func GetConfig(driverName, configFile, serviceName, typesPackage string) (*boili
 		return nil, errors.Wrap(err, "cannot initialize config")
 	}
 
+	enumGenerator := &enumGenerator{generatedEnums: make(map[string]struct{})}
+
 	config := &boilingcore.Config{
 		DriverName:        driverName,
 		OutFolder:         viper.GetString("output"),
@@ -150,10 +152,34 @@ func GetConfig(driverName, configFile, serviceName, typesPackage string) (*boili
 			"tableHasColumnUnitOrganizationID":   tableHasColumnUnitOrganizationID,
 			"getJoinFromChildForeignKeys":        getJoinFromChildForeignKeys,
 			"isJoinFromChildTable":               isJoinFromChildTable,
+			"shouldGenerateEnum":                 enumGenerator.shouldGenerateEnum,
+			"hasGeneratedEnum":                   enumGenerator.hasGeneratedEnum,
 		},
 	}
 
 	return config, nil
+}
+
+type enumGenerator struct {
+	generatedEnums map[string]struct{}
+}
+
+func (e *enumGenerator) shouldGenerateEnum(name string) bool {
+	if e.generatedEnums == nil {
+		return true
+	}
+
+	_, ok := e.generatedEnums[name]
+	return !ok
+}
+
+func (e *enumGenerator) hasGeneratedEnum(name string) struct{} {
+	if e.generatedEnums == nil {
+		e.generatedEnums = make(map[string]struct{})
+	}
+
+	e.generatedEnums[name] = struct{}{}
+	return e.generatedEnums[name]
 }
 
 // getTableRichTextContents reads all columns in the given table and check if there should be any rich text content.

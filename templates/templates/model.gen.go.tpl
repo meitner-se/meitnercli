@@ -650,6 +650,10 @@ func {{$alias.UpPlural}}ToStrings({{$alias.DownPlural}} []*{{$alias.UpSingular}}
 {{$onceNull := onceNew}}
     {{- range $col := .Table.Columns | filterColumnsByEnum -}}
         {{- $name := parseEnumName $col.DBType -}}
+        {{ if not (shouldGenerateEnum $name) }}
+            {{ continue }}
+        {{ end }}
+        {{ $_ := hasGeneratedEnum $name }}
         {{- $vals := parseEnumVals $col.DBType -}}
         {{- $isNamed := ne (len $name) 0}}
         {{- $enumName := "" -}}
