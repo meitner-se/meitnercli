@@ -19,7 +19,7 @@ type Config struct {
 	ValuesOutputFileGO string
 	ValuesOutputFileTS string
 
-	AuthPKG string
+	OrganizationModelPKG string
 }
 
 func Generate(ctx context.Context, config Config) error {
@@ -37,7 +37,7 @@ func Generate(ctx context.Context, config Config) error {
 		return err
 	}
 
-	if err := generateValuesGO(values, config.ValuesOutputFileGO, config.AuthPKG); err != nil {
+	if err := generateValuesGO(values, config.ValuesOutputFileGO, config.OrganizationModelPKG); err != nil {
 		return err
 	}
 
@@ -197,7 +197,7 @@ func generateValueOptions(out io.Writer, prefix string, fields []parser.ObjectFi
 	return nil
 }
 
-func generateValuesGO(values *parser.Object, outputFile, pkgAuth string) error {
+func generateValuesGO(values *parser.Object, outputFile, pkgOrganizationModel string) error {
 	out, err := os.Create(outputFile)
 	if err != nil {
 		return errors.Wrap(err, "cannot create output file")
@@ -217,15 +217,11 @@ func generateValuesGO(values *parser.Object, outputFile, pkgAuth string) error {
 		return errors.Wrap(err, "cannot write to output file")
 	}
 
-	if _, err := fmt.Fprint(out, "\t\"context\"\n"); err != nil {
-		return errors.Wrap(err, "cannot write to output file")
-	}
-
 	if _, err := fmt.Fprint(out, "\t\"strings\"\n"); err != nil {
 		return errors.Wrap(err, "cannot write to output file")
 	}
 
-	if _, err := fmt.Fprintf(out, "\n\t\"%s\"\n", pkgAuth); err != nil {
+	if _, err := fmt.Fprintf(out, "\n\torganizationModel \"%s\"\n", pkgOrganizationModel); err != nil {
 		return errors.Wrap(err, "cannot write to output file")
 	}
 
@@ -237,6 +233,31 @@ func generateValuesGO(values *parser.Object, outputFile, pkgAuth string) error {
 	languages := []string{
 		parser.English,
 		parser.Swedish,
+	}
+
+	if _, err := fmt.Fprintf(out, "const (\n"); err != nil {
+		return errors.Wrap(err, "cannot write to output file")
+	}
+
+	// Write the languages as constants.
+	// need to be consistent naming as the language set on users
+	for _, lang := range languages {
+		var langCode string
+
+		switch lang {
+		case parser.English:
+			langCode = "en"
+		case parser.Swedish:
+			langCode = "sv"
+		}
+
+		if _, err := fmt.Fprintf(out, "\tLang%s string = \"%s\"\n", lang, langCode); err != nil {
+			return errors.Wrap(err, "cannot write to output file")
+		}
+	}
+
+	if _, err := fmt.Fprintf(out, ")\n\n"); err != nil {
+		return errors.Wrap(err, "cannot write to output file")
 	}
 
 	for _, lang := range languages {
@@ -288,31 +309,49 @@ func generateValuesGO(values *parser.Object, outputFile, pkgAuth string) error {
 		}
 	}
 
+	if _, err := fmt.Fprintf(out, `
+type Options struct {
+	Language 		string // Should be one to one for user languages
+	TypeOfSchooling organizationModel.OrganizationTypeOfSchooling
+}
+
+`); err != nil {
+		return errors.Wrap(err, "cannot write to output file")
+	}
+
+	if _, err := fmt.Fprintf(out, "func FromOptions(options Options) Locale {\n"); err != nil {
+		return errors.Wrap(err, "cannot write to output file")
+	}
+
+	if _, err := fmt.Fprintf(out, "\tswitch options.Language {\n"); err != nil {
+		return errors.Wrap(err, "cannot write to output file")
+	}
+
 	for _, lang := range languages {
-		langFromClaims := fmt.Sprintf(`
-func %sFromClaims(claims *authentication.Claims) Locale {
-	if claims == nil {
-		return %s
+		if _, err := fmt.Fprintf(out, "\tcase Lang%s:\n\t\treturn %s\n", lang, lang); err != nil {
+			return errors.Wrap(err, "cannot write to output file")
+		}
 	}
 
-	if claims.Organization == nil {
-		return %s
+	if _, err := fmt.Fprintf(out, "\tdefault:\n\t\tpanic(\"invalid language\")\n\t}\n}\n"); err != nil {
+		return errors.Wrap(err, "cannot write to output file")
 	}
 
+	for _, lang := range languages {
+		langFromTypeOfSchooling := fmt.Sprintf(`
+func %sFromTypeOfSchooling(typeOfSchooling organizationModel.OrganizationTypeOfSchooling) Locale {
 	switch {
-		case claims.Organization.TypeOfSchooling.Is%s():
-			return %s%s
-		case claims.Organization.TypeOfSchooling.Is%s():
-			return %s%s
-		case claims.Organization.TypeOfSchooling.Is%s():
-			return %s%s
-		default:
-			return %s
+	case typeOfSchooling.Is%s():
+		return %s%s
+	case typeOfSchooling.Is%s():
+		return %s%s
+	case typeOfSchooling.Is%s():
+		return %s%s
+	default:
+		return %s
 	}
 }
 `,
-			lang,
-			lang,
 			lang,
 			parser.Elementary, lang, parser.Elementary,
 			parser.UpperSecondary, lang, parser.UpperSecondary,
@@ -320,24 +359,12 @@ func %sFromClaims(claims *authentication.Claims) Locale {
 			lang,
 		)
 
-		if _, err := fmt.Fprint(out, langFromClaims); err != nil {
+		if _, err := fmt.Fprint(out, langFromTypeOfSchooling); err != nil {
 			return errors.Wrap(err, "cannot write to output file")
 		}
 	}
 
-	localeFromClaims := fmt.Sprintf(`
-// FromClaims returns the locale from Claims but uses the Swedish as default, if no claims are provided.
-// TODO : FIX to use english as well
-func FromClaims(claims *authentication.Claims) Locale {
-	return SwedishFromClaims(claims)
-}
-`)
-
-	if _, err := fmt.Fprint(out, localeFromClaims); err != nil {
-		return errors.Wrap(err, "cannot write to output file")
-	}
-
-	if err := generateValuesToFormatFunc(out, "", values.Fields); err != nil {
+	if err := generateValuesFromNotificationsToFormatFunc(out, "", values.Fields); err != nil {
 		return err
 	}
 
@@ -445,6 +472,84 @@ func generateValuesToFile(out io.Writer, tabsStr string, fields []parser.ObjectF
 	return nil
 }
 
+func generateValuesFromNotificationsToFormatFunc(out io.Writer, prefix string, fields []parser.ObjectField) error {
+	var notificationsField *parser.ObjectField
+
+	for i := range fields {
+		if fields[i].Name == "Notifications" && fields[i].Object != nil {
+			notificationsField = &fields[i]
+			break
+		}
+	}
+
+	if notificationsField == nil {
+		return errors.New("Notifications-field not found")
+	}
+
+	if _, err := fmt.Fprintf(out, "type NotificationFunc func(options Options) string\n\n"); err != nil {
+		return errors.Wrap(err, "cannot write to output file")
+	}
+
+	for _, notificationField := range notificationsField.Object.Fields {
+		if notificationField.Object == nil || notificationField.Object.Name != "LocaleNotification" {
+			return errors.New("notification field must be of type LocaleNotification")
+		}
+
+		for _, field := range notificationField.Object.Fields {
+			funcName := fmt.Sprintf("%s%s", notificationField.Name, field.Name)
+
+			params := field.ObjectFieldValue.Params()
+
+			if len(params) == 0 {
+				_, err := fmt.Fprintf(out, "\nfunc %s(options Options) string {\n", funcName)
+				if err != nil {
+					return errors.Wrap(err, "cannot write to output file")
+				}
+			} else {
+				_, err := fmt.Fprintf(out, "\nfunc %s(%s string, options Options) string {\n", funcName, strings.Join(params, ", "))
+				if err != nil {
+					return errors.Wrap(err, "cannot write to output file")
+				}
+			}
+
+			_, err := fmt.Fprint(out, "\tl := FromOptions(options)\n")
+			if err != nil {
+				return errors.Wrap(err, "cannot write to output file")
+			}
+
+			if len(params) == 0 {
+				_, err = fmt.Fprintf(out, "\treturn l.Notifications.%s.%s\n", notificationField.Name, field.Name)
+				if err != nil {
+					return errors.Wrap(err, "cannot write to output file")
+				}
+			} else {
+				_, err = fmt.Fprint(out, "\treturn strings.NewReplacer(\n")
+				if err != nil {
+					return errors.Wrap(err, "cannot write to output file")
+				}
+
+				for _, param := range params {
+					_, err = fmt.Fprintf(out, "\t\t\"{{%s}}\", %s,\n", param, param)
+					if err != nil {
+						return errors.Wrap(err, "cannot write to output file")
+					}
+				}
+
+				_, err = fmt.Fprintf(out, "\t).Replace(l.Notifications.%s.%s)\n", notificationField.Name, field.Name)
+				if err != nil {
+					return errors.Wrap(err, "cannot write to output file")
+				}
+			}
+
+			if _, err := fmt.Fprint(out, "}\n"); err != nil {
+				return errors.Wrap(err, "cannot write to output file")
+			}
+		}
+	}
+
+	return nil
+}
+
 func generateValuesToFormatFunc(out io.Writer, prefix string, fields []parser.ObjectField) error {
 	prefixWithoutDots := strings.ReplaceAll(prefix, ".", "")
 
@@ -473,12 +578,12 @@ func generateValuesToFormatFunc(out io.Writer, prefix string, fields []parser.Ob
 			continue
 		}
 
-		_, err := fmt.Fprintf(out, "\nfunc %s%s(ctx context.Context, %s string) string {\n", prefixWithoutDots, field.Name, strings.Join(params, ", "))
+		_, err := fmt.Fprintf(out, "\nfunc %s%s(%s string, options Options) string {\n", prefixWithoutDots, field.Name, strings.Join(params, ", "))
 		if err != nil {
 			return errors.Wrap(err, "cannot write to output file")
 		}
 
-		_, err = fmt.Fprint(out, "\tl := FromClaims(authentication.ClaimsFromContext(ctx))\n")
+		_, err = fmt.Fprint(out, "\tl := FromOptions(options)\n")
 		if err != nil {
 			return errors.Wrap(err, "cannot write to output file")
 		}
