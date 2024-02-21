@@ -9,8 +9,8 @@ require (
 	github.com/meitner-se/oto v0.11.1-meitner1.4-fix
 	github.com/pressly/goose/v3 v3.18.0
 	github.com/spf13/viper v1.18.2
-	github.com/volatiletech/sqlboiler/v4 v4.16.2
-	github.com/volatiletech/strmangle v0.0.6
+	github.com/volatiletech/sqlboiler/v4 v4.14.0
+	github.com/volatiletech/strmangle v0.0.4
 	golang.org/x/text v0.14.0
 )
 
