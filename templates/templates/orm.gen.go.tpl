@@ -85,6 +85,8 @@ func (o *{{$alias.UpSingular}}) InsertDefined({{if .NoContext}}exec boil.Executo
 
 // UpdateDefined updates {{$alias.UpSingular}} with the defined values only.
 func (o *{{$alias.UpSingular}}) UpdateDefined({{if .NoContext}}exec boil.Executor{{else}}ctx context.Context, exec boil.ContextExecutor{{end}}, auditLog audit.Log, cacheClient cache.Client, newValues *{{$alias.UpSingular}}) error {
+    ctx = boil.SkipTimestamps(ctx) // Skip timestamps in boiler since we set it "manually"
+
     auditLogValues := []audit.LogValue{} // Collect all values that have been changed
     whitelist := boil.Whitelist() // whitelist each column that has a defined value and should be updated
 
