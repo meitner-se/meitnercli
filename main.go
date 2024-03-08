@@ -400,9 +400,6 @@ func gooseBootstrap(db *sql.DB, serviceNames []string, serviceNameToMigrationFol
 	for _, serviceName := range serviceNames {
 		migrationFolder := serviceNameToMigrationFolder[serviceName]
 
-		// goose needs to know where to look for migrations
-		goose.SetBaseFS(os.DirFS(migrationFolder))
-
 		// it replaces service name spaces with underscores and lowercase's the whole string
 		goose.SetTableName(fmt.Sprintf("%s_goose_db_version", strings.ToLower(strings.Replace(
 			serviceName,
@@ -411,8 +408,7 @@ func gooseBootstrap(db *sql.DB, serviceNames []string, serviceNameToMigrationFol
 			-1,
 		))))
 
-		// since we already have migration folder we don't need to provide any dir
-		if err := goose.Up(db, ""); err != nil {
+		if err := goose.Up(db, migrationFolder); err != nil {
 			return err
 		}
 	}
