@@ -194,7 +194,7 @@ func generate(cfg config) error {
 		ValuesInputFile:        cfg.Locale.ValuesInputFile,
 		ValuesOutputFileGO:     cfg.Locale.ValuesOutputFileGO,
 		ValuesOutputFileTS:     cfg.Locale.ValuesOutputFileTS,
-		AuthPKG:                cfg.Go.Packages.Auth,
+		OrganizationModelPKG:   "platform/backend/internal/services/organization/model",
 	}
 
 	err := locale.Generate(context.Background(), localeConfig)
